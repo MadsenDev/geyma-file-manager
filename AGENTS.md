@@ -1,0 +1,2 @@
+- When working on the todo list, remember to update it as you work.
+- When asked to work on TODO.md, continue with the next sensible items without asking for direction.

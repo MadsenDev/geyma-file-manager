@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Geyma File Manager
+Comment=Modern file manager
+Exec=geyma
+Icon=geyma
+Terminal=false
+Categories=Utility;FileManager;
+StartupWMClass=Geyma
