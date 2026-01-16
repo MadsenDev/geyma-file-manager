@@ -29,10 +29,13 @@ class OperationLog:
             "success": success,
             "error": error,
         }
-        self._log_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._log_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry) + "\n")
-        self._enforce_max_size()
+        try:
+            self._log_path.parent.mkdir(parents=True, exist_ok=True)
+            with self._log_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(entry) + "\n")
+            self._enforce_max_size()
+        except OSError:
+            return
 
     def iter_entries(self, limit: int | None = None) -> list[dict]:
         if not self._log_path.exists():

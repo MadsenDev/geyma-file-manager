@@ -7,6 +7,7 @@ import shutil
 from typing import Any
 
 from PySide6.QtCore import Qt, QSortFilterProxyModel, Signal
+from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import QFileSystemModel, QMessageBox
 
 from geyma.ui.error_dialog import show_error
@@ -66,14 +67,30 @@ class FilterProxyModel(QSortFilterProxyModel):
         super().__init__(parent)
         self._filters: list[dict] = []
         self._folders_first_mode = "auto"
+        self._cut_paths: set[str] = set()
 
     def set_filters(self, filters: list[dict]) -> None:
         self._filters = filters
         self.invalidateFilter()
 
+    def set_cut_paths(self, paths: list[str] | set[str]) -> None:
+        self._cut_paths = set(paths)
+        self.invalidate()
+
     def set_folders_first_mode(self, mode: str) -> None:
         self._folders_first_mode = (mode or "auto").lower()
         self.invalidate()
+
+    def data(self, index, role=Qt.DisplayRole):
+        if role == Qt.ForegroundRole and self._cut_paths:
+            model = self.sourceModel()
+            if model is not None:
+                source_index = self.mapToSource(index)
+                if source_index.isValid():
+                    path = model.filePath(source_index)
+                    if path in self._cut_paths:
+                        return QBrush(QColor(150, 150, 150))
+        return super().data(index, role)
 
     def lessThan(self, left, right) -> bool:
         mode = self._folders_first_mode

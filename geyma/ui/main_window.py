@@ -85,14 +85,18 @@ class MainWindow(QMainWindow):
         if start_path:
             initial_path = Path(start_path).expanduser()
         else:
-            startup_mode = self._config.get_str("startup_mode", "last")
-            if startup_mode == "home":
-                initial_path = Path.home()
-            elif startup_mode == "custom":
-                custom = self._config.get_str("startup_path", str(Path.home()))
-                initial_path = Path(custom).expanduser()
+            if self._config.get_bool("restore_windows", False):
+                last_path = Path(self._config.get("last_path", str(Path.home())))
+                initial_path = last_path if last_path.exists() else Path.home()
             else:
-                initial_path = Path(self._config.get("last_path", str(Path.home())))
+                startup_mode = self._config.get_str("startup_mode", "last")
+                if startup_mode == "home":
+                    initial_path = Path.home()
+                elif startup_mode == "custom":
+                    custom = self._config.get_str("startup_path", str(Path.home()))
+                    initial_path = Path(custom).expanduser()
+                else:
+                    initial_path = Path(self._config.get("last_path", str(Path.home())))
         if not initial_path.exists():
             initial_path = Path.home()
 
@@ -116,6 +120,7 @@ class MainWindow(QMainWindow):
         self._proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
         self._proxy.setFilterKeyColumn(0)
         self._proxy.set_folders_first_mode(self._config.get_str("sort_folders_first", "auto"))
+        self._proxy.set_cut_paths([])
         self._quick_filters: list[dict] = []
 
         list_icon_size = int(self._config.get("list_icon_size", 20))
@@ -214,6 +219,8 @@ class MainWindow(QMainWindow):
         self._confirm_delete = self._config.get_bool("confirm_delete", True)
         self._confirm_overwrite = self._config.get_bool("confirm_overwrite", True)
         self._single_click_open = self._config.get_bool("single_click_open", False)
+        self._open_folders_new_window = self._config.get_bool("open_folders_new_window", False)
+        self._open_default_app = self._config.get_bool("open_default_app", True)
         self._delete_behavior = str(self._config.get("delete_behavior", "trash")).lower()
         self._conflict_default = str(self._config.get("conflict_default", "ask")).lower()
         self._preserve_metadata = self._config.get_bool("preserve_metadata", True)
@@ -355,6 +362,30 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
     def _setup_shortcuts(self) -> None:
+        copy_action = QAction(self)
+        copy_action.setShortcut("Ctrl+C")
+        copy_action.setShortcutContext(Qt.ApplicationShortcut)
+        copy_action.triggered.connect(self._copy_selection)
+        self.addAction(copy_action)
+
+        cut_action = QAction(self)
+        cut_action.setShortcut("Ctrl+X")
+        cut_action.setShortcutContext(Qt.ApplicationShortcut)
+        cut_action.triggered.connect(self._cut_selection)
+        self.addAction(cut_action)
+
+        paste_action = QAction(self)
+        paste_action.setShortcut("Ctrl+V")
+        paste_action.setShortcutContext(Qt.ApplicationShortcut)
+        paste_action.triggered.connect(self._paste_into_current)
+        self.addAction(paste_action)
+
+        select_all_action = QAction(self)
+        select_all_action.setShortcut("Ctrl+A")
+        select_all_action.setShortcutContext(Qt.ApplicationShortcut)
+        select_all_action.triggered.connect(self._select_all)
+        self.addAction(select_all_action)
+
         delete_action = QAction(self)
         delete_action.setShortcut("Del")
         delete_action.triggered.connect(self._handle_delete_action)
@@ -599,9 +630,13 @@ class MainWindow(QMainWindow):
         source_index = self._proxy.mapToSource(index)
         if self._model.isDir(source_index):
             path = self._model.filePath(source_index)
+            if self._open_folders_new_window:
+                if not self._open_path_in_new_window(path):
+                    show_error(self, "Open in New Window", "Failed to open a new window.")
+                return
             self._go_to(Path(path))
-        else:
-            self._open_source_index(source_index)
+            return
+        self._open_source_index(source_index)
 
     def _handle_single_click(self, index) -> None:
         if not self._single_click_open or not index.isValid():
@@ -611,9 +646,13 @@ class MainWindow(QMainWindow):
             return
         if self._model.isDir(source_index):
             path = self._model.filePath(source_index)
+            if self._open_folders_new_window:
+                if not self._open_path_in_new_window(path):
+                    show_error(self, "Open in New Window", "Failed to open a new window.")
+                return
             self._go_to(Path(path))
-        else:
-            self._open_source_index(source_index)
+            return
+        self._open_source_index(source_index)
 
     def _update_breadcrumbs(self, path: str) -> None:
         if not self._breadcrumb_bar.isVisible():
@@ -698,72 +737,113 @@ class MainWindow(QMainWindow):
 
     def _show_item_context_menu(self, index, global_pos) -> None:
         menu = QMenu(self)
+        source_index = self._proxy.mapToSource(index)
+        is_dir = source_index.isValid() and self._model.isDir(source_index)
+        ai_enabled = self._config.get_bool("ai_enabled", False)
+        has_clipboard = bool(self._clipboard_paths and self._clipboard_mode)
+        in_trash = self._current_path == self._trash_path
+        trash_write_info = self._trash_delete_info
+        is_image = self._is_image_index(source_index)
+        open_with_last_available = (
+            self._config.get_bool("enable_open_with_last", True)
+            and bool(self._config.get("last_open_with_app"))
+        )
+
         open_action = menu.addAction("Open")
         open_with_action = menu.addAction("Open with…")
-        open_with_last_action = menu.addAction("Open with Last Used")
-        open_window_action = menu.addAction("Open in New Window")
+        if open_with_last_available:
+            open_with_last_action = menu.addAction("Open with Last Used")
+        else:
+            open_with_last_action = None
+        if is_dir:
+            open_window_action = menu.addAction("Open in New Window")
+        else:
+            open_window_action = None
         menu.addSeparator()
         copy_action = menu.addAction("Copy")
         cut_action = menu.addAction("Cut")
-        paste_action = menu.addAction("Paste")
+        if has_clipboard:
+            paste_action = menu.addAction("Paste")
+        else:
+            paste_action = None
         menu.addSeparator()
         rename_action = menu.addAction("Rename")
-        ai_rename_action = menu.addAction("AI Rename Suggestions")
+        if ai_enabled:
+            ai_rename_action = menu.addAction("AI Rename Suggestions")
+        else:
+            ai_rename_action = None
         working_set_menu = menu.addMenu("Working Set")
-        trash_action = menu.addAction("Move to Trash")
-        restore_action = menu.addAction("Restore from Trash")
-        generate_variation_action = menu.addAction("Generate Variation…")
-        edit_image_action = menu.addAction("Edit Image with Prompt…")
-        summary_action = menu.addAction("Folder Summary")
+        if in_trash and trash_write_info:
+            restore_action = menu.addAction("Restore from Trash")
+            trash_action = None
+        else:
+            trash_action = menu.addAction("Move to Trash")
+            restore_action = None
+        if ai_enabled and is_image:
+            generate_variation_action = menu.addAction("Generate Variation…")
+            edit_image_action = menu.addAction("Edit Image with Prompt…")
+        else:
+            generate_variation_action = None
+            edit_image_action = None
+        if is_dir:
+            summary_action = menu.addAction("Folder Summary")
+        else:
+            summary_action = None
         properties_action = menu.addAction("Properties")
 
         open_action.triggered.connect(lambda: self._open_index(index))
         open_with_action.triggered.connect(lambda: self._open_with_index(index))
-        open_with_last_action.triggered.connect(lambda: self._open_with_last(index))
-        open_window_action.triggered.connect(lambda: self._open_in_new_window(index))
+        if open_with_last_action is not None:
+            open_with_last_action.triggered.connect(lambda: self._open_with_last(index))
+        if open_window_action is not None:
+            open_window_action.triggered.connect(lambda: self._open_in_new_window(index))
         copy_action.triggered.connect(self._copy_selection)
         cut_action.triggered.connect(self._cut_selection)
-        paste_action.triggered.connect(self._paste_into_current)
+        if paste_action is not None:
+            paste_action.triggered.connect(self._paste_into_current)
         rename_action.triggered.connect(lambda: self._rename_index(index))
-        ai_rename_action.triggered.connect(lambda: self._open_ai_rename(index))
-        trash_action.triggered.connect(self._move_to_trash_selection)
-        restore_action.triggered.connect(self._restore_from_trash_selection)
+        if ai_rename_action is not None:
+            ai_rename_action.triggered.connect(lambda: self._open_ai_rename(index))
+        if trash_action is not None:
+            trash_action.triggered.connect(self._move_to_trash_selection)
+        if restore_action is not None:
+            restore_action.triggered.connect(self._restore_from_trash_selection)
         properties_action.triggered.connect(lambda: self._show_properties(index))
-        summary_action.triggered.connect(lambda: self._open_folder_summary_index(index))
-        generate_variation_action.triggered.connect(lambda: self._open_image_generation(index, mode="variation"))
-        edit_image_action.triggered.connect(lambda: self._open_image_generation(index, mode="edit"))
+        if summary_action is not None:
+            summary_action.triggered.connect(lambda: self._open_folder_summary_index(index))
+        if generate_variation_action is not None:
+            generate_variation_action.triggered.connect(
+                lambda: self._open_image_generation(index, mode="variation")
+            )
+        if edit_image_action is not None:
+            edit_image_action.triggered.connect(lambda: self._open_image_generation(index, mode="edit"))
         self._populate_working_set_menu(working_set_menu)
-
-        source_index = self._proxy.mapToSource(index)
-        open_window_action.setEnabled(source_index.isValid() and self._model.isDir(source_index))
-        open_with_last_action.setEnabled(
-            self._config.get_bool("enable_open_with_last", True)
-            and bool(self._config.get("last_open_with_app"))
-        )
-        in_trash = self._current_path == self._trash_path
-        restore_action.setEnabled(in_trash)
-        trash_action.setEnabled(not in_trash)
-        ai_rename_action.setEnabled(self._config.get_bool("ai_enabled", False))
-        summary_action.setEnabled(source_index.isValid() and self._model.isDir(source_index))
-        is_image = self._is_image_index(source_index)
-        generate_variation_action.setEnabled(is_image)
-        edit_image_action.setEnabled(is_image)
         menu.exec(global_pos)
 
     def _show_blank_context_menu(self, global_pos) -> None:
         menu = QMenu(self)
         new_folder_action = menu.addAction("New Folder")
         new_file_action = menu.addAction("New File")
-        paste_action = menu.addAction("Paste")
-        generate_action = menu.addAction("Generate Image Here…")
+        has_clipboard = bool(self._clipboard_paths and self._clipboard_mode)
+        ai_enabled = self._config.get_bool("ai_enabled", False)
+        if has_clipboard:
+            paste_action = menu.addAction("Paste")
+        else:
+            paste_action = None
+        if ai_enabled:
+            generate_action = menu.addAction("Generate Image Here…")
+        else:
+            generate_action = None
         sort_menu = menu.addMenu(self._sort_menu)
         show_hidden_action = menu.addAction("Show Hidden")
         show_hidden_action.setCheckable(True)
         show_hidden_action.setChecked(self._hidden_action.isChecked())
         new_folder_action.triggered.connect(self._create_new_folder)
         new_file_action.triggered.connect(self._create_new_file)
-        paste_action.triggered.connect(self._paste_into_current)
-        generate_action.triggered.connect(self._open_image_generation)
+        if paste_action is not None:
+            paste_action.triggered.connect(self._paste_into_current)
+        if generate_action is not None:
+            generate_action.triggered.connect(self._open_image_generation)
         show_hidden_action.toggled.connect(self._hidden_action.setChecked)
         _ = sort_menu
         menu.exec(global_pos)
@@ -773,7 +853,12 @@ class MainWindow(QMainWindow):
         if not source_index.isValid():
             return
         if self._model.isDir(source_index):
-            self._go_to(Path(self._model.filePath(source_index)))
+            path = self._model.filePath(source_index)
+            if self._open_folders_new_window:
+                if not self._open_path_in_new_window(path):
+                    show_error(self, "Open in New Window", "Failed to open a new window.")
+                return
+            self._go_to(Path(path))
             return
         self._open_source_index(source_index)
 
@@ -794,6 +879,9 @@ class MainWindow(QMainWindow):
         if not source_index.isValid():
             return
         path = self._model.filePath(source_index)
+        if not self._open_default_app:
+            self.statusBar().showMessage("Opening files in default apps is disabled")
+            return
         if self._warn_executables and Path(path).is_file() and os.access(path, os.X_OK):
             reply = QMessageBox.warning(
                 self,
@@ -836,7 +924,12 @@ class MainWindow(QMainWindow):
         if not source_index.isValid():
             return
         if self._model.isDir(source_index):
-            self._go_to(Path(self._model.filePath(source_index)))
+            path = self._model.filePath(source_index)
+            if self._open_folders_new_window:
+                if not self._open_path_in_new_window(path):
+                    show_error(self, "Open in New Window", "Failed to open a new window.")
+                return
+            self._go_to(Path(path))
             return
         path = self._model.filePath(source_index)
         app_path, _ = QFileDialog.getOpenFileName(
@@ -857,7 +950,12 @@ class MainWindow(QMainWindow):
         if not self._config.get_bool("enable_open_with_last", True):
             return
         if self._model.isDir(source_index):
-            self._go_to(Path(self._model.filePath(source_index)))
+            path = self._model.filePath(source_index)
+            if self._open_folders_new_window:
+                if not self._open_path_in_new_window(path):
+                    show_error(self, "Open in New Window", "Failed to open a new window.")
+                return
+            self._go_to(Path(path))
             return
         app_path = str(self._config.get("last_open_with_app", ""))
         if not app_path:
@@ -1000,11 +1098,16 @@ class MainWindow(QMainWindow):
     def _restore_from_trash_selection(self) -> None:
         if self._current_path != self._trash_path:
             return
+        if not self._trash_delete_info:
+            self.statusBar().showMessage("Restore is disabled when .trashinfo metadata is off")
+            return
         selected = self._selected_source_paths()
         if not selected:
             return
         info_dir = Path(self._trash_path).parent / "info"
         restored = 0
+        sources: list[str] = []
+        destinations: list[str] = []
         for src in selected:
             source_path = Path(src)
             info_path = info_dir / f"{source_path.name}.trashinfo"
@@ -1021,6 +1124,8 @@ class MainWindow(QMainWindow):
                 shutil.move(str(source_path), str(target))
                 info_path.unlink(missing_ok=True)
                 restored += 1
+                sources.append(str(source_path))
+                destinations.append(str(target))
             except OSError as exc:
                 show_error(self, "Restore from Trash", str(exc))
         if restored:
@@ -1089,30 +1194,42 @@ class MainWindow(QMainWindow):
             paths.append(path)
         return paths
 
+    def _select_all(self) -> None:
+        view = self._file_views.active_view
+        view.selectAll()
+        view.setFocus()
+
     def _copy_selection(self) -> None:
         paths = self._selected_source_paths()
         if not paths:
+            self.statusBar().showMessage("No selection to copy")
             return
         self._clipboard_paths = paths
         self._clipboard_mode = "copy"
+        self._proxy.set_cut_paths([])
         self.statusBar().showMessage(f"Copied {len(paths)} items")
 
     def _cut_selection(self) -> None:
         paths = self._selected_source_paths()
         if not paths:
+            self.statusBar().showMessage("No selection to cut")
             return
         self._clipboard_paths = paths
         self._clipboard_mode = "cut"
+        self._proxy.set_cut_paths(paths)
         self.statusBar().showMessage(f"Cut {len(paths)} items")
 
     def _paste_into_current(self) -> None:
         if not self._clipboard_paths or not self._clipboard_mode:
+            self.statusBar().showMessage("Clipboard empty")
             return
         target_dir = Path(self._current_path)
         if not target_dir.exists():
+            self.statusBar().showMessage("No valid destination for paste")
             return
         items = self._build_transfer_items(self._clipboard_paths, target_dir, self._clipboard_mode)
         if not items:
+            self.statusBar().showMessage("Nothing to paste")
             return
         dialog = OperationProgressDialog(self)
         worker = TransferWorker(items)
@@ -1135,6 +1252,7 @@ class MainWindow(QMainWindow):
         if self._clipboard_mode == "cut":
             self._clipboard_paths = []
             self._clipboard_mode = None
+            self._proxy.set_cut_paths([])
         self._active_transfer = None
         if self._active_progress is not None:
             self._active_progress.close()
@@ -1158,6 +1276,15 @@ class MainWindow(QMainWindow):
             if not source_path.exists():
                 continue
             dest = target_dir / source_path.name
+            try:
+                same_target = source_path.resolve() == dest.resolve()
+            except OSError:
+                same_target = False
+            if same_target:
+                if mode == "copy":
+                    dest = self._resolve_collision(dest)
+                else:
+                    continue
             replace = False
             action = apply_action
             if dest.exists():
@@ -2247,6 +2374,8 @@ class MainWindow(QMainWindow):
         self._confirm_delete = self._config.get_bool("confirm_delete", True)
         self._confirm_overwrite = self._config.get_bool("confirm_overwrite", True)
         self._single_click_open = self._config.get_bool("single_click_open", False)
+        self._open_folders_new_window = self._config.get_bool("open_folders_new_window", False)
+        self._open_default_app = self._config.get_bool("open_default_app", True)
         self._delete_behavior = str(self._config.get("delete_behavior", "trash")).lower()
         self._conflict_default = str(self._config.get("conflict_default", "ask")).lower()
         self._preserve_metadata = self._config.get_bool("preserve_metadata", True)

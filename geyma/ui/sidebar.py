@@ -173,21 +173,21 @@ class PlacesSidebar(QListWidget):
         menu = QMenu(self)
         open_action = menu.addAction("Open")
         open_window_action = menu.addAction("Open in New Window")
-        mount_action = menu.addAction("Mount")
-        unmount_action = menu.addAction("Unmount")
+        is_device = path in self._device_paths
+        mount_actions_enabled = self._config.get_bool("enable_mount_actions", True)
+        if is_device and mount_actions_enabled:
+            unmount_action = menu.addAction("Unmount")
+        else:
+            unmount_action = None
         edit_bookmarks_action = menu.addAction("Edit Bookmarks…")
         properties_action = menu.addAction("Properties")
 
         open_action.triggered.connect(lambda: self.pathActivated.emit(path))
         open_window_action.triggered.connect(lambda: self.openInNewWindow.emit(path))
-        mount_action.triggered.connect(lambda: self._mount_device(path))
-        unmount_action.triggered.connect(lambda: self._unmount_device(path))
+        if unmount_action is not None:
+            unmount_action.triggered.connect(lambda: self._unmount_device(path))
         edit_bookmarks_action.triggered.connect(self._edit_bookmarks)
         properties_action.triggered.connect(lambda: self.showProperties.emit(path))
-
-        is_device = path in self._device_paths
-        mount_action.setEnabled(is_device)
-        unmount_action.setEnabled(is_device)
 
         menu.exec(self.viewport().mapToGlobal(position))
 

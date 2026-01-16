@@ -1,12 +1,14 @@
 Name:           geyma
-Version:        0.1.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Modern file manager
-License:        LicenseRef-NotSpecified
-URL:            https://github.com/chris/LibreFiles
+License:        MIT
+URL:            https://github.com/MadsenDev/geyma-file-manager
 Source0:        %{name}-%{version}.tar.gz
 
 BuildArch:      noarch
+
+BuildRequires:  python3-rpm-macros
 
 Requires:       python3
 Requires:       python3-pyside6
