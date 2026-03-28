@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QPoint, Qt
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+from PySide6.QtCore import QEvent, QPoint, QSize, Qt
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
 
 class TitleBar(QWidget):
@@ -16,9 +16,12 @@ class TitleBar(QWidget):
         super().__init__(parent)
         self.setObjectName("TitleBar")
         self._drag_pos: QPoint | None = None
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setMinimumHeight(40)
 
         self._title = QLabel(title or "Geyma File Manager")
         self._title.setObjectName("TitleLabel")
+        self._title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self._min_button = QPushButton("—")
         self._max_button = QPushButton("□")
@@ -26,6 +29,7 @@ class TitleBar(QWidget):
         for button in (self._min_button, self._max_button, self._close_button):
             button.setObjectName("TitleButton")
             button.setCursor(Qt.PointingHandCursor)
+            button.setFixedSize(30, 28)
             button.installEventFilter(self)
 
         self._min_button.clicked.connect(self._on_minimize)
@@ -45,6 +49,12 @@ class TitleBar(QWidget):
 
         self._title.installEventFilter(self)
         self.installEventFilter(self)
+
+    def sizeHint(self) -> QSize:
+        return QSize(480, 40)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(240, 40)
 
     def set_title(self, title: str) -> None:
         self._title.setText(title)
