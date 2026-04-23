@@ -1,0 +1,2 @@
+[console_scripts]
+geyma = geyma.app:main

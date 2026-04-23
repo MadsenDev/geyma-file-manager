@@ -4,13 +4,15 @@ from pathlib import Path
 import os
 
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QListWidget, QListWidgetItem, QMenu
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QMenu, QTreeWidget, QTreeWidgetItem
 
+from geyma.ui.icons import themed_icon
 from geyma.utils.config import ConfigStore
+from PySide6.QtWidgets import QStyle
 
 
-class PlacesSidebar(QListWidget):
+class PlacesSidebar(QTreeWidget):
     pathActivated = Signal(str)
     openInNewWindow = Signal(str)
     showProperties = Signal(str)
@@ -20,15 +22,19 @@ class PlacesSidebar(QListWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self._place_items: dict[str, QListWidgetItem] = {}
+        self._place_items: dict[str, QTreeWidgetItem] = {}
         self._device_paths: set[str] = set()
         self._working_sets: list[dict] = []
         self._config = ConfigStore()
         self.setObjectName("Sidebar")
         self.setMaximumWidth(220)
         self.setIconSize(QSize(18, 18))
-        self.setSpacing(2)
-        self.setSelectionBehavior(QListWidget.SelectRows)
+        self.setHeaderHidden(True)
+        self.setIndentation(12)
+        self.setRootIsDecorated(False)
+        self.setItemsExpandable(False)
+        self.setUniformRowHeights(True)
+        self.setSelectionBehavior(QTreeWidget.SelectRows)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.itemClicked.connect(self._on_item_clicked)
         self.customContextMenuRequested.connect(self._on_context_menu)
@@ -73,20 +79,21 @@ class PlacesSidebar(QListWidget):
                     network.append((label, entry, "network-server"))
 
         if show_places:
-            self._add_header("Places")
-            self._add_items(places)
+            group = self._add_header("Places")
+            self._add_items(group, places)
             if bookmarks:
-                self._add_header("Bookmarks")
-                self._add_bookmarks(bookmarks)
+                group = self._add_header("Bookmarks")
+                self._add_bookmarks(group, bookmarks)
         if self._working_sets:
-            self._add_header("Working Sets")
-            self._add_working_sets(self._working_sets)
+            group = self._add_header("Working Sets")
+            self._add_working_sets(group, self._working_sets)
         if devices:
-            self._add_header("Devices")
-            self._add_items(devices)
+            group = self._add_header("Devices")
+            self._add_items(group, devices)
         if network:
-            self._add_header("Network")
-            self._add_items(network)
+            group = self._add_header("Network")
+            self._add_items(group, network)
+        self.expandAll()
 
     def sync_selection(self, path: str) -> None:
         best_path = ""
@@ -97,55 +104,58 @@ class PlacesSidebar(QListWidget):
         if best_path:
             self.setCurrentItem(self._place_items[best_path])
 
-    def _add_header(self, title: str) -> None:
-        item = QListWidgetItem(title)
-        font = item.font()
+    def _add_header(self, title: str) -> QTreeWidgetItem:
+        item = QTreeWidgetItem([title])
+        font = item.font(0)
         font.setBold(True)
-        item.setFont(font)
+        item.setFont(0, font)
+        item.setForeground(0, QColor("#7f8c9a"))
         item.setFlags(Qt.ItemIsEnabled)
-        item.setData(Qt.UserRole, "")
-        self.addItem(item)
+        item.setData(0, Qt.UserRole, "")
+        item.setData(0, Qt.UserRole + 1, "header")
+        self.addTopLevelItem(item)
+        return item
 
-    def _add_items(self, entries: list[tuple[str, Path, str]]) -> None:
+    def _add_items(self, parent: QTreeWidgetItem, entries: list[tuple[str, Path, str]]) -> None:
         for label, path, icon_name in entries:
             if path.exists():
-                item = QListWidgetItem(label)
-                item.setData(Qt.UserRole, str(path))
-                icon = QIcon.fromTheme(icon_name)
+                item = QTreeWidgetItem([label])
+                item.setData(0, Qt.UserRole, str(path))
+                icon = themed_icon(icon_name, QStyle.SP_DirIcon)
                 if not icon.isNull():
-                    item.setIcon(icon)
-                self.addItem(item)
+                    item.setIcon(0, icon)
+                parent.addChild(item)
                 self._place_items[str(path)] = item
 
-    def _add_bookmarks(self, bookmarks: list[dict]) -> None:
+    def _add_bookmarks(self, parent: QTreeWidgetItem, bookmarks: list[dict]) -> None:
         for entry in bookmarks:
             path = entry.get("path")
             label = entry.get("label") or path
             if not path:
                 continue
-            item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, str(path))
-            icon = QIcon.fromTheme("folder-favorites")
+            item = QTreeWidgetItem([label])
+            item.setData(0, Qt.UserRole, str(path))
+            icon = themed_icon(["folder-favorites", "bookmark-new"], QStyle.SP_DirLinkIcon)
             if not icon.isNull():
-                item.setIcon(icon)
-            self.addItem(item)
+                item.setIcon(0, icon)
+            parent.addChild(item)
             self._place_items[str(path)] = item
 
-    def _add_working_sets(self, sets: list[dict]) -> None:
+    def _add_working_sets(self, parent: QTreeWidgetItem, sets: list[dict]) -> None:
         for entry in sets:
             name = entry.get("name") or "Working Set"
             set_id = entry.get("id", "")
-            item = QListWidgetItem(name)
-            item.setData(Qt.UserRole, set_id)
-            item.setData(Qt.UserRole + 1, "working_set")
-            icon = QIcon.fromTheme("folder-saved-search")
+            item = QTreeWidgetItem([name])
+            item.setData(0, Qt.UserRole, set_id)
+            item.setData(0, Qt.UserRole + 1, "working_set")
+            icon = themed_icon(["folder-saved-search", "system-search"], QStyle.SP_FileDialogContentsView)
             if not icon.isNull():
-                item.setIcon(icon)
-            self.addItem(item)
+                item.setIcon(0, icon)
+            parent.addChild(item)
 
-    def _on_item_clicked(self, item: QListWidgetItem) -> None:
-        path = item.data(Qt.UserRole)
-        item_type = item.data(Qt.UserRole + 1)
+    def _on_item_clicked(self, item: QTreeWidgetItem) -> None:
+        path = item.data(0, Qt.UserRole)
+        item_type = item.data(0, Qt.UserRole + 1)
         if item_type == "working_set" and path:
             self.workingSetActivated.emit(path)
             return
@@ -156,8 +166,8 @@ class PlacesSidebar(QListWidget):
         item = self.itemAt(position)
         if item is None:
             return
-        path = item.data(Qt.UserRole)
-        item_type = item.data(Qt.UserRole + 1)
+        path = item.data(0, Qt.UserRole)
+        item_type = item.data(0, Qt.UserRole + 1)
         if item_type == "working_set":
             menu = QMenu(self)
             open_action = menu.addAction("Open")

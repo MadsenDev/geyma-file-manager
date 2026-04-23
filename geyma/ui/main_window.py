@@ -19,7 +19,7 @@ from PySide6.QtCore import (
     QItemSelectionModel,
     QModelIndex,
 )
-from PySide6.QtGui import QAction, QFont, QIcon
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -45,6 +45,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QVBoxLayout,
     QWidget,
+    QStyle,
 )
 from PySide6.QtCore import QProcess, QThreadPool
 
@@ -53,6 +54,7 @@ from geyma.ui.error_dialog import show_error
 from geyma.ai.jobs.image_generation import ImageGenerationWorker
 from geyma.ui.file_views import FileViewStack
 from geyma.ui.folder_summary_dialog import FolderSummaryDialog
+from geyma.ui.icons import themed_icon
 from geyma.ui.image_generation_dialog import ImageGenerationDialog
 from geyma.ui.icon_provider import ThumbnailIconProvider
 from geyma.ai.jobs.text_to_filters import translate_query
@@ -270,43 +272,68 @@ class MainWindow(QMainWindow):
         toolbar.setObjectName("MainToolbar")
         toolbar.setMovable(False)
         toolbar.setIconSize(QSize(20, 20))
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
-        back_action = QAction(QIcon.fromTheme("go-previous"), "Back", self)
+        back_action = QAction(themed_icon(["go-previous", "arrow-left"], QStyle.SP_ArrowBack), "Back", self)
         back_action.setShortcut("Alt+Left")
         back_action.triggered.connect(self._go_back)
 
-        forward_action = QAction(QIcon.fromTheme("go-next"), "Forward", self)
+        forward_action = QAction(
+            themed_icon(["go-next", "arrow-right"], QStyle.SP_ArrowForward), "Forward", self
+        )
         forward_action.setShortcut("Alt+Right")
         forward_action.triggered.connect(self._go_forward)
 
-        up_action = QAction(QIcon.fromTheme("go-up"), "Up", self)
+        up_action = QAction(themed_icon(["go-up", "arrow-up"], QStyle.SP_ArrowUp), "Up", self)
         up_action.setShortcut("Alt+Up")
         up_action.triggered.connect(self._go_up)
 
-        refresh_action = QAction(QIcon.fromTheme("view-refresh"), "Refresh", self)
+        refresh_action = QAction(themed_icon(["view-refresh", "reload"], QStyle.SP_BrowserReload), "Refresh", self)
         refresh_action.setShortcut("F5")
         refresh_action.triggered.connect(self._refresh)
 
-        search_action = QAction(QIcon.fromTheme("edit-find"), "Search", self)
+        search_action = QAction(themed_icon(["edit-find", "system-search"], QStyle.SP_FileDialogContentsView), "Search", self)
         search_action.setShortcut("Ctrl+F")
         search_action.triggered.connect(self._handle_search_action)
-        recursive_search_action = QAction(QIcon.fromTheme("edit-find"), "Search in Folder", self)
+        recursive_search_action = QAction(
+            themed_icon(["edit-find", "system-search"], QStyle.SP_FileDialogContentsView),
+            "Search in Folder",
+            self,
+        )
         recursive_search_action.setShortcut("Ctrl+Shift+F")
         recursive_search_action.triggered.connect(lambda: self._show_inline_search("recursive"))
-        summary_action = QAction(QIcon.fromTheme("view-list-details"), "Folder Summary", self)
+        summary_action = QAction(
+            themed_icon(["view-list-details", "document-properties"], QStyle.SP_FileDialogDetailedView),
+            "Folder Summary",
+            self,
+        )
         summary_action.triggered.connect(self._open_folder_summary)
-        activity_action = QAction(QIcon.fromTheme("view-history"), "Recent Activity", self)
+        activity_action = QAction(
+            themed_icon(["view-history", "document-open-recent"], QStyle.SP_FileDialogListView),
+            "Recent Activity",
+            self,
+        )
         activity_action.setCheckable(True)
         activity_action.toggled.connect(self._toggle_activity_panel)
         self._activity_action = activity_action
-        self._hidden_action = QAction(QIcon.fromTheme("view-hidden"), "Show Hidden", self)
+        self._hidden_action = QAction(
+            themed_icon(["view-hidden", "document-preview"], QStyle.SP_DialogYesButton),
+            "Show Hidden",
+            self,
+        )
         self._hidden_action.setCheckable(True)
         self._hidden_action.setChecked(self._config.get_bool("show_hidden", False))
         self._hidden_action.toggled.connect(self._toggle_hidden)
-        self._empty_trash_action = QAction(QIcon.fromTheme("user-trash"), "Empty Trash", self)
+        self._empty_trash_action = QAction(
+            themed_icon(["user-trash", "trash-empty"], QStyle.SP_TrashIcon), "Empty Trash", self
+        )
         self._empty_trash_action.triggered.connect(self._empty_trash)
         self._empty_trash_action.setEnabled(False)
-        settings_action = QAction(QIcon.fromTheme("settings"), "Settings", self)
+        settings_action = QAction(
+            themed_icon(["settings", "preferences-system"], QStyle.SP_FileDialogDetailedView),
+            "Settings",
+            self,
+        )
         settings_action.triggered.connect(self._open_settings)
 
         toolbar.addAction(back_action)
@@ -316,50 +343,79 @@ class MainWindow(QMainWindow):
         toolbar.addAction(refresh_action)
         toolbar.addSeparator()
         toolbar.addAction(search_action)
-        toolbar.addAction(summary_action)
-        toolbar.addAction(activity_action)
         toolbar.addAction(self._hidden_action)
-        toolbar.addAction(self._empty_trash_action)
-        toolbar.addAction(settings_action)
         toolbar.addSeparator()
 
         path_label = QLabel("Path:")
         self._path_edit = QLineEdit()
         self._path_edit.setText(self._current_path)
-        self._path_edit.setMinimumWidth(320)
+        self._path_edit.setMinimumWidth(280)
         self._path_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self._path_edit.setPlaceholderText("Enter a path and press Enter")
+        self._path_edit.setPlaceholderText("Enter a path")
 
         toolbar.addWidget(path_label)
         toolbar.addWidget(self._path_edit)
         toolbar.addSeparator()
 
         self._search_edit = QLineEdit()
-        self._search_edit.setPlaceholderText("Filter")
-        self._search_edit.setMinimumWidth(180)
+        self._search_edit.setPlaceholderText("Filter current folder")
+        self._search_edit.setMinimumWidth(220)
         self._search_edit.setClearButtonEnabled(True)
         self._search_edit.textChanged.connect(self._apply_filter)
         toolbar.addWidget(self._search_edit)
-        filters_button = QToolButton()
-        filters_button.setText("Filters")
-        filters_button.setIcon(QIcon.fromTheme("view-filter"))
-        filters_button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        filters_button.clicked.connect(self._open_quick_filters)
-        toolbar.addWidget(filters_button)
-        clear_filters_button = QToolButton()
-        clear_filters_button.setText("Clear")
-        clear_filters_button.setIcon(QIcon.fromTheme("edit-clear"))
-        clear_filters_button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        clear_filters_button.clicked.connect(self._clear_quick_filters)
-        toolbar.addWidget(clear_filters_button)
+        filter_button = QToolButton()
+        filter_button.setText("Filters")
+        filter_button.setIcon(
+            themed_icon(["view-filter", "filter"], QStyle.SP_FileDialogContentsView)
+        )
+        filter_button.clicked.connect(self._open_quick_filters)
+        toolbar.addWidget(filter_button)
         self._filters_active_label = QLabel("Filters active")
         self._filters_active_label.setVisible(False)
         toolbar.addWidget(self._filters_active_label)
         toolbar.addSeparator()
         toolbar.addWidget(self._build_sort_button())
         toolbar.addWidget(self._build_view_toggle())
+        toolbar.addWidget(self._build_tools_button(recursive_search_action, summary_action, activity_action))
+        toolbar.addWidget(self._build_more_button(settings_action))
 
         self.addToolBar(toolbar)
+
+    def _build_tools_button(
+        self, recursive_search_action: QAction, summary_action: QAction, activity_action: QAction
+    ) -> QToolButton:
+        menu = QMenu("Tools", self)
+        menu.addAction(recursive_search_action)
+        menu.addAction(summary_action)
+        menu.addAction(activity_action)
+        if self._config.get_bool("ai_enabled", False):
+            menu.addSeparator()
+            ai_generate_action = menu.addAction("Generate Image Here…")
+            ai_generate_action.triggered.connect(lambda: self._open_image_generation(mode="new"))
+
+        button = QToolButton()
+        button.setText("Tools")
+        button.setIcon(
+            themed_icon(["applications-system", "system-run"], QStyle.SP_ComputerIcon)
+        )
+        button.setPopupMode(QToolButton.InstantPopup)
+        button.setMenu(menu)
+        return button
+
+    def _build_more_button(self, settings_action: QAction) -> QToolButton:
+        menu = QMenu("More", self)
+        menu.addAction(self._empty_trash_action)
+        clear_filters_action = menu.addAction("Clear Filters")
+        clear_filters_action.triggered.connect(self._clear_quick_filters)
+        menu.addSeparator()
+        menu.addAction(settings_action)
+
+        button = QToolButton()
+        button.setText("More")
+        button.setIcon(themed_icon(["open-menu-symbolic", "application-menu"], QStyle.SP_TitleBarMenuButton))
+        button.setPopupMode(QToolButton.InstantPopup)
+        button.setMenu(menu)
+        return button
 
     def _setup_shortcuts(self) -> None:
         copy_action = QAction(self)
@@ -447,7 +503,9 @@ class MainWindow(QMainWindow):
         self._sort_menu = menu
         button = QToolButton()
         button.setText("Sort")
-        button.setIcon(QIcon.fromTheme("view-sort-ascending"))
+        button.setIcon(
+            themed_icon(["view-sort-ascending", "view-sort"], QStyle.SP_ArrowDown)
+        )
         button.setPopupMode(QToolButton.InstantPopup)
         button.setMenu(menu)
         button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
@@ -459,10 +517,8 @@ class MainWindow(QMainWindow):
         self.setStatusBar(status)
 
     def _apply_style(self) -> None:
-        font = QFont("IBM Plex Sans", 10)
         app = QApplication.instance()
         if app is not None:
-            app.setFont(font)
             app.setStyleSheet(build_stylesheet(self._config))
 
     def _go_to_path(self) -> None:
@@ -478,7 +534,6 @@ class MainWindow(QMainWindow):
             return
 
         resolved = str(path.resolve())
-        self._warn_large_folder(resolved)
         if record_history:
             if self._history_index < len(self._history) - 1:
                 self._history = self._history[: self._history_index + 1]
@@ -538,23 +593,6 @@ class MainWindow(QMainWindow):
             self._watcher.removePaths(files)
         self._watcher.addPath(path)
 
-    def _warn_large_folder(self, path: str) -> None:
-        try:
-            threshold = int(self._config.get("large_folder_threshold", 50000))
-        except Exception:
-            threshold = 50000
-        if threshold <= 0:
-            return
-        try:
-            count = sum(1 for _ in Path(path).iterdir())
-        except OSError:
-            return
-        if count >= threshold:
-            QMessageBox.information(
-                self,
-                "Large Folder",
-                f"This folder contains about {count} items and may be slow to open.",
-            )
     def _set_root_index(self, resolved: str) -> None:
         source_index = self._model.index(resolved)
         proxy_index = self._proxy.mapFromSource(source_index)
@@ -570,11 +608,15 @@ class MainWindow(QMainWindow):
         checked = bool(self._view_toggle.isChecked())
         if checked:
             self._view_toggle.setText("Grid")
-            self._view_toggle.setIcon(QIcon.fromTheme("view-grid"))
+            self._view_toggle.setIcon(
+                themed_icon(["view-grid", "view-grid-symbolic"], QStyle.SP_FileDialogListView)
+            )
             self._view_toggle.setToolTip("Grid view")
         else:
             self._view_toggle.setText("List")
-            self._view_toggle.setIcon(QIcon.fromTheme("view-list-details"))
+            self._view_toggle.setIcon(
+                themed_icon(["view-list-details", "format-list-unordered"], QStyle.SP_FileDialogDetailedView)
+            )
             self._view_toggle.setToolTip("List view")
 
     def _save_state(self) -> None:
@@ -2414,7 +2456,7 @@ class MainWindow(QMainWindow):
         self._update_empty_state()
 
     def _apply_thumbnail_mode(self) -> None:
-        mode = str(self._config.get("thumbnail_mode", "minimal")).lower()
+        mode = str(self._config.get("thumbnail_mode", "off")).lower()
         if mode == "off":
             list_size, grid_size = 16, 48
             self._model.setIconProvider(self._default_icon_provider)

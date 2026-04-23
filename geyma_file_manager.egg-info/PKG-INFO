@@ -1,3 +1,18 @@
+Metadata-Version: 2.4
+Name: geyma-file-manager
+Version: 0.4.0
+Summary: A deliberate, local-first desktop file manager built with PySide6.
+License-Expression: LicenseRef-Proprietary
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: PySide6>=6.5
+Requires-Dist: keyring>=24.0
+Provides-Extra: dev
+Requires-Dist: black>=24.0; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+Dynamic: license-file
+
 # Geyma File Manager
 
 **Geyma** is a deliberate, local-first file manager focused on clarity, speed, and user control. It provides a clean, responsive desktop experience with powerful search tools and optional BYOK AI helpers that never act without approval.

@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QFileIconProvider
 
+from geyma.ui.icons import file_item_icon
 from geyma.utils.config import ConfigStore
 
 
@@ -20,18 +21,27 @@ class ThumbnailIconProvider(QFileIconProvider):
 
     def icon(self, file_info):
         if file_info.isDir():
-            return super().icon(file_info)
+            return file_item_icon(file_info.filePath(), is_dir=True)
 
         path = file_info.filePath()
         if not self._is_image(path):
-            return super().icon(file_info)
+            icon = super().icon(file_info)
+            if icon.isNull():
+                return file_item_icon(path, is_dir=False)
+            return icon
 
         max_bytes = self._max_thumbnail_bytes()
         try:
             if file_info.size() > max_bytes:
-                return super().icon(file_info)
+                icon = super().icon(file_info)
+                if icon.isNull():
+                    return file_item_icon(path, is_dir=False)
+                return icon
         except OSError:
-            return super().icon(file_info)
+            icon = super().icon(file_info)
+            if icon.isNull():
+                return file_item_icon(path, is_dir=False)
+            return icon
 
         cached = self._cache.get(path)
         if cached is not None:
@@ -43,7 +53,10 @@ class ThumbnailIconProvider(QFileIconProvider):
         reader.setAutoTransform(True)
         image = reader.read()
         if image.isNull():
-            return super().icon(file_info)
+            icon = super().icon(file_info)
+            if icon.isNull():
+                return file_item_icon(path, is_dir=False)
+            return icon
 
         pixmap = QPixmap.fromImage(image).scaled(
             size,

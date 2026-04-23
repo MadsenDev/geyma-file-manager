@@ -263,6 +263,10 @@
 * [x] Use Qt’s default Fusion/Breeze integration where possible
 * [x] Ensure spacing and icon sizes match Plasma expectations
 * [x] Add toolbar icons using system icon theme (`QIcon.fromTheme`)
+* [x] Reduce the primary toolbar to core navigation/search controls and move secondary actions into menus
+* [x] Replace the fake-section sidebar list with grouped navigation that reads like a file manager
+* [x] Remove the custom-heavy glass styling pass and move back toward native desktop chrome
+* [x] Add reliable icon fallbacks for toolbar, sidebar, and file/folder rows instead of relying entirely on theme coverage
 * [x] Add empty states:
 
   * [x] empty folder
@@ -291,6 +295,7 @@
 * [ ] Copy across devices (`/run/media/...`)
 * [ ] Conflicts on paste
 * [ ] Cancel mid-copy and verify consistency
+* [x] Remove synchronous large-folder warning scans from navigation
 
 ---
 

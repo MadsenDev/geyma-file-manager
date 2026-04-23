@@ -42,6 +42,10 @@ class FileViewStack(QWidget):
         self.list_view.setSortingEnabled(True)
         self.list_view.setAlternatingRowColors(True)
         self.list_view.setUniformRowHeights(True)
+        self.list_view.setRootIsDecorated(False)
+        self.list_view.setItemsExpandable(False)
+        self.list_view.setIndentation(0)
+        self.list_view.setExpandsOnDoubleClick(False)
         self.list_view.setIconSize(QSize(self._list_icon_size, self._list_icon_size))
         self.list_view.header().setStretchLastSection(False)
         self.list_view.header().setSectionResizeMode(0, QHeaderView.Stretch)
@@ -59,6 +63,7 @@ class FileViewStack(QWidget):
         self.icon_view.setResizeMode(QListView.Adjust)
         self.icon_view.setSpacing(self._grid_spacing)
         self.icon_view.setIconSize(QSize(self._grid_icon_size, self._grid_icon_size))
+        self.icon_view.setWordWrap(True)
 
         self.active_view = self.list_view
 

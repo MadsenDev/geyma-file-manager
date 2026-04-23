@@ -467,7 +467,7 @@ class SettingsDialog(QDialog):
 
         self._thumbnail_mode = QComboBox()
         self._thumbnail_mode.addItems(["off", "minimal", "full"])
-        self._thumbnail_mode.setCurrentText(self._config.get_str("thumbnail_mode", "minimal"))
+        self._thumbnail_mode.setCurrentText(self._config.get_str("thumbnail_mode", "off"))
         self._track(self._thumbnail_mode)
 
         self._thumbnail_max_bytes = QSpinBox()
@@ -720,20 +720,10 @@ class SettingsDialog(QDialog):
         self._thumbnail_max_bytes_perf.setSuffix(" MB")
         self._track(self._thumbnail_max_bytes_perf)
 
-        self._large_folder_threshold = QSpinBox()
-        self._large_folder_threshold.setRange(0, 200000)
-        self._large_folder_threshold.setValue(int(self._config.get("large_folder_threshold", 50000)))
-        self._track(self._large_folder_threshold)
-
         card = _SettingsCard("Performance")
         rows = [
             card.add_row("Thumbnail cache size", "Approximate in-memory cache target (MB).", self._thumbnail_cache_size),
             card.add_row("Max thumbnail size", "Skip thumbnails larger than this.", self._thumbnail_max_bytes_perf),
-            card.add_row(
-                "Large folder warning threshold",
-                "Show a warning when opening folders with many items (0 disables).",
-                self._large_folder_threshold,
-            ),
         ]
         cards.append((card, rows))
         return self._wrap_page("performance", "Performance", cards)
@@ -875,7 +865,7 @@ class SettingsDialog(QDialog):
         log_path = self._config.get_str("log_path", str(Path.home() / ".cache/geyma/logs/geyma.log"))
         log_label = QLabel(f"Log file: {log_path}")
 
-        self._custom_titlebar = QCheckBox("Use custom title bar (restart window)")
+        self._custom_titlebar = QCheckBox("Use custom title bar instead of the native window frame")
         self._custom_titlebar.setChecked(self._config.get_bool("custom_titlebar", False))
         self._track(self._custom_titlebar)
 
@@ -981,8 +971,6 @@ class SettingsDialog(QDialog):
 
         self._config.set("thumbnail_cache_size", self._thumbnail_cache_size.value())
         self._config.set("thumbnail_max_bytes", self._thumbnail_max_bytes_perf.value() * 1024 * 1024)
-        self._config.set("large_folder_threshold", self._large_folder_threshold.value())
-
         self._config.set("open_backend", self._open_backend.currentText())
         self._config.set("trash_write_info", self._trash_write_info.isChecked())
         self._config.set("enable_mount_actions", self._mount_unmount.isChecked())
