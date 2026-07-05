@@ -1,0 +1,89 @@
+import type { ModuleId } from "./layout";
+
+export type ViewMode = "grid" | "list";
+export type SortKey = "name" | "kind" | "size" | "modified";
+export type SortDir = "asc" | "desc";
+export type SearchScope = "folder" | "all";
+export type KindFilter = "document" | "image" | "audio" | "code" | null;
+
+export interface Filters {
+  kind: KindFilter;
+  starred: boolean;
+}
+
+export interface FileEvent {
+  id: string;
+  path: string;
+  action: string;
+  detail?: string;
+  whenMs: number;
+  kind: "accent" | "video" | "archive" | "document" | "app" | "muted";
+}
+
+export interface Ghost {
+  name: string;
+  fromPath: string;
+  toDir: string;
+  toName: string;
+  atMs: number;
+}
+
+export interface SetRule {
+  ext?: string;
+  kind?: string;
+  starred?: boolean;
+  minMt?: number;
+}
+
+export interface SetItemRef {
+  dir: string;
+  name: string;
+}
+
+export interface EnvironmentSnapshot {
+  skin: string;
+  ov: Record<string, unknown>;
+  layout: Record<ModuleId, never> | unknown;
+  railW: { left: number; right: number };
+  centerSplit: boolean;
+  centerRatio: number;
+}
+
+export interface WorkingSet {
+  id: string;
+  name: string;
+  note?: string;
+  smart?: boolean;
+  rule?: SetRule;
+  snap?: EnvironmentSnapshot;
+  items: SetItemRef[];
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  snap: EnvironmentSnapshot;
+}
+
+export interface ClipboardState {
+  mode: "cut" | "copy";
+  items: string[];
+}
+
+export interface ContextMenuItem {
+  label?: string;
+  divider?: boolean;
+  danger?: boolean;
+  onClick?: () => void;
+}
+
+export interface ContextMenuState {
+  x: number;
+  y: number;
+  items: ContextMenuItem[];
+}
+
+export interface UndoAction {
+  label: string;
+  undo: () => Promise<void> | void;
+}

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="120 130 320 270" fill="none">
+  <!--
+    Geyma icon (folder + inner sheet), clean vector.
+    Designed to be readable at small sizes.
+  -->
+
+  <defs>
+    <linearGradient id="g-back" x1="120" y1="120" x2="420" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6F8796"/>
+      <stop offset="1" stop-color="#4C6675"/>
+    </linearGradient>
+
+    <linearGradient id="g-front" x1="140" y1="200" x2="420" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8FA5B4"/>
+      <stop offset="1" stop-color="#6E8797"/>
+    </linearGradient>
+
+    <linearGradient id="g-paper" x1="170" y1="210" x2="350" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F3F5F7"/>
+      <stop offset="1" stop-color="#DDE3E8"/>
+    </linearGradient>
+
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Back folder -->
+  <g filter="url(#shadow)">
+    <path
+      d="M140 170
+         Q140 150 160 150
+         H235
+         Q248 150 256 158
+         L272 174
+         Q280 182 292 182
+         H392
+         Q412 182 412 202
+         V326
+         Q412 346 392 346
+         H160
+         Q140 346 140 326
+         Z"
+      fill="url(#g-back)"
+    />
+
+    <!-- Front folder -->
+    <path
+      d="M160 216
+         Q160 196 180 196
+         H406
+         Q426 196 426 216
+         V360
+         Q426 380 406 380
+         H186
+         Q160 380 160 354
+         Z"
+      fill="url(#g-front)"
+    />
+
+    <!-- Inner "paper" -->
+    <path
+      d="M188 232
+         Q188 218 202 218
+         H320
+         Q334 218 342 226
+         L368 252
+         Q376 260 376 272
+         V328
+         Q376 344 360 344
+         H202
+         Q188 344 188 330
+         Z"
+      fill="url(#g-paper)"
+    />
+
+    <!-- Paper fold / notch -->
+    <path
+      d="M342 226
+         L342 254
+         Q342 264 352 264
+         H376
+         Q376 256 368 252
+         Z"
+      fill="#C9D2DA"
+    />
+
+    <!-- Subtle separator line (gives the “sheet inside” vibe at small sizes) -->
+    <path
+      d="M188 262 H360"
+      stroke="#C8D1D9"
+      stroke-width="6"
+      stroke-linecap="round"
+      opacity="0.55"
+    />
+  </g>
+</svg>
