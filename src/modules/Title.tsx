@@ -1,0 +1,30 @@
+import { useStore } from "../state/store";
+import { useTheme } from "../theme/ThemeContext";
+
+export function Title() {
+  const t = useTheme();
+  const path = useStore((s) => s.path);
+  const home = useStore((s) => s.home);
+  const backend = useStore((s) => s.backend);
+  const trashView = useStore((s) => s.trashView);
+  const trashDir = useStore((s) => s.trashDir);
+  const entries = useStore((s) => s.entriesFor(trashView ? trashDir : path));
+
+  const name = trashView ? "Trash" : path === home ? "Home" : backend?.basename(path) || path;
+  const kicker = trashView ? "Trash · items awaiting permanent removal" : path;
+  const folders = entries.filter((e) => e.isDir).length;
+  const files = entries.length - folders;
+
+  return (
+    <div style={{ padding: "10px 4px 6px" }}>
+      <div style={{ fontFamily: t.mono, fontSize: 10, textTransform: "uppercase", letterSpacing: ".1em", color: t.inkFaint, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {kicker}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{name}</div>
+      <div style={{ fontSize: 12, color: t.inkSoft, marginTop: 2 }}>
+        {entries.length} item{entries.length === 1 ? "" : "s"}
+        {folders > 0 && files > 0 ? ` · ${folders} folder${folders === 1 ? "" : "s"}, ${files} file${files === 1 ? "" : "s"}` : ""}
+      </div>
+    </div>
+  );
+}

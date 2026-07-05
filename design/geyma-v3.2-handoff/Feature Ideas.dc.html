@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:#EFE9DE;-webkit-font-smoothing:antialiased}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#EFE9DE;color:#211D17;font-family:'Hanken Grotesk',system-ui,sans-serif;padding:clamp(16px,4vw,56px) clamp(14px,4vw,32px)">
+<div style="max-width:880px;margin:0 auto">
+
+  <!-- Header -->
+  <header style="margin-bottom:clamp(28px,5vw,44px)">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:#2C6E49;border:1px solid rgba(44,110,73,.35);border-radius:99px;padding:5px 12px">Feature proposals</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#A89E88;letter-spacing:.06em">July 5, 2026</span>
+    </div>
+    <h1 style="margin:0;font-size:clamp(30px,7vw,44px);font-weight:800;letter-spacing:-.03em;line-height:1.02">What Geyma should learn next</h1>
+    <p style="margin:14px 0 0;font-size:clamp(14px,2.5vw,15.5px);line-height:1.6;color:#5F5849;max-width:58ch;text-wrap:pretty">Fourteen proposals in two tiers: the table stakes every file manager needs, and signature extras that deepen what already makes Geyma distinct — <em>files remember</em>, working sets, and deep customizability.</p>
+  </header>
+
+  <!-- TIER 1 -->
+  <section style="margin-bottom:clamp(36px,6vw,56px)">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px">
+      <h2 style="margin:0;font-size:clamp(20px,4.5vw,26px);font-weight:800;letter-spacing:-.02em">Table stakes</h2>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#B4562E;font-weight:600">users will notice these missing</span>
+    </div>
+    <p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:#5F5849;max-width:58ch">Expected behaviors from every serious file manager. None are glamorous; all are load-bearing.</p>
+
+    <!-- 01 Quick Look — with example -->
+    <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:16px;padding:clamp(16px,3.5vw,24px);margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#B4562E">01</span>
+        <h3 style="margin:0;font-size:16.5px;font-weight:700">Quick Look preview</h3>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Shipped</span>
+      </div>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#5F5849;max-width:62ch;text-wrap:pretty">Space bar opens a preview overlay for text, markdown and images — no app switch. ←/→ steps through the folder; Space or Esc closes.</p>
+      <div style="background:#E7E0D2;border-radius:12px;padding:clamp(14px,3vw,22px);display:grid;place-items:center">
+        <div style="width:min(420px,100%);background:#FBF8F2;border:1px solid rgba(33,29,23,.14);border-radius:12px;box-shadow:0 18px 40px rgba(33,29,23,.18);overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(33,29,23,.08)">
+            <div style="display:flex;align-items:center;gap:9px;min-width:0">
+              <span style="width:24px;height:24px;border-radius:7px;background:rgba(44,110,73,.12);color:#2C6E49;display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:7px;font-weight:700;flex:none">MD</span>
+              <span style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">brand-notes.md</span>
+            </div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#A89E88;flex:none">SPACE to close</span>
+          </div>
+          <div style="padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.75;color:#5F5849">
+            <div style="color:#211D17;font-weight:700"># Brand — Geyma</div>
+            <div>Name: Old Norse <em>geyma</em>, to keep / guard.</div>
+            <div>Voice: calm, precise, a little warm.</div>
+            <div>Type: Hanken Grotesk + JetBrains Mono.</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:9px 14px;border-top:1px solid rgba(33,29,23,.08);font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#A89E88">
+            <span>12 KB · Modified 2d ago</span>
+            <span>← 3 of 6 →</span>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 02-07 compact list -->
+    <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:16px;overflow:hidden;margin-bottom:12px">
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">02</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Search filters.</strong> <span style="color:#2C6E49;font-weight:600">Shipped — Docs / Images / Audio / Code / ★ Starred chips appear under the search field while searching or filtering.</span></p>
+      </div>
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">03</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Star toggle.</strong> <span style="color:#2C6E49;font-weight:600">Shipped — context menu + S key; multi-select aware; logged to each file's timeline.</span></p>
+      </div>
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">04</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Multi-file drag ghost.</strong> <span style="color:#2C6E49;font-weight:600">Shipped — dragging several files shows an “N items” badge.</span></p>
+      </div>
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">05</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">True dual-pane.</strong> <span style="color:#2C6E49;font-weight:600">Shipped — a “Second pane” module with its own path, up button and drop target; “Open in lower pane” places it automatically.</span></p>
+      </div>
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">06</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">New file with type choice.</strong> <span style="color:#2C6E49;font-weight:600">Shipped — New Folder / New Text File / New Markdown Note.</span></p>
+      </div>
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">07</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Sort indicators.</strong> <span style="color:#2C6E49;font-weight:600">Shipped — the active column shows ↑/↓ in accent color.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TIER 2 -->
+  <section style="margin-bottom:clamp(36px,6vw,56px)">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px">
+      <h2 style="margin:0;font-size:clamp(20px,4.5vw,26px);font-weight:800;letter-spacing:-.02em;color:#2C6E49">Signature extras</h2>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#2C6E49;font-weight:600">only Geyma could ship these</span>
+    </div>
+    <p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:#5F5849;max-width:58ch">Each one grows from a mechanic that already exists — the event log, working sets, or the skin engine.</p>
+
+    <!-- 08 Timeline — with example -->
+    <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:16px;padding:clamp(16px,3.5vw,24px);margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">08</span>
+        <h3 style="margin:0;font-size:16.5px;font-weight:700">File timeline</h3>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Shipped</span>
+      </div>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#5F5849;max-width:62ch;text-wrap:pretty">Every move, rename and restore is already logged per file. Flip the index: a disk-wide journal grouped by day. Answers the question no other file manager can — <em>"what did I touch on Tuesday?"</em></p>
+      <div style="background:#E7E0D2;border-radius:12px;padding:clamp(14px,3vw,22px)">
+        <div style="max-width:460px;margin:0 auto">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#7E7359;margin-bottom:8px">Today</div>
+          <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:10px;background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:10px;padding:9px 12px">
+              <span style="width:7px;height:7px;border-radius:99px;background:#2C6E49;flex:none"></span>
+              <span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong>Renamed</strong> roadmap.pdf → roadmap-v2.pdf</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#A89E88;margin-left:auto;flex:none">14:02</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:10px;padding:9px 12px">
+              <span style="width:7px;height:7px;border-radius:99px;background:#2C7DD6;flex:none"></span>
+              <span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong>Moved</strong> ledger-spec.pdf to mockups — undone</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#A89E88;margin-left:auto;flex:none">13:47</span>
+            </div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#7E7359;margin-bottom:8px">Thursday</div>
+          <div style="display:flex;align-items:center;gap:10px;background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:10px;padding:9px 12px">
+            <span style="width:7px;height:7px;border-radius:99px;background:#D89B2B;flex:none"></span>
+            <span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong>Restored</strong> invoice-scan.pdf from Trash</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#A89E88;margin-left:auto;flex:none">09:15</span>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 09 Smart sets — with example -->
+    <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:16px;padding:clamp(16px,3.5vw,24px);margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">09</span>
+        <h3 style="margin:0;font-size:16.5px;font-weight:700">Smart sets</h3>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Shipped</span>
+      </div>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#5F5849;max-width:62ch;text-wrap:pretty">Working sets are manual playlists. Add rule-based ones that stay current on their own. The rules engine is small; the payoff is a set that maintains itself.</p>
+      <div style="background:#E7E0D2;border-radius:12px;padding:clamp(14px,3vw,22px)">
+        <div style="max-width:460px;margin:0 auto;background:#FBF8F2;border:1px solid rgba(33,29,23,.12);border-radius:12px;padding:14px 16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px">
+            <span style="width:26px;height:26px;border-radius:8px;background:rgba(44,110,73,.12);color:#2C6E49;display:grid;place-items:center;flex:none;font-size:13px">⚡</span>
+            <span style="font-size:13.5px;font-weight:700">This week's PDFs</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#2C6E49;margin-left:auto">Smart</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;background:rgba(44,110,73,.1);color:#2C6E49;border-radius:99px;padding:4px 10px">kind is PDF</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;background:rgba(44,110,73,.1);color:#2C6E49;border-radius:99px;padding:4px 10px">modified &lt; 7d</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;border:1px dashed rgba(33,29,23,.25);color:#7E7359;border-radius:99px;padding:4px 10px">+ rule</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:1px;font-size:12.5px">
+            <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 2px"><span style="font-weight:600">roadmap-v2.pdf</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#7E7359">~/Documents/Geyma</span></div>
+            <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 2px;border-top:1px solid rgba(33,29,23,.07)"><span style="font-weight:600">contract-2026.pdf</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#7E7359">~/Documents</span></div>
+            <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 2px;border-top:1px solid rgba(33,29,23,.07)"><span style="font-weight:600">invoice-scan.pdf</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#7E7359">~/Downloads</span></div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 11 Ghost trails — with example -->
+    <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:16px;padding:clamp(16px,3.5vw,24px);margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">10</span>
+        <h3 style="margin:0;font-size:16.5px;font-weight:700">Ghost trails</h3>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Shipped</span>
+      </div>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#5F5849;max-width:62ch;text-wrap:pretty">When a file recently left a folder, leave a faint marker showing where it went. "Where did this go?" answered in place — the memory made visible.</p>
+      <div style="background:#E7E0D2;border-radius:12px;padding:clamp(14px,3vw,22px)">
+        <div style="max-width:460px;margin:0 auto;background:#FBF8F2;border:1px solid rgba(33,29,23,.12);border-radius:12px;overflow:hidden;font-size:12.5px">
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 14px">
+            <span style="width:22px;height:22px;border-radius:6px;background:rgba(180,86,46,.12);color:#B4562E;display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:7px;font-weight:700;flex:none">PDF</span>
+            <span style="font-weight:600">tax-return-2025.pdf</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#7E7359;margin-left:auto">1.2 MB</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid rgba(33,29,23,.07);opacity:.55">
+            <span style="width:22px;height:22px;border-radius:6px;border:1.5px dashed rgba(33,29,23,.3);flex:none"></span>
+            <span style="font-style:italic">invoice-scan.pdf</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#7E7359;margin-left:auto">→ Client archive · 2d ago</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid rgba(33,29,23,.07)">
+            <span style="width:22px;height:22px;border-radius:6px;background:rgba(44,110,73,.12);color:#2C6E49;display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:7px;font-weight:700;flex:none">MD</span>
+            <span style="font-weight:600">reading-list.md</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#7E7359;margin-left:auto">6 KB</span>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Remaining extras compact -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:10px">
+      <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:16px 18px">
+        <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:5px"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">11</span><span style="font-size:13.5px;font-weight:700">Set annotations</span><span style="font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:2px 7px">Shipped</span></div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">A one-line note per set — "waiting on Ada's signature" — turns sets into lightweight projects.</p>
+      </div>
+      <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:16px 18px">
+        <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:5px"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">12</span><span style="font-size:13.5px;font-weight:700">Duplicate detector</span><span style="font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:2px 7px">Shipped</span></div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">Flag same-name / same-size pairs across folders. Fits the tidy "keeper" personality.</p>
+      </div>
+      <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:16px 18px">
+        <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:5px"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">13</span><span style="font-size:13.5px;font-weight:700">Workspace-per-set</span><span style="font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:2px 7px">Shipped</span></div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">Opening "Ledger redesign" applies its saved skin and layout — the environment follows the work.</p>
+      </div>
+      <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:16px 18px">
+        <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:5px"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">14</span><span style="font-size:13.5px;font-weight:700">Shareable sets</span><span style="font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:2px 7px">Shipped</span></div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">Skins already export as codes — do the same for sets (paths + note), reinforcing a mechanic people already know.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Recommendation -->
+  <section style="background:#211D17;color:#EFE9DE;border-radius:16px;padding:clamp(18px,4vw,26px);margin-bottom:32px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#8CB89F;margin-bottom:10px">Status</div>
+    <p style="margin:0;font-size:clamp(15px,2.8vw,17px);line-height:1.6;font-weight:500;text-wrap:pretty">All fourteen shipped. Try them: <strong style="color:#8CB89F">Space</strong> for Quick Look, <strong style="color:#8CB89F">S</strong> to star, right-click a folder for “Open in lower pane”, right-click the Working Sets header for smart sets and set codes, and add the <strong style="color:#8CB89F">Timeline</strong>, <strong style="color:#8CB89F">Duplicates</strong> and <strong style="color:#8CB89F">Second pane</strong> modules from edit mode.</p>
+  </section>
+
+  <footer style="text-align:center;padding-bottom:24px">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#A89E88">Geyma · feature proposals · 14 ideas · 14 shipped</span>
+  </footer>
+
+</div>
+</div>
+
+</x-dc>
+</body>
+</html>
