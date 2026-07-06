@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Geyma",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "identifier": "dev.madsens.geyma",
   "build": {
     "frontendDist": "../dist",
@@ -28,7 +28,8 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["deb", "rpm"],
+    "category": "Utility",
     "linux": {
       "appimage": {
         "bundleMediaFramework": true

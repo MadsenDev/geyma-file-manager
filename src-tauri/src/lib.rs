@@ -34,6 +34,7 @@ pub fn run() {
             fsops::restore_path,
             fsops::delete_permanently,
             fsops::trash_dir_path,
+            fsops::extract_archive,
             fsops::disk_usage,
             fsops::list_devices,
             media::media_server_info,

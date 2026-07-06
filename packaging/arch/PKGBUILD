@@ -1,0 +1,63 @@
+# Maintainer: MadsenDev
+# Builds Geyma from the repository's default branch, since no tagged
+# releases exist yet. Once a release is tagged, a plain `geyma` package
+# pointing at the release tarball is the more conventional AUR shape.
+pkgname=geyma-git
+pkgver=0.5.0.r0.g0000000
+pkgrel=1
+pkgdesc="A desktop file manager that remembers where your files have been"
+arch=('x86_64')
+url="https://github.com/MadsenDev/geyma-file-manager"
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'libappindicator-gtk3' 'librsvg')
+makedepends=('git' 'rust' 'nodejs' 'npm')
+provides=('geyma')
+conflicts=('geyma')
+source=("$pkgname::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+  if described=$(git describe --long --tags 2>/dev/null); then
+    echo "$described" | sed 's/^v//; s/\([^-]*-g\)/r\1/; s/-/./g'
+  else
+    printf 'r%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  fi
+}
+
+prepare() {
+  cd "$pkgname"
+  npm ci
+}
+
+build() {
+  cd "$pkgname"
+  npm run build
+  cd src-tauri
+  cargo build --release --locked
+}
+
+package() {
+  cd "$pkgname"
+
+  install -Dm755 "src-tauri/target/release/geyma" "$pkgdir/usr/bin/geyma"
+
+  install -Dm644 "src-tauri/icons/32x32.png" "$pkgdir/usr/share/icons/hicolor/32x32/apps/geyma.png"
+  install -Dm644 "src-tauri/icons/128x128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/geyma.png"
+  install -Dm644 "src-tauri/icons/128x128@2x.png" "$pkgdir/usr/share/icons/hicolor/256x256@2/apps/geyma.png"
+
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/geyma.desktop" <<-EOF
+[Desktop Entry]
+Type=Application
+Name=Geyma
+Comment=A file manager that remembers where your files have been
+Exec=geyma %U
+Icon=geyma
+Terminal=false
+Categories=System;FileManager;
+MimeType=inode/directory;
+StartupWMClass=geyma
+EOF
+
+  install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

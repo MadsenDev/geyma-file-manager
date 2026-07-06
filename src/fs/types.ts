@@ -57,6 +57,7 @@ export interface FsBackend {
   /** Checks native audio/video prerequisites before WebKit creates a media element. */
   mediaPlaybackSupport(): Promise<MediaPlaybackSupport>;
   previewArchive(path: string): Promise<ArchivePreview>;
+  extractArchive(path: string, destDir: string, folderName: string): Promise<string>;
   previewTextFile(path: string): Promise<TextPreview | null>;
   createFolder(parent: string, name: string): Promise<string>;
   createFile(parent: string, name: string, contents: string): Promise<string>;

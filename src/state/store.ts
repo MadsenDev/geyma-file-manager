@@ -26,6 +26,7 @@ import type {
 } from "./types";
 import type { SkinOverrides } from "../theme/skins";
 import { extOf, kindOf } from "../lib/format";
+import { computeBatchNames } from "../lib/batchRename";
 
 const STORAGE_KEY = "geyma-v1";
 
@@ -204,6 +205,8 @@ interface AppState {
 
   moveEntries(paths: string[], destDir: string): Promise<void>;
   duplicateEntries(paths: string[]): Promise<void>;
+  extractHere(path: string): Promise<void>;
+  batchRename(paths: string[], template: string, startAt: number): Promise<void>;
   trashEntries(paths: string[]): Promise<void>;
   restoreEntries(paths: string[]): Promise<void>;
   requestPermanentDelete(paths: string[]): void;
@@ -756,6 +759,85 @@ export const useStore = create<AppState>()((set, get) => ({
       });
     }
     set({ selected: copied });
+  },
+
+  async extractHere(archivePath) {
+    const { backend } = get();
+    if (!backend) return;
+    const dir = backend.dirname(archivePath);
+    const stem = backend.basename(archivePath).replace(/\.[^./]+$/, "");
+    const existing = new Set(get().entriesFor(dir).map((e) => e.name));
+    const folderName = uniqueNameFor(existing, stem || "archive");
+    try {
+      const newPath = await backend.extractArchive(archivePath, dir, folderName);
+      logEvent(get, set, newPath, "Extracted", `from "${backend.basename(archivePath)}"`, "archive");
+      get().pushUndo({
+        label: `Extract ${folderName}`,
+        undo: async () => {
+          await backend.trashPath(newPath);
+          await get().loadDir(dir, true);
+        },
+      });
+      await get().loadDir(dir, true);
+      set({ selected: [newPath] });
+    } catch (e) {
+      get().showToast(`Extract failed: ${e}`);
+    }
+  },
+
+  async batchRename(paths, template, startAt) {
+    const { backend } = get();
+    if (!backend || paths.length === 0) return;
+    const dir = backend.dirname(paths[0]);
+    const dirEntries = get().entriesFor(dir);
+    const targets = paths
+      .map((p) => dirEntries.find((e) => e.path === p))
+      .filter((e): e is FsEntry => !!e);
+    if (targets.length !== paths.length) {
+      get().showToast("Batch rename failed: selection changed, try again");
+      return;
+    }
+
+    const newNames = computeBatchNames(targets, template, startAt);
+    const targetPaths = new Set(targets.map((e) => e.path));
+    const staticNames = new Set(dirEntries.filter((e) => !targetPaths.has(e.path)).map((e) => e.name));
+    const seen = new Set<string>();
+    for (const name of newNames) {
+      if (!name.trim() || staticNames.has(name) || seen.has(name)) {
+        get().showToast(`Batch rename failed: name collision on "${name || "(empty)"}"`);
+        return;
+      }
+      seen.add(name);
+    }
+
+    const renamed: { to: string; oldName: string; newName: string }[] = [];
+    for (let i = 0; i < targets.length; i++) {
+      const entry = targets[i];
+      const newName = newNames[i];
+      if (newName === entry.name) continue;
+      try {
+        const newPath = await backend.renamePath(entry.path, newName);
+        updateSetRefs(get, set, dir, entry.name, dir, newName);
+        logEvent(get, set, newPath, "Renamed", `from "${entry.name}"`, "archive");
+        renamed.push({ to: newPath, oldName: entry.name, newName });
+      } catch (e) {
+        get().showToast(`Rename failed for "${entry.name}": ${e}`);
+      }
+    }
+    if (renamed.length) {
+      get().pushUndo({
+        label: `Batch rename ${renamed.length} item${renamed.length > 1 ? "s" : ""}`,
+        undo: async () => {
+          for (const r of renamed) {
+            await backend.renamePath(r.to, r.oldName);
+            updateSetRefs(get, set, dir, r.newName, dir, r.oldName);
+          }
+          await get().loadDir(dir, true);
+        },
+      });
+    }
+    await get().loadDir(dir, true);
+    set({ selected: renamed.map((r) => r.to) });
   },
 
   async trashEntries(paths) {

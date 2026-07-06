@@ -8,7 +8,7 @@
 of them, and reshapes itself to however you want to work.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-2C6E49)](LICENSE)
-![Status](https://img.shields.io/badge/status-v0.5%20in%20progress-2C7DD6)
+![Status](https://img.shields.io/badge/status-v0.6%20in%20progress-2C7DD6)
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20Tauri%202-7A4B8C)
 
 Geyma (Old Norse: *to keep, to guard*) is a from-scratch rewrite of a PySide6 file manager,
@@ -97,8 +97,13 @@ packages, on top of a Rust toolchain).
 ```bash
 npm run build          # typecheck + build the frontend bundle
 npm run typecheck       # TypeScript only
-npm run tauri build     # full desktop bundle (needs native deps above)
+npm run tauri build     # .deb and .rpm bundles (needs native deps above)
 ```
+
+Arch Linux is packaged separately via [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD)
+(a `-git` VCS package, since no tagged releases exist yet) — build it with `makepkg -si`.
+AppImage isn't part of the default build; it's still buildable on demand with
+`npm run tauri build -- --bundles appimage`.
 
 ## Project layout
 
@@ -121,8 +126,14 @@ design/        the v3.2 design handoff this rewrite implements
 The zone/module layout engine, skin/token system, and core modules (files grid/list, nav,
 location, search, view switch, title, places, devices, status, details, appearance, sets,
 disk, recent, timeline, duplicates, clock, visualizer, folder mood, second pane, Quick Look,
-ghost trails) are implemented against real filesystem data. Cut, copy/paste, and duplicate are
-all wired to the real FS (copy is a recursive Rust command), working-set references stay
-correct across every operation (move/rename/trash/restore/permanent delete), and set share
-codes round-trip full set data (items, rule, smart, note). Still open, per the design spec:
-workspace (full environment) snapshots and binding a look/layout snapshot to a working set.
+ghost trails) are implemented against real filesystem data. Cut, copy/paste, duplicate, ZIP
+extraction, and batch rename (pattern + numbering, undoable) are all wired to the real FS
+(copy and extraction are recursive Rust commands), working-set references stay correct
+across every operation (move/rename/trash/restore/permanent delete), and set share codes
+round-trip full set data (items, rule, smart, note). `src-tauri` has unit test coverage for
+the filesystem commands (move/copy/rename/trash/restore/delete/extract, including a zip-slip
+guard) and archive/text preview parsing; the frontend has none yet. `npm run tauri build`
+produces working `.deb` and `.rpm` bundles; AppImage bundling depends on a GitHub release
+download that may be blocked in restricted network environments. Still open, per the design
+spec: workspace (full environment) snapshots, binding a look/layout snapshot to a working
+set, and non-ZIP archive formats (tar/rar/7z), tabs, and network protocol (smb/sftp) support.

@@ -10,6 +10,7 @@ import { getFsBackend } from "../fs";
 import type { Ghost } from "../state/types";
 import { joinPosix } from "../fs/pathUtil";
 import { openWithDefaultApp } from "../lib/openDefault";
+import { BatchRenameModal } from "../overlays/BatchRenameModal";
 
 async function searchAll(root: string, query: string, cap = 1500): Promise<FsEntry[]> {
   const backend = await getFsBackend();
@@ -59,6 +60,9 @@ export function Files() {
   const cancelRename = useStore((s) => s.cancelRename);
   const moveEntries = useStore((s) => s.moveEntries);
   const duplicateEntries = useStore((s) => s.duplicateEntries);
+  const extractHere = useStore((s) => s.extractHere);
+  const batchRename = useStore((s) => s.batchRename);
+  const [batchTargets, setBatchTargets] = useState<string[] | null>(null);
   const trashEntries = useStore((s) => s.trashEntries);
   const restoreEntries = useStore((s) => s.restoreEntries);
   const requestPermanentDelete = useStore((s) => s.requestPermanentDelete);
@@ -147,10 +151,14 @@ export function Files() {
               },
             }
           : undefined,
+        !multi && extOf(entry.name) === "ZIP"
+          ? { label: "Extract Here", onClick: () => void extractHere(entry.path) }
+          : undefined,
         { divider: true },
         { label: "Cut", onClick: () => setClip("cut", targets) },
         { label: "Copy", onClick: () => setClip("copy", targets) },
         { label: multi ? `Duplicate ${targets.length} items` : "Duplicate", onClick: () => duplicateEntries(targets) },
+        multi ? { label: `Batch rename ${targets.length} items…`, onClick: () => setBatchTargets(targets) } : undefined,
         ...manualSets.map((s) => ({
           label: `Add to "${s.name}"`,
           onClick: () =>
@@ -183,12 +191,24 @@ export function Files() {
     });
   }
 
+  const batchModal = batchTargets && (
+    <BatchRenameModal
+      entries={sorted.filter((e) => batchTargets.includes(e.path))}
+      onClose={() => setBatchTargets(null)}
+      onConfirm={(template, startAt) => {
+        void batchRename(batchTargets, template, startAt);
+        setBatchTargets(null);
+      }}
+    />
+  );
+
   if (sorted.length === 0 && showGhosts && ghostsForDir.length === 0) {
     return (
       <div onContextMenu={onBlankMenu} style={{ flex: 1, display: "grid", placeItems: "center", padding: 40 }}>
         <span style={{ fontSize: 12.5, color: t.inkFaint }}>
           {query.trim() ? "No matches" : trashView ? "Trash is empty" : "Empty folder"}
         </span>
+        {batchModal}
       </div>
     );
   }
@@ -239,6 +259,7 @@ export function Files() {
           onDropFiles={(dir, paths) => void moveEntries(paths, dir)}
         />
       )}
+      {batchModal}
     </div>
   );
 }

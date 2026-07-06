@@ -226,6 +226,18 @@ export const mockBackend: FsBackend = {
       truncated: false,
     };
   },
+  async extractArchive(_path: string, destDir: string, folderName: string) {
+    ensureDir(destDir);
+    if ((TREE[destDir] || []).some((n) => n.name === folderName)) {
+      throw new Error("A file or folder with that name already exists");
+    }
+    insertNode(destDir, folder(folderName, Date.now()));
+    const target = joinPosix(destDir, folderName);
+    insertNode(target, folder("Documents", Date.now()));
+    insertNode(joinPosix(target, "Documents"), file("readme.txt", 1840, Date.now()));
+    insertNode(target, file("preview.png", 245760, Date.now()));
+    return delay(target);
+  },
   async previewTextFile(path: string) {
     const found = findNode(path);
     const name = found?.node.name ?? basenamePosix(path);

@@ -63,6 +63,9 @@ export const tauriBackend: FsBackend = {
   async previewArchive(path: string) {
     return invoke<ArchivePreview>("preview_archive", { path });
   },
+  async extractArchive(path: string, destDir: string, folderName: string) {
+    return invoke<string>("extract_archive", { path, destDir, folderName });
+  },
   async previewTextFile(path: string) {
     return invoke<TextPreview | null>("preview_text_file", { path });
   },
