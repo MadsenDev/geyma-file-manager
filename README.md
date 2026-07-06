@@ -97,8 +97,13 @@ packages, on top of a Rust toolchain).
 ```bash
 npm run build          # typecheck + build the frontend bundle
 npm run typecheck       # TypeScript only
-npm run tauri build     # full desktop bundle (needs native deps above)
+npm run tauri build     # .deb and .rpm bundles (needs native deps above)
 ```
+
+Arch Linux is packaged separately via [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD)
+(a `-git` VCS package, since no tagged releases exist yet) — build it with `makepkg -si`.
+AppImage isn't part of the default build; it's still buildable on demand with
+`npm run tauri build -- --bundles appimage`.
 
 ## Project layout
 

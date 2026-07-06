@@ -28,7 +28,8 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["deb", "rpm"],
+    "category": "Utility",
     "linux": {
       "appimage": {
         "bundleMediaFramework": true
