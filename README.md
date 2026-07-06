@@ -73,6 +73,8 @@ design/        the v3.2 design handoff this rewrite implements
 The zone/module layout engine, skin/token system, and core modules (files grid/list, nav,
 location, search, view switch, title, places, devices, status, details, appearance, sets,
 disk, recent, timeline, duplicates, clock, visualizer, folder mood, second pane, Quick Look,
-ghost trails) are implemented against real filesystem data. Still open, per the design spec:
-recursive copy (only cut/move is wired to the real FS today), set share-code import/export
-polish, and workspace (full environment) snapshots.
+ghost trails) are implemented against real filesystem data. Cut, copy/paste, and duplicate are
+all wired to the real FS (copy is a recursive Rust command), working-set references stay
+correct across every operation (move/rename/trash/restore/permanent delete), and set share
+codes round-trip full set data (items, rule, smart, note). Still open, per the design spec:
+workspace (full environment) snapshots and binding a look/layout snapshot to a working set.

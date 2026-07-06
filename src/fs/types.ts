@@ -29,6 +29,7 @@ export interface FsBackend {
   createFile(parent: string, name: string, contents: string): Promise<string>;
   renamePath(from: string, toName: string): Promise<string>;
   movePath(from: string, toDir: string): Promise<string>;
+  copyPath(from: string, toDir: string, toName: string): Promise<string>;
   trashPath(path: string): Promise<string>;
   restorePath(trashedPath: string, toDir: string): Promise<string>;
   deletePermanently(path: string): Promise<void>;

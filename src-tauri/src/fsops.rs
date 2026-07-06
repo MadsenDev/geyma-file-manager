@@ -103,6 +103,32 @@ pub fn move_path(from: String, to_dir: String) -> Result<String, String> {
     Ok(target.to_string_lossy().to_string())
 }
 
+fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    if src.is_dir() {
+        fs::create_dir_all(dst)?;
+        for entry in fs::read_dir(src)? {
+            let entry = entry?;
+            let dest_path = dst.join(entry.file_name());
+            if entry.file_type()?.is_dir() {
+                copy_recursive(&entry.path(), &dest_path)?;
+            } else {
+                fs::copy(entry.path(), &dest_path)?;
+            }
+        }
+    } else {
+        fs::copy(src, dst)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn copy_path(from: String, to_dir: String, to_name: String) -> Result<String, String> {
+    let src = PathBuf::from(&from);
+    let target = PathBuf::from(&to_dir).join(&to_name);
+    copy_recursive(&src, &target).map_err(|e| e.to_string())?;
+    Ok(target.to_string_lossy().to_string())
+}
+
 fn app_trash_dir() -> Result<PathBuf, String> {
     let base = dirs::data_dir().ok_or("no data dir")?;
     let dir = base.join("geyma").join("trash");

@@ -7,11 +7,19 @@ export function Title() {
   const home = useStore((s) => s.home);
   const backend = useStore((s) => s.backend);
   const trashView = useStore((s) => s.trashView);
-  const trashDir = useStore((s) => s.trashDir);
-  const entries = useStore((s) => s.entriesFor(trashView ? trashDir : path));
+  const activeSetId = useStore((s) => s.activeSetId);
+  const setDefs = useStore((s) => s.setDefs);
+  const entries = useStore((s) => s.visibleEntries());
 
-  const name = trashView ? "Trash" : path === home ? "Home" : backend?.basename(path) || path;
-  const kicker = trashView ? "Trash · items awaiting permanent removal" : path;
+  const activeSet = activeSetId ? setDefs.find((s) => s.id === activeSetId) : null;
+  const name = activeSet ? activeSet.name : trashView ? "Trash" : path === home ? "Home" : backend?.basename(path) || path;
+  const kicker = activeSet
+    ? activeSet.smart
+      ? "Smart set · fills itself from rules"
+      : "Working set · references, not copies"
+    : trashView
+      ? "Trash · items awaiting permanent removal"
+      : path;
   const folders = entries.filter((e) => e.isDir).length;
   const files = entries.length - folders;
 
@@ -24,6 +32,7 @@ export function Title() {
       <div style={{ fontSize: 12, color: t.inkSoft, marginTop: 2 }}>
         {entries.length} item{entries.length === 1 ? "" : "s"}
         {folders > 0 && files > 0 ? ` · ${folders} folder${folders === 1 ? "" : "s"}, ${files} file${files === 1 ? "" : "s"}` : ""}
+        {activeSet?.note ? ` · "${activeSet.note}"` : ""}
       </div>
     </div>
   );

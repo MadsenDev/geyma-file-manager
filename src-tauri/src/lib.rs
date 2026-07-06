@@ -25,6 +25,7 @@ pub fn run() {
             fsops::create_file,
             fsops::rename_path,
             fsops::move_path,
+            fsops::copy_path,
             fsops::trash_path,
             fsops::restore_path,
             fsops::delete_permanently,

@@ -53,6 +53,9 @@ export const tauriBackend: FsBackend = {
   async movePath(from: string, toDir: string) {
     return invoke<string>("move_path", { from, toDir });
   },
+  async copyPath(from: string, toDir: string, toName: string) {
+    return invoke<string>("copy_path", { from, toDir, toName });
+  },
   async trashPath(path: string) {
     return invoke<string>("trash_path", { path });
   },

@@ -8,10 +8,7 @@ import { panelTitleStyle } from "./common";
 
 export function Details() {
   const t = useTheme();
-  const path = useStore((s) => s.path);
-  const trashView = useStore((s) => s.trashView);
-  const trashDir = useStore((s) => s.trashDir);
-  const entries = useStore((s) => s.entriesFor(trashView ? trashDir : path));
+  const entries = useStore((s) => s.visibleEntries());
   const selected = useStore((s) => s.selected);
   const starred = useStore((s) => s.starred);
   const fileEvents = useStore((s) => s.fileEvents);

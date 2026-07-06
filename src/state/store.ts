@@ -17,6 +17,7 @@ import type {
   Filters,
   Ghost,
   SearchScope,
+  SetItemRef,
   SortDir,
   SortKey,
   UndoAction,
@@ -24,7 +25,7 @@ import type {
   WorkingSet,
 } from "./types";
 import type { SkinOverrides } from "../theme/skins";
-import { kindOf } from "../lib/format";
+import { extOf, kindOf } from "../lib/format";
 
 const STORAGE_KEY = "geyma-v1";
 
@@ -50,6 +51,7 @@ interface PersistedShape {
   starred?: string[];
   fileEvents?: Record<string, FileEvent[]>;
   trashOrigins?: Record<string, string>;
+  trashOriginNames?: Record<string, string>;
 }
 
 function loadPersisted(): PersistedShape {
@@ -98,6 +100,7 @@ interface AppState {
   query: string;
   searchScope: SearchScope;
   filters: Filters;
+  searchAllResults: FsEntry[] | null;
 
   // starred / tags
   starred: Set<string>;
@@ -121,6 +124,7 @@ interface AppState {
   globalFeed: FileEvent[];
   ghosts: Record<string, Ghost[]>;
   trashOrigins: Record<string, string>;
+  trashOriginNames: Record<string, string>;
   undoStack: UndoAction[];
 
   // sets
@@ -154,6 +158,8 @@ interface AppState {
   init(): Promise<void>;
   loadDir(path: string, force?: boolean): Promise<void>;
   entriesFor(path: string): FsEntry[];
+  visibleEntries(): FsEntry[];
+  setSearchAllResults(results: FsEntry[] | null): void;
   goPath(path: string): void;
   goPlace(path: string): void;
   goBack(): void;
@@ -197,6 +203,7 @@ interface AppState {
   pasteClip(): Promise<void>;
 
   moveEntries(paths: string[], destDir: string): Promise<void>;
+  duplicateEntries(paths: string[]): Promise<void>;
   trashEntries(paths: string[]): Promise<void>;
   restoreEntries(paths: string[]): Promise<void>;
   requestPermanentDelete(paths: string[]): void;
@@ -210,6 +217,7 @@ interface AppState {
 
   createManualSet(name: string): void;
   createSmartSet(name: string, rule: WorkingSet["rule"]): void;
+  importSet(data: { name?: string; note?: string; smart?: boolean; rule?: WorkingSet["rule"]; items?: SetItemRef[] }): void;
   addToSet(setId: string, refs: { dir: string; name: string }[]): void;
   removeFromSet(setId: string, dir: string, name: string): void;
   renameSet(setId: string, name: string): void;
@@ -217,6 +225,7 @@ interface AppState {
   duplicateSet(setId: string): void;
   removeSet(setId: string): void;
   openSet(setId: string | null): void;
+  openTrash(): void;
   setEntriesFor(set: WorkingSet): FsEntry[];
 
   setSkin(skin: string): void;
@@ -271,6 +280,7 @@ export const useStore = create<AppState>()((set, get) => ({
   query: "",
   searchScope: "folder",
   filters: { kind: null, starred: false },
+  searchAllResults: null,
 
   starred: new Set<string>(),
 
@@ -288,6 +298,7 @@ export const useStore = create<AppState>()((set, get) => ({
   globalFeed: [],
   ghosts: {},
   trashOrigins: {},
+  trashOriginNames: {},
   undoStack: [],
 
   setDefs: seedSets(),
@@ -343,6 +354,7 @@ export const useStore = create<AppState>()((set, get) => ({
       starred: new Set(persisted.starred || []),
       fileEvents: persisted.fileEvents || {},
       trashOrigins: persisted.trashOrigins || {},
+      trashOriginNames: persisted.trashOriginNames || {},
     });
     await get().loadDir(home);
     await get().loadDir(get().path2);
@@ -369,10 +381,52 @@ export const useStore = create<AppState>()((set, get) => ({
     return get().dirs[path] || [];
   },
 
+  setSearchAllResults(results) {
+    set({ searchAllResults: results });
+  },
+
+  // The single source of truth for "what the Files module currently shows": same
+  // filtering/sorting must drive the grid, the item count, keyboard navigation,
+  // select-all, and Quick Look stepping, or they silently disagree with each other.
+  visibleEntries() {
+    const st = get();
+    const activeSet = st.activeSetId ? st.setDefs.find((s) => s.id === st.activeSetId) : null;
+    const dirEntries = st.entriesFor(st.trashView ? st.trashDir : st.path);
+    const baseEntries: FsEntry[] = activeSet
+      ? st.setEntriesFor(activeSet)
+      : st.searchScope === "all" && st.query.trim() && st.searchAllResults
+        ? st.searchAllResults
+        : dirEntries;
+
+    const q = st.query.trim().toLowerCase();
+    const filtered = baseEntries.filter((e) => {
+      if (!st.showHidden && e.isHidden && !st.trashView) return false;
+      const kind = kindOf(e.name, e.isDir);
+      if (st.filters.kind && kind !== st.filters.kind) return false;
+      if (st.filters.starred && !st.starred.has(e.path)) return false;
+      if (q && st.searchScope === "folder") {
+        const ext = extOf(e.name).toLowerCase();
+        if (!e.name.toLowerCase().includes(q) && !kind.includes(q) && !ext.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const sorted = filtered.slice().sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+      let cmp = 0;
+      if (st.sortKey === "name") cmp = a.name.localeCompare(b.name);
+      else if (st.sortKey === "kind") cmp = kindOf(a.name, a.isDir).localeCompare(kindOf(b.name, b.isDir));
+      else if (st.sortKey === "size") cmp = a.size - b.size;
+      else if (st.sortKey === "modified") cmp = a.modifiedMs - b.modifiedMs;
+      return st.sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  },
+
   goPath(path: string) {
     const { hist, hi } = get();
     const newHist = hist.slice(0, hi + 1).concat(path);
-    set({ path, hist: newHist, hi: newHist.length - 1, selected: [], anchor: null, trashView: false });
+    set({ path, hist: newHist, hi: newHist.length - 1, selected: [], anchor: null, trashView: false, activeSetId: null, query: "" });
     void get().loadDir(path);
   },
   goPlace(path: string) {
@@ -382,14 +436,14 @@ export const useStore = create<AppState>()((set, get) => ({
     const { hi, hist } = get();
     if (hi <= 0) return;
     const path = hist[hi - 1];
-    set({ hi: hi - 1, path, selected: [], anchor: null });
+    set({ hi: hi - 1, path, selected: [], anchor: null, trashView: false, activeSetId: null, query: "" });
     void get().loadDir(path);
   },
   goForward() {
     const { hi, hist } = get();
     if (hi >= hist.length - 1) return;
     const path = hist[hi + 1];
-    set({ hi: hi + 1, path, selected: [], anchor: null });
+    set({ hi: hi + 1, path, selected: [], anchor: null, trashView: false, activeSetId: null, query: "" });
     void get().loadDir(path);
   },
   goUp() {
@@ -422,7 +476,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   select(path: string, opts) {
     const { selected, anchor } = get();
-    const entries = get().entriesFor(get().path).map((e) => e.path);
+    const entries = get().visibleEntries().map((e) => e.path);
     if (opts?.shift && anchor) {
       const ai = entries.indexOf(anchor);
       const bi = entries.indexOf(path);
@@ -440,7 +494,7 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ selected: [path], anchor: path });
   },
   selectAll() {
-    set({ selected: get().entriesFor(get().path).map((e) => e.path) });
+    set({ selected: get().visibleEntries().map((e) => e.path) });
   },
   clearSelection() {
     set({ selected: [], anchor: null });
@@ -505,9 +559,9 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ preview: null });
   },
   stepPreview(dir) {
-    const { preview, path } = get();
+    const { preview } = get();
     if (!preview) return;
-    const entries = get().entriesFor(path).filter((e) => !e.isDir);
+    const entries = get().visibleEntries().filter((e) => !e.isDir);
     const idx = entries.findIndex((e) => e.path === preview);
     if (idx < 0) return;
     const next = (idx + dir + entries.length) % entries.length;
@@ -526,16 +580,20 @@ export const useStore = create<AppState>()((set, get) => ({
       return;
     }
     const oldName = backend.basename(renaming);
-    if (renameVal === oldName) {
+    const dir = backend.dirname(renaming);
+    const newName = renameVal.trim();
+    if (newName === oldName) {
       set({ renaming: null });
       return;
     }
     try {
-      const newPath = await backend.renamePath(renaming, renameVal.trim());
+      const newPath = await backend.renamePath(renaming, newName);
+      updateSetRefs(get, set, dir, oldName, dir, newName);
       get().pushUndo({
         label: `Rename ${oldName}`,
         undo: async () => {
           await backend.renamePath(newPath, oldName);
+          updateSetRefs(get, set, dir, newName, dir, oldName);
           await get().loadDir(path, true);
         },
       });
@@ -585,14 +643,45 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ clip: { mode, items } });
   },
   async pasteClip() {
-    const { clip, path } = get();
-    if (!clip || clip.items.length === 0) return;
+    const { clip, path, backend } = get();
+    if (!clip || clip.items.length === 0 || !backend) return;
     if (clip.mode === "cut") {
       await get().moveEntries(clip.items, path);
       set({ clip: null });
-    } else {
-      get().showToast("Copy is not yet implemented for real files — cut/move works today.");
+      return;
     }
+    const destDir = path;
+    const copied: string[] = [];
+    for (const p of clip.items) {
+      const origDir = backend.dirname(p);
+      const origName = backend.basename(p);
+      const existing = new Set(get().entriesFor(destDir).map((e) => e.name));
+      const finalName = uniqueNameFor(existing, origName);
+      try {
+        const newPath = await backend.copyPath(p, destDir, finalName);
+        copied.push(newPath);
+        logEvent(get, set, newPath, "Copied here", origDir !== destDir ? `from ${origDir}` : undefined, "video");
+        await get().loadDir(destDir, true);
+      } catch (e) {
+        get().showToast(`Copy failed: ${e}`);
+      }
+    }
+    if (copied.length) {
+      get().pushUndo({
+        label: `Paste ${copied.length} item${copied.length > 1 ? "s" : ""}`,
+        undo: async () => {
+          for (const c of copied) {
+            try {
+              await backend.trashPath(c);
+            } catch (e) {
+              get().showToast(`Undo failed: ${e}`);
+            }
+          }
+          await get().loadDir(destDir, true);
+        },
+      });
+    }
+    set({ selected: copied });
   },
 
   async moveEntries(paths, destDir) {
@@ -607,7 +696,7 @@ export const useStore = create<AppState>()((set, get) => ({
         const name = backend.basename(p);
         logEvent(get, set, to, "Moved here", `from ${srcDir}`, "video");
         addGhost(get, set, srcDir, { name, fromPath: p, toDir: destDir, toName: name, atMs: Date.now() });
-        updateSetRefsOnMove(get, set, srcDir, name, destDir);
+        updateSetRefs(get, set, srcDir, name, destDir);
       } catch (e) {
         get().showToast(`Move failed: ${e}`);
       }
@@ -618,7 +707,7 @@ export const useStore = create<AppState>()((set, get) => ({
         undo: async () => {
           for (const m of moved) {
             await backend.movePath(m.to, srcDir);
-            updateSetRefsOnMove(get, set, destDir, backend.basename(m.to), srcDir);
+            updateSetRefs(get, set, destDir, backend.basename(m.to), srcDir);
           }
           await get().loadDir(srcDir, true);
           await get().loadDir(destDir, true);
@@ -630,19 +719,61 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ selected: [] });
   },
 
+  async duplicateEntries(paths) {
+    const { backend } = get();
+    if (!backend) return;
+    const copied: string[] = [];
+    for (const p of paths) {
+      const dir = backend.dirname(p);
+      const origName = backend.basename(p);
+      const existing = new Set(get().entriesFor(dir).map((e) => e.name));
+      const finalName = uniqueNameFor(existing, origName);
+      try {
+        const newPath = await backend.copyPath(p, dir, finalName);
+        copied.push(newPath);
+        logEvent(get, set, newPath, "Duplicated", `from "${origName}"`, "video");
+        await get().loadDir(dir, true);
+      } catch (e) {
+        get().showToast(`Duplicate failed: ${e}`);
+      }
+    }
+    if (copied.length) {
+      get().pushUndo({
+        label: `Duplicate ${copied.length} item${copied.length > 1 ? "s" : ""}`,
+        undo: async () => {
+          const dirs = new Set(copied.map((c) => backend.dirname(c)));
+          for (const c of copied) {
+            try {
+              await backend.trashPath(c);
+            } catch (e) {
+              get().showToast(`Undo failed: ${e}`);
+            }
+          }
+          for (const d of dirs) await get().loadDir(d, true);
+        },
+      });
+    }
+    set({ selected: copied });
+  },
+
   async trashEntries(paths) {
     const { backend, trashDir } = get();
     if (!backend) return;
-    const trashed: { origin: string; name: string; trashedPath: string }[] = [];
+    const trashed: { origin: string; name: string; trashedPath: string; trashedName: string }[] = [];
     for (const p of paths) {
       const origin = backend.dirname(p);
       const name = backend.basename(p);
       try {
         const trashedPath = await backend.trashPath(p);
-        trashed.push({ origin, name, trashedPath });
+        const trashedName = backend.basename(trashedPath);
+        trashed.push({ origin, name, trashedPath, trashedName });
         logEvent(get, set, trashedPath, "Deleted", "to Trash", "document");
         addGhost(get, set, origin, { name, fromPath: p, toDir: trashDir, toName: name, atMs: Date.now() });
-        set({ trashOrigins: { ...get().trashOrigins, [trashedPath]: origin } });
+        updateSetRefs(get, set, origin, name, trashDir, trashedName);
+        set({
+          trashOrigins: { ...get().trashOrigins, [trashedPath]: origin },
+          trashOriginNames: { ...get().trashOriginNames, [trashedPath]: name },
+        });
       } catch (e) {
         get().showToast(`Trash failed: ${e}`);
       }
@@ -652,7 +783,14 @@ export const useStore = create<AppState>()((set, get) => ({
         label: `Trash ${trashed.length} item${trashed.length > 1 ? "s" : ""}`,
         undo: async () => {
           for (const t of trashed) {
-            await backend.restorePath(t.trashedPath, t.origin);
+            const restoredPath = await backend.restorePath(t.trashedPath, t.origin);
+            const finalPath = await finishRestore(backend, get, t.origin, restoredPath, t.name);
+            updateSetRefs(get, set, trashDir, t.trashedName, t.origin, backend.basename(finalPath));
+            const origins = { ...get().trashOrigins };
+            const originNames = { ...get().trashOriginNames };
+            delete origins[t.trashedPath];
+            delete originNames[t.trashedPath];
+            set({ trashOrigins: origins, trashOriginNames: originNames });
           }
           await get().loadDir(trashDir, true);
           trashed.forEach((t) => get().loadDir(t.origin, true));
@@ -666,21 +804,47 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   async restoreEntries(paths) {
-    const { backend, trashOrigins, home } = get();
+    const { backend, trashOrigins, trashOriginNames, home, trashDir } = get();
     if (!backend) return;
     const origins = { ...trashOrigins };
+    const originNames = { ...trashOriginNames };
+    const restored: { toDir: string; finalPath: string; trashedName: string; origName: string }[] = [];
     for (const p of paths) {
       const toDir = origins[p] || home;
+      const trashedName = backend.basename(p);
+      const desiredName = originNames[p] || trashedName;
       try {
-        const restored = await backend.restorePath(p, toDir);
-        logEvent(get, set, restored, "Restored", "from Trash", "app");
+        const movedPath = await backend.restorePath(p, toDir);
+        const finalPath = await finishRestore(backend, get, toDir, movedPath, desiredName);
+        logEvent(get, set, finalPath, "Restored", "from Trash", "app");
+        updateSetRefs(get, set, trashDir, trashedName, toDir, backend.basename(finalPath));
+        restored.push({ toDir, finalPath, trashedName, origName: desiredName });
         delete origins[p];
+        delete originNames[p];
         await get().loadDir(toDir, true);
       } catch (e) {
         get().showToast(`Restore failed: ${e}`);
       }
     }
-    set({ trashOrigins: origins });
+    if (restored.length) {
+      get().pushUndo({
+        label: `Restore ${restored.length} item${restored.length > 1 ? "s" : ""}`,
+        undo: async () => {
+          for (const r of restored) {
+            const trashedAgain = await backend.trashPath(r.finalPath);
+            const trashedAgainName = backend.basename(trashedAgain);
+            updateSetRefs(get, set, r.toDir, backend.basename(r.finalPath), trashDir, trashedAgainName);
+            set({
+              trashOrigins: { ...get().trashOrigins, [trashedAgain]: r.toDir },
+              trashOriginNames: { ...get().trashOriginNames, [trashedAgain]: r.origName },
+            });
+          }
+          await get().loadDir(trashDir, true);
+          restored.forEach((r) => get().loadDir(r.toDir, true));
+        },
+      });
+    }
+    set({ trashOrigins: origins, trashOriginNames: originNames });
     await get().loadDir(get().trashDir, true);
     set({ selected: [] });
   },
@@ -692,13 +856,19 @@ export const useStore = create<AppState>()((set, get) => ({
     const now = Date.now();
     if (pendingPermanentDelete === key && now - pendingPermanentAt < 4000) {
       (async () => {
+        const origins = { ...get().trashOrigins };
+        const originNames = { ...get().trashOriginNames };
         for (const p of paths) {
           try {
             await backend.deletePermanently(p);
+            updateSetRefs(get, set, backend.dirname(p), backend.basename(p), null);
+            delete origins[p];
+            delete originNames[p];
           } catch (e) {
             get().showToast(`Delete failed: ${e}`);
           }
         }
+        set({ trashOrigins: origins, trashOriginNames: originNames });
         await get().loadDir(get().trashDir, true);
         set({ selected: [], pendingPermanentDelete: null });
       })();
@@ -748,6 +918,22 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ setDefs: [...get().setDefs, { id, name, smart: true, rule, items: [] }] });
     get().persist();
   },
+  importSet(data) {
+    const id = `set-${Date.now()}`;
+    const items = Array.isArray(data.items)
+      ? data.items.filter((it): it is SetItemRef => !!it && typeof it.dir === "string" && typeof it.name === "string")
+      : [];
+    const def: WorkingSet = {
+      id,
+      name: data.name?.trim() || "Imported set",
+      items,
+    };
+    if (data.note) def.note = data.note;
+    if (data.smart) def.smart = true;
+    if (data.rule) def.rule = data.rule;
+    set({ setDefs: [...get().setDefs, def] });
+    get().persist();
+  },
   addToSet(setId, refs) {
     set({
       setDefs: get().setDefs.map((s) =>
@@ -782,7 +968,12 @@ export const useStore = create<AppState>()((set, get) => ({
     get().persist();
   },
   openSet(setId) {
-    set({ activeSetId: setId });
+    set({ activeSetId: setId, trashView: false, selected: [], anchor: null, query: "" });
+  },
+  openTrash() {
+    const { trashDir } = get();
+    set({ trashView: true, path: trashDir, activeSetId: null, selected: [], anchor: null, query: "" });
+    void get().loadDir(trashDir);
   },
   setEntriesFor(setDef) {
     if (setDef.smart) {
@@ -927,6 +1118,7 @@ export const useStore = create<AppState>()((set, get) => ({
       starred: Array.from(st.starred),
       fileEvents: st.fileEvents,
       trashOrigins: st.trashOrigins,
+      trashOriginNames: st.trashOriginNames,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -976,19 +1168,72 @@ function removeGhostOnReturn(
   set({ ghosts });
 }
 
-function updateSetRefsOnMove(
+// Working-set items are references ({dir, name}), never copies — every operation
+// that moves/renames/removes a file must keep those refs pointing at the file.
+// toDir === null means the file is gone for good (permanent delete): drop the ref.
+function updateSetRefs(
   get: () => AppState,
   set: (partial: Partial<AppState>) => void,
   fromDir: string,
-  name: string,
-  toDir: string,
+  fromName: string,
+  toDir: string | null,
+  toName?: string,
 ) {
-  const setDefs = get().setDefs.map((s) => ({
-    ...s,
-    items: s.items.map((i) => (i.dir === fromDir && i.name === name ? { dir: toDir, name } : i)),
-  }));
+  const setDefs = get().setDefs.map((s) => {
+    if (s.smart) return s;
+    if (toDir === null) {
+      if (!s.items.some((i) => i.dir === fromDir && i.name === fromName)) return s;
+      return { ...s, items: s.items.filter((i) => !(i.dir === fromDir && i.name === fromName)) };
+    }
+    return {
+      ...s,
+      items: s.items.map((i) => (i.dir === fromDir && i.name === fromName ? { dir: toDir, name: toName ?? fromName } : i)),
+    };
+  });
   set({ setDefs });
   get().persist();
+}
+
+function appendSuffix(name: string, n: number): string {
+  const idx = name.lastIndexOf(".");
+  if (idx > 0) return `${name.slice(0, idx)} ${n}${name.slice(idx)}`;
+  return `${name} ${n}`;
+}
+
+function uniqueNameFor(existingNames: Set<string>, desired: string): string {
+  if (!existingNames.has(desired)) return desired;
+  let i = 2;
+  let candidate = appendSuffix(desired, i);
+  while (existingNames.has(candidate)) {
+    i++;
+    candidate = appendSuffix(desired, i);
+  }
+  return candidate;
+}
+
+// Trashing a file may rename it to dodge a collision inside the Trash folder; restoring
+// it should give the user their original filename back whenever the origin folder allows it.
+async function finishRestore(
+  backend: FsBackend,
+  get: () => AppState,
+  toDir: string,
+  restoredPath: string,
+  desiredName: string,
+): Promise<string> {
+  const currentName = backend.basename(restoredPath);
+  if (currentName === desiredName) return restoredPath;
+  const existing = new Set(get().entriesFor(toDir).map((e) => e.name));
+  let finalName = desiredName;
+  let i = 2;
+  while (existing.has(finalName) && finalName !== currentName) {
+    finalName = appendSuffix(desiredName, i++);
+  }
+  if (finalName === currentName) return restoredPath;
+  try {
+    return await backend.renamePath(restoredPath, finalName);
+  } catch {
+    return restoredPath;
+  }
 }
 
 export const ALL_MODULE_IDS = ALL_MODULES;

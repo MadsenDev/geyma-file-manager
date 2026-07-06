@@ -23,14 +23,9 @@ export function Places() {
   const trashView = useStore((s) => s.trashView);
   const goPlace = useStore((s) => s.goPlace);
   const moveEntries = useStore((s) => s.moveEntries);
-  const trashDir = useStore((s) => s.trashDir);
+  const openTrash = useStore((s) => s.openTrash);
   const trashCount = useStore((s) => s.entriesFor(s.trashDir).length);
   const [dragOver, setDragOver] = useState<string | null>(null);
-
-  function openTrash() {
-    useStore.setState({ trashView: true, path: trashDir, selected: [] });
-    void useStore.getState().loadDir(trashDir);
-  }
 
   return (
     <div>

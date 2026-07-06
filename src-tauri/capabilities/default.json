@@ -9,20 +9,6 @@
     "core:default",
     "dialog:default",
     "opener:default",
-    "os:default",
-    "list_dir",
-    "stat_path",
-    "home_dir",
-    "read_text_file",
-    "create_folder",
-    "create_file",
-    "rename_path",
-    "move_path",
-    "trash_path",
-    "restore_path",
-    "delete_permanently",
-    "trash_dir_path",
-    "disk_usage",
-    "list_devices"
+    "os:default"
   ]
 }

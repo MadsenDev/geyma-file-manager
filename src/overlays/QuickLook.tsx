@@ -10,10 +10,7 @@ import { getFsBackend } from "../fs";
 export function QuickLook() {
   const t = useTheme();
   const preview = useStore((s) => s.preview);
-  const path = useStore((s) => s.path);
-  const trashView = useStore((s) => s.trashView);
-  const trashDir = useStore((s) => s.trashDir);
-  const entries = useStore((s) => s.entriesFor(trashView ? trashDir : path));
+  const entries = useStore((s) => s.visibleEntries());
   const closePreview = useStore((s) => s.closePreview);
   const stepPreview = useStore((s) => s.stepPreview);
   const [content, setContent] = useState<string | null>(null);

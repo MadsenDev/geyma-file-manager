@@ -5,9 +5,7 @@ import { formatSize } from "../lib/format";
 export function Status() {
   const t = useTheme();
   const path = useStore((s) => s.path);
-  const trashView = useStore((s) => s.trashView);
-  const trashDir = useStore((s) => s.trashDir);
-  const entries = useStore((s) => s.entriesFor(trashView ? trashDir : path));
+  const entries = useStore((s) => s.visibleEntries());
   const selected = useStore((s) => s.selected);
   const clip = useStore((s) => s.clip);
 
