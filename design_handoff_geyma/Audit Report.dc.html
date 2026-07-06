@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:#EFE9DE;-webkit-font-smoothing:antialiased}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#EFE9DE;color:#211D17;font-family:'Hanken Grotesk',system-ui,sans-serif;padding:clamp(16px,4vw,56px) clamp(14px,4vw,32px)">
+<div style="max-width:760px;margin:0 auto">
+
+  <!-- Header -->
+  <header style="margin-bottom:clamp(28px,5vw,44px)">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:#2C6E49;border:1px solid rgba(44,110,73,.35);border-radius:99px;padding:5px 12px">Design &amp; feature audit</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#A89E88;letter-spacing:.06em">July 5, 2026</span>
+    </div>
+    <h1 style="margin:0;font-size:clamp(30px,7vw,44px);font-weight:800;letter-spacing:-.03em;line-height:1.02">Geyma file manager</h1>
+    <p style="margin:14px 0 0;font-size:clamp(14px,2.5vw,15.5px);line-height:1.6;color:#5F5849;max-width:56ch;text-wrap:pretty">Full review of <span style="font-family:'JetBrains Mono',monospace;font-size:.9em">Geyma.dc.html</span> — live interaction testing across skins, layouts, widths and edit mode, plus a complete source read (~1,200 lines).</p>
+  </header>
+
+  <!-- Scorecard -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:clamp(28px,5vw,44px)">
+    <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:16px 18px">
+      <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:#2C6E49;line-height:1">5</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#A89E88;margin-top:7px">Criticals fixed</div>
+    </div>
+    <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:16px 18px">
+      <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:#2C6E49;line-height:1">0</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#A89E88;margin-top:7px">Issues open</div>
+    </div>
+    <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:16px 18px">
+      <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:#2C6E49;line-height:1">4</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#A89E88;margin-top:7px">Visual notes</div>
+    </div>
+    <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:16px 18px">
+      <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:#211D17;line-height:1">6</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#A89E88;margin-top:7px">Strengths</div>
+    </div>
+  </div>
+
+  <!-- Verdict -->
+  <div style="background:#211D17;color:#EFE9DE;border-radius:16px;padding:clamp(18px,4vw,26px);margin-bottom:clamp(32px,6vw,52px)">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#8CB89F;margin-bottom:10px">Verdict · re-audited on the fixed build</div>
+    <p style="margin:0;font-size:clamp(15px,2.8vw,17px);line-height:1.6;font-weight:500;text-wrap:pretty">The skin system, modular layout and activity timeline are genuinely strong — and all 20 findings are now fixed: the five criticals, the full keyboard pass (arrow navigation + visible focus), Trash integrity, drop-target consistency, and both visual-tone calls. <em style="color:#8CB89F">"Files remember"</em> holds again.</p>
+    <p style="margin:12px 0 0;font-size:13px;line-height:1.6;color:#C9C0AE;text-wrap:pretty">Re-audit, live build: multi-step undo (2× undo then a correct "Nothing to undo"), cut → paste → undo restores the original in place, column-aware arrow navigation with Shift-range, staged Escape (menu first, selection second), "Open in lower pane" on folder items, rename in place, and readable meta text — all confirmed by interaction testing. Console clean.</p>
+  </div>
+
+  <!-- SECTION: Critical -->
+  <section style="margin-bottom:clamp(32px,6vw,52px)">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px">
+      <h2 style="margin:0;font-size:clamp(20px,4.5vw,26px);font-weight:800;letter-spacing:-.02em">Critical bugs</h2>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#2C6E49;font-weight:600">all 5 fixed — July 5</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+      <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-left:none;border-radius:14px;padding:clamp(16px,3.5vw,22px);position:relative;overflow:hidden">
+        <span style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#2C6E49"></span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">01</span>
+          <h3 style="margin:0;font-size:16px;font-weight:700">Working Sets break on move &amp; rename</h3>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Fixed</span>
+        </div>
+        <p style="margin:0 0 10px;font-size:14px;line-height:1.6;color:#5F5849;text-wrap:pretty"><code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">moveEntries</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">commitRename</code> and <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">trashItems</code> never update <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">setDefs</code> references. Rename <span style="font-family:'JetBrains Mono',monospace;font-size:.88em">roadmap.pdf</span> and "Ledger redesign" shows a missing ghost.</p>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#2C6E49;font-weight:600">Fixed — set references now update on move, rename, trash, restore and permanent delete, and every undo reverses them too.</p>
+      </article>
+
+      <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:clamp(16px,3.5vw,22px);position:relative;overflow:hidden">
+        <span style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#2C6E49"></span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">02</span>
+          <h3 style="margin:0;font-size:16px;font-weight:700">Undo stack only holds one entry</h3>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Fixed</span>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#5F5849;text-wrap:pretty"><code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">pushUndo</code> reads <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">this.state.undo</code> — which is never set — instead of <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">this._undo</code>. The stack resets on every operation; a second Ctrl+Z always says "Nothing to undo."</p>
+        <p style="margin:10px 0 0;font-size:12.5px;line-height:1.55;color:#2C6E49;font-weight:600">Fixed — pushUndo now reads this._undo; the stack keeps the last 20 operations.</p>
+      </article>
+
+      <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:clamp(16px,3.5vw,22px);position:relative;overflow:hidden">
+        <span style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#2C6E49"></span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">03</span>
+          <h3 style="margin:0;font-size:16px;font-weight:700">Cut-paste undo loses files</h3>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Fixed</span>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#5F5849;text-wrap:pretty">The cut-mode undo branch in <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">paste()</code> is dead code — it builds <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">{ name: ref.name }</code> and discards it. Undo removes the pasted copies but never restores the originals: the files are gone.</p>
+        <p style="margin:10px 0 0;font-size:12.5px;line-height:1.55;color:#2C6E49;font-weight:600">Fixed — undo now restores cut originals (including folder contents) and removes the pasted copies.</p>
+      </article>
+
+      <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:clamp(16px,3.5vw,22px);position:relative;overflow:hidden">
+        <span style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#2C6E49"></span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">04</span>
+          <h3 style="margin:0;font-size:16px;font-weight:700">Status-bar toggle hides the whole bottom zone</h3>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Fixed</span>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#5F5849;text-wrap:pretty"><code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">hasBottom</code> gates on <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">showStatus</code>. With the "Bottom dock" preset — nav, location and search all live in the bottom zone — switching off "Status bar" removes your entire toolbar. The toggle should gate only the status module.</p>
+        <p style="margin:10px 0 0;font-size:12.5px;line-height:1.55;color:#2C6E49;font-weight:600">Fixed — the toggle now hides only the status module; other bottom-dock modules stay.</p>
+      </article>
+
+      <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:clamp(16px,3.5vw,22px);position:relative;overflow:hidden">
+        <span style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#2C6E49"></span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#2C6E49">05</span>
+          <h3 style="margin:0;font-size:16px;font-weight:700">Center zone can crush Files to a sliver</h3>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Fixed</span>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#5F5849;text-wrap:pretty">With several stretch modules stacked in center (e.g. title / files / details / mood), <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">overflow:hidden</code> plus competing <code style="font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(33,29,23,.06);padding:1px 5px;border-radius:5px">flex:1</code> leaves the file grid showing one clipped row, and Details cuts names mid-glyph. Observed live at ~920×540. Zones need per-module min-heights, or the un-split center should scroll.</p>
+        <p style="margin:10px 0 0;font-size:12.5px;line-height:1.55;color:#2C6E49;font-weight:600">Fixed — the center zone now scrolls, and stretch modules keep min-heights (Files ≥ 200px).</p>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- SECTION: Responsive -->
+  <section style="margin-bottom:clamp(32px,6vw,52px)">
+    <h2 style="margin:0 0 16px;font-size:clamp(20px,4.5vw,26px);font-weight:800;letter-spacing:-.02em">Broken at smaller widths</h2>
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+      <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:clamp(16px,3.5vw,22px);position:relative;overflow:hidden">
+        <span style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#D19A3A"></span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#B0812F">06</span>
+          <h3 style="margin:0;font-size:16px;font-weight:700">Edit-mode bar swallows the screen</h3>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Fixed</span>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#5F5849;text-wrap:pretty">Below ~950px the hidden-module chips wrap into a tall vertical stack that covers the center of the window. Cap the chip area's height or let it scroll horizontally.</p>
+        <p style="margin:10px 0 0;font-size:12.5px;line-height:1.55;color:#2C6E49;font-weight:600">Fixed — chips now scroll horizontally in a single row.</p>
+      </article>
+
+      <article style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;padding:clamp(16px,3.5vw,22px);position:relative;overflow:hidden">
+        <span style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#D19A3A"></span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#B0812F">07</span>
+          <h3 style="margin:0;font-size:16px;font-weight:700">Selected tiles clip at zone edges</h3>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#FBF8F2;background:#2C6E49;border-radius:99px;padding:3px 8px">Fixed</span>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#5F5849;text-wrap:pretty">The selection ring and glow get cut off by the zone's hidden overflow — same root cause as 05.</p>
+        <p style="margin:10px 0 0;font-size:12.5px;line-height:1.55;color:#2C6E49;font-weight:600">Resolved by the 05 fix — the zone scrolls instead of clipping.</p>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- SECTION: Inconsistencies -->
+  <section style="margin-bottom:clamp(32px,6vw,52px)">
+    <h2 style="margin:0 0 16px;font-size:clamp(20px,4.5vw,26px);font-weight:800;letter-spacing:-.02em">Inconsistencies &amp; dead code</h2>
+    <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;overflow:hidden">
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">08</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Center split doesn't survive reload.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — the split is now restored from the saved layout (split on whenever the lower pane has modules).</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">09</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Vestigial one-button tab bar</strong> in the Details panel. <span style="color:#2C6E49;font-weight:600">Fixed — removed, along with the unused detTab state.</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">10</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">"Delete permanently" has no confirmation and no undo.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — now requires the action to be repeated within 4 seconds, with a warning toast.</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">11</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Trashed folders leave orphaned subtrees.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — folder contents now travel to Trash and back on restore; permanent delete removes them.</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">12</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Minor dead code.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — both removed.</span></p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- SECTION: Feature gaps -->
+  <section style="margin-bottom:clamp(32px,6vw,52px)">
+    <h2 style="margin:0 0 16px;font-size:clamp(20px,4.5vw,26px);font-weight:800;letter-spacing:-.02em">Feature gaps</h2>
+    <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;overflow:hidden">
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">13</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">No arrow-key navigation.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — arrow keys move the selection in grid (column-aware) and list views, Shift extends the range from the anchor, and the view scrolls to keep the cursor visible.</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">14</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Breadcrumbs aren't drop targets.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — crumbs accept drags with the same highlight treatment as the sidebar.</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">15</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">"Open in lower pane" only existed on Places.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — folder items now have it in their context menu too.</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">16</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Escape did two things at once.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — staged: first press closes the menu, second clears the selection.</span></p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- SECTION: Visual -->
+  <section style="margin-bottom:clamp(32px,6vw,52px)">
+    <h2 style="margin:0 0 16px;font-size:clamp(20px,4.5vw,26px);font-weight:800;letter-spacing:-.02em">Visual &amp; accessibility</h2>
+    <div style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:14px;overflow:hidden">
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">17</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Search placeholder near-invisible on dark skins.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — placeholders now inherit the input's ink color at 45% opacity, correct on every skin.</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">18</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Focus styles removed, nothing added back.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — :focus-visible now draws a 2px currentColor outline on inputs, selects and buttons (mouse clicks stay outline-free).</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px);border-bottom:1px solid rgba(33,29,23,.08)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">19</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Faint mono meta text ran below comfortable contrast</strong> on Parchment and Amber. <span style="color:#2C6E49;font-weight:600">Fixed — both skins' faint ink darkened (Parchment #A89E88→#7E7359, Amber #77591F→#9A7B36); sizes and dates now read comfortably.</span></p>
+      </div>
+
+      <div style="display:flex;gap:12px;padding:clamp(14px,3vw,18px) clamp(16px,3.5vw,22px)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#A89E88;padding-top:3px;flex:none">20</span>
+        <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F5849;text-wrap:pretty"><strong style="color:#211D17">Folder mood's raw emoji was louder than the brand voice.</strong> <span style="color:#2C6E49;font-weight:600">Fixed — each mood is now a stroke-drawn glyph in the app's icon style, tinted by the tidiness color, in a soft rounded tile.</span></p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- SECTION: Strengths -->
+  <section style="margin-bottom:clamp(32px,6vw,52px)">
+    <h2 style="margin:0 0 16px;font-size:clamp(20px,4.5vw,26px);font-weight:800;letter-spacing:-.02em;color:#2C6E49">What's working well</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
+
+      <div style="background:rgba(44,110,73,.08);border:1px solid rgba(44,110,73,.22);border-radius:14px;padding:16px 18px">
+        <div style="font-size:13.5px;font-weight:700;margin-bottom:5px;color:#211D17">Coherent skin system</div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">Every surface, module and menu respects the token set across all eight skins plus overrides.</p>
+      </div>
+      <div style="background:rgba(44,110,73,.08);border:1px solid rgba(44,110,73,.22);border-radius:14px;padding:16px 18px">
+        <div style="font-size:13.5px;font-weight:700;margin-bottom:5px;color:#211D17">Module drag &amp; drop</div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">Zone hit-testing, drop indicators and the hidden-module palette all behave predictably.</p>
+      </div>
+      <div style="background:rgba(44,110,73,.08);border:1px solid rgba(44,110,73,.22);border-radius:14px;padding:16px 18px">
+        <div style="font-size:13.5px;font-weight:700;margin-bottom:5px;color:#211D17">Activity timeline</div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">Move, rename, trash and restore all log correctly and follow files through renames.</p>
+      </div>
+      <div style="background:rgba(44,110,73,.08);border:1px solid rgba(44,110,73,.22);border-radius:14px;padding:16px 18px">
+        <div style="font-size:13.5px;font-weight:700;margin-bottom:5px;color:#211D17">List-view container queries</div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">Columns drop out gracefully as the pane narrows — a genuinely nice touch.</p>
+      </div>
+      <div style="background:rgba(44,110,73,.08);border:1px solid rgba(44,110,73,.22);border-radius:14px;padding:16px 18px">
+        <div style="font-size:13.5px;font-weight:700;margin-bottom:5px;color:#211D17">Context-aware menus</div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">Items, blanks, trash, places, devices, sets, crumbs and modules each get a tailored menu.</p>
+      </div>
+      <div style="background:rgba(44,110,73,.08);border:1px solid rgba(44,110,73,.22);border-radius:14px;padding:16px 18px">
+        <div style="font-size:13.5px;font-weight:700;margin-bottom:5px;color:#211D17">Selection model</div>
+        <p style="margin:0;font-size:12.5px;line-height:1.55;color:#5F5849">Click, Ctrl/Cmd, Shift-range and select-all behave like a native file manager.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Recommendation -->
+  <section style="background:#FBF8F2;border:1px solid rgba(33,29,23,.1);border-radius:16px;padding:clamp(18px,4vw,26px);margin-bottom:32px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#A89E88;margin-bottom:12px">Recommended order of work</div>
+    <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.55;color:#211D17">
+      <li style="color:#2C6E49"><strong>Set references</strong> — ✓ done <span style="color:#A89E88">(01)</span></li>
+      <li style="color:#2C6E49"><strong>Undo</strong> — ✓ done <span style="color:#A89E88">(02, 03)</span></li>
+      <li style="color:#2C6E49"><strong>Layout guardrails</strong> — ✓ done, incl. edit-bar wrap <span style="color:#A89E88">(04, 05, 06)</span></li>
+      <li style="color:#2C6E49"><strong>Keyboard pass</strong> — ✓ done: arrow navigation + visible focus <span style="color:#A89E88">(13, 18)</span></li>
+      <li style="color:#2C6E49"><strong>Visual tone</strong> — ✓ done: meta-text contrast + icon-style mood glyphs <span style="color:#A89E88">(19, 20)</span></li>
+    </ol>
+  </section>
+
+  <footer style="text-align:center;padding-bottom:24px">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#A89E88">Geyma · audit of Geyma.dc.html · 20 findings · 20 fixed</span>
+  </footer>
+
+</div>
+</div>
+
+</x-dc>
+</body>
+</html>

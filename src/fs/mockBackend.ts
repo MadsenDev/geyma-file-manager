@@ -63,6 +63,7 @@ const TREE: Record<string, MockNode[]> = {
   [joinPosix(HOME, "Downloads")]: [
     folder("photo-batch", day(2026, 6, 22)),
     file("geyma-0.4.0.tar.gz", 1427005, day(2026, 6, 26)),
+    file("project-assets.zip", 8421376, day(2026, 6, 25)),
     file("Ferdium.AppImage", 96468992, day(2026, 6, 24)),
     file("invoice-scan.pdf", 3774873, day(2026, 6, 23, 18)),
     file("kernel-6.9.patch", 90112, day(2026, 6, 20)),
@@ -200,6 +201,38 @@ export const mockBackend: FsBackend = {
     return delay(
       `# ${name}\n\nThis is placeholder content shown by Geyma's mock filesystem (used when running outside the Tauri shell).\n`,
     );
+  },
+  async fileUrl() {
+    return null;
+  },
+  async mediaPlaybackSupport() {
+    return {
+      available: false,
+      title: "Desktop playback required",
+      message: "Audio and video previews are only available in the Geyma desktop app.",
+      details: null,
+      installCommand: null,
+    };
+  },
+  async previewArchive() {
+    return {
+      format: "ZIP",
+      entries: [
+        { path: "Documents/", isDir: true, size: 0, compressedSize: 0 },
+        { path: "Documents/readme.txt", isDir: false, size: 1840, compressedSize: 792 },
+        { path: "preview.png", isDir: false, size: 245760, compressedSize: 231420 },
+      ],
+      totalEntries: 3,
+      truncated: false,
+    };
+  },
+  async previewTextFile(path: string) {
+    const found = findNode(path);
+    const name = found?.node.name ?? basenamePosix(path);
+    return {
+      content: `# ${name}\n\nThis is placeholder content shown by Geyma's mock filesystem.\n`,
+      truncated: false,
+    };
   },
   async createFolder(parent: string, name: string) {
     insertNode(parent, folder(name, Date.now()));

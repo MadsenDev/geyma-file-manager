@@ -21,9 +21,48 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
   const t = useTheme();
   const editMode = useStore((s) => s.editMode);
   const hideModule = useStore((s) => s.hideModule);
-  const openModMenu = useStore((s) => s.openMenu);
+  const moveModule = useStore((s) => s.moveModule);
+  const layout = useStore((s) => s.layout);
+  const centerSplit = useStore((s) => s.centerSplit);
+  const openContextMenu = useStore((s) => s.openMenu);
+  const openOptions = useStore((s) => s.openModMenu);
+  const toggleEditMode = useStore((s) => s.toggleEditMode);
+  const resetLayout = useStore((s) => s.resetLayout);
+  const showModule = useStore((s) => s.showModule);
   const ref = useRef<HTMLDivElement>(null);
   const stretch = isStretchModule(id);
+
+  const openModuleMenu = (x: number, y: number) => {
+    const destinations: { zone: ZoneId; label: string }[] = [
+      { zone: "top", label: "Move to top" },
+      { zone: "left", label: "Move to left rail" },
+      { zone: "center", label: "Move to center" },
+      ...(centerSplit ? [{ zone: "center2" as ZoneId, label: "Move to lower pane" }] : []),
+      { zone: "right", label: "Move to right rail" },
+      { zone: "bottom", label: "Move to bottom" },
+    ];
+    openContextMenu({
+      x,
+      y,
+      items: [
+        { label: "Module settings…", onClick: () => openOptions(id, x, y) },
+        { label: editMode ? "Exit edit mode" : "Edit layout…", onClick: toggleEditMode },
+        ...(editMode
+          ? destinations
+              .filter((destination) => destination.zone !== zone)
+              .map((destination) => ({
+                label: destination.label,
+                onClick: () => moveModule(id, destination.zone, layout[destination.zone].length),
+              }))
+          : []),
+        { divider: true },
+        { label: `Hide ${MODULE_NAMES[id]}`, danger: true, onClick: () => hideModule(id) },
+        { divider: true },
+        { label: "Appearance…", onClick: () => showModule("appearance", "right") },
+        { label: "Reset layout", onClick: resetLayout },
+      ],
+    });
+  };
 
   return (
     <div
@@ -38,8 +77,9 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
       }}
       onDragEnd={onDragEnd}
       onContextMenu={(e) => {
-        if (!editMode) return;
         e.preventDefault();
+        e.stopPropagation();
+        openModuleMenu(e.clientX, e.clientY);
       }}
       style={{
         display: "flex",
@@ -73,7 +113,7 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
           <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
             <button
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => openModMenu({ x: e.clientX, y: e.clientY, items: [] })}
+              onClick={(e) => openOptions(id, e.clientX, e.clientY)}
               title="Module settings"
               style={iconBtnStyle(t.inkFaint)}
             >

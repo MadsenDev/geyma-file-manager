@@ -9,6 +9,7 @@ import type { FsEntry } from "../fs/types";
 import { getFsBackend } from "../fs";
 import type { Ghost } from "../state/types";
 import { joinPosix } from "../fs/pathUtil";
+import { openWithDefaultApp } from "../lib/openDefault";
 
 async function searchAll(root: string, query: string, cap = 1500): Promise<FsEntry[]> {
   const backend = await getFsBackend();
@@ -35,7 +36,9 @@ async function searchAll(root: string, query: string, cap = 1500): Promise<FsEnt
 
 export function Files() {
   const t = useTheme();
-  const view = useStore((s) => s.view);
+  const toolbarView = useStore((s) => s.view);
+  const configuredView = useStore((s) => s.mcfg<"follow" | "grid" | "list">("files", "view", "follow"));
+  const view = configuredView === "follow" ? toolbarView : configuredView;
   const path = useStore((s) => s.path);
   const home = useStore((s) => s.home);
   const trashView = useStore((s) => s.trashView);
@@ -104,7 +107,7 @@ export function Files() {
 
   function onOpen(entry: FsEntry) {
     if (entry.isDir) goPath(entry.path);
-    else openPreview(entry.path);
+    else void openWithDefaultApp(entry.path);
   }
 
   function itemMenu(entry: FsEntry, e: React.MouseEvent) {
@@ -133,7 +136,7 @@ export function Files() {
       y: e.clientY,
       items: [
         !multi ? { label: "Open", onClick: () => onOpen(entry) } : undefined,
-        !multi && !entry.isDir ? { label: "Quick Look", onClick: () => openPreview(entry.path) } : undefined,
+        !multi ? { label: "Quick Look", onClick: () => openPreview(entry.path) } : undefined,
         { label: isStarred ? "Remove star" : "Star", onClick: () => toggleStar(targets) },
         !multi && entry.isDir
           ? {
@@ -291,6 +294,7 @@ function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChang
         padding: "10px 6px",
         borderRadius: t.radius > 10 ? 12 : t.radius,
         cursor: "default",
+        userSelect: "none",
         boxShadow: selected ? `0 0 0 1.5px ${t.accent}` : "none",
         background: selected ? hexA(t.accent, t.isDark ? 0.14 : 0.08) : dragOver ? hexA(t.accent, 0.1) : "transparent",
         outline: dragOver ? `2px solid ${t.accent}` : "none",
@@ -396,7 +400,7 @@ function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onR
   return (
     <div>
       <div style={{ display: "flex", padding: "4px 8px", fontFamily: t.mono, fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".1em", color: t.inkFaint, borderBottom: `1px solid ${t.border}` }}>
-        <span style={{ flex: 1 }}>Name</span>
+        <HeaderCell grow active={sortKey === "name"} dir={sortDir} onClick={() => setSort("name")}>Name</HeaderCell>
         {columns.includes("kind") && (
           <HeaderCell className="gy-c-kind" width={100} active={sortKey === "kind"} dir={sortDir} onClick={() => setSort("kind")}>Kind</HeaderCell>
         )}
@@ -436,10 +440,10 @@ function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onR
   );
 }
 
-function HeaderCell({ width, active, dir, onClick, children, className }: { width: number; active: boolean; dir: "asc" | "desc"; onClick: () => void; children: React.ReactNode; className?: string }) {
+function HeaderCell({ width, grow, active, dir, onClick, children, className }: { width?: number; grow?: boolean; active: boolean; dir: "asc" | "desc"; onClick: () => void; children: React.ReactNode; className?: string }) {
   const t = useTheme();
   return (
-    <button onClick={onClick} className={className} style={{ width, textAlign: "right", border: 0, background: "transparent", cursor: "pointer", fontFamily: "inherit", color: active ? t.accent : t.inkFaint, fontWeight: active ? 700 : 500, fontSize: "inherit", textTransform: "inherit", letterSpacing: "inherit" }}>
+    <button onClick={onClick} className={className} style={{ width, flex: grow ? 1 : undefined, padding: grow ? 0 : undefined, textAlign: grow ? "left" : "right", border: 0, background: "transparent", cursor: "pointer", fontFamily: "inherit", color: active ? t.accent : t.inkFaint, fontWeight: active ? 700 : 500, fontSize: "inherit", textTransform: "inherit", letterSpacing: "inherit" }}>
       {children}
       {active ? (dir === "asc" ? " ↑" : " ↓") : ""}
     </button>
@@ -484,6 +488,7 @@ function FileRow({ entry, columns, selected, starred, renaming, renameVal, onRen
         outline: dragOver ? `2px solid ${t.accent}` : "none",
         outlineOffset: -2,
         cursor: "default",
+        userSelect: "none",
       }}
     >
       <span style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>

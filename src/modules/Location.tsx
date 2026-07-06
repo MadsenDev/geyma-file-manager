@@ -1,6 +1,7 @@
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA } from "../theme/skins";
+import { openLocationMenu } from "../lib/contextMenus";
 
 export function Location() {
   const t = useTheme();
@@ -21,6 +22,7 @@ export function Location() {
           {i > 0 && <span style={{ color: t.inkFaint, fontSize: 11 }}>/</span>}
           <button
             onClick={() => goPath(c.full)}
+            onContextMenu={(event) => openLocationMenu(event, c.full)}
             className="gy-soft"
             style={{
               border: 0,

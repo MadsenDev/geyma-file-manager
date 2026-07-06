@@ -5,6 +5,7 @@ import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
 import { navItemStyle, panelTitleStyle } from "./common";
 import { joinPosix } from "../fs/pathUtil";
+import { openLocationMenu } from "../lib/contextMenus";
 
 const PLACE_DEFS: { label: string; sub: string; icon: string }[] = [
   { label: "Home", sub: "", icon: ICONS.home },
@@ -25,6 +26,7 @@ export function Places() {
   const moveEntries = useStore((s) => s.moveEntries);
   const openTrash = useStore((s) => s.openTrash);
   const trashCount = useStore((s) => s.entriesFor(s.trashDir).length);
+  const showTrash = useStore((s) => s.mcfg("places", "showTrash", true));
   const [dragOver, setDragOver] = useState<string | null>(null);
 
   return (
@@ -39,6 +41,7 @@ export function Places() {
               key={p.label}
               className="gy-item"
               onClick={() => goPlace(full)}
+              onContextMenu={(event) => openLocationMenu(event, full)}
               onDragOver={(e) => {
                 e.preventDefault();
                 setDragOver(full);
@@ -57,11 +60,29 @@ export function Places() {
             </button>
           );
         })}
-        <button className="gy-item" onClick={openTrash} style={navItemStyle(t, trashView, false)}>
+        {showTrash && <button
+          className="gy-item"
+          onClick={openTrash}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const store = useStore.getState();
+            const trashed = store.entriesFor(store.trashDir).map((entry) => entry.path);
+            store.openMenu({
+              x: event.clientX,
+              y: event.clientY,
+              items: [
+                { label: "Open Trash", onClick: openTrash },
+                trashed.length > 0 ? { label: "Empty Trash…", danger: true, onClick: () => store.requestPermanentDelete(trashed) } : undefined,
+              ].filter(Boolean) as { label: string; danger?: boolean; onClick?: () => void }[],
+            });
+          }}
+          style={navItemStyle(t, trashView, false)}
+        >
           <Icon d={ICONS.trash} size={15} />
           <span style={{ flex: 1, textAlign: "left" }}>Trash</span>
           {trashCount > 0 && <span style={{ fontFamily: t.mono, fontSize: 10.5, color: t.inkFaint }}>{trashCount}</span>}
-        </button>
+        </button>}
       </div>
     </div>
   );

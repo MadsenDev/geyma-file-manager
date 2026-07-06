@@ -4,6 +4,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
 import { navItemStyle, panelTitleStyle } from "./common";
+import { openLocationMenu } from "../lib/contextMenus";
 
 export function Devices() {
   const t = useTheme();
@@ -24,6 +25,7 @@ export function Devices() {
             key={d.path}
             className="gy-item"
             onClick={() => goPlace(d.path)}
+            onContextMenu={(event) => openLocationMenu(event, d.path)}
             onDragOver={(e) => {
               e.preventDefault();
               setDragOver(d.path);

@@ -23,10 +23,14 @@ export function ViewSwitch() {
   const editMode = useStore((s) => s.editMode);
   const showHidden = useStore((s) => s.showHidden);
   const toggleShowHidden = useStore((s) => s.toggleShowHidden);
+  const showModule = useStore((s) => s.showModule);
+  const showChrome = useStore((s) => s.mcfg("viewswitch", "chrome", true));
+  const showSort = useStore((s) => s.mcfg("viewswitch", "sort", true));
+  const showHiddenButton = useStore((s) => s.mcfg("viewswitch", "hidden", true));
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <select
+      {showSort && <select
         value={sortKey}
         onChange={(e) => setSort(e.target.value as SortKey)}
         style={{ height: 28, borderRadius: 8, border: `1px solid ${t.border}`, background: t.card, color: t.inkSoft, fontSize: 11.5, padding: "0 6px" }}
@@ -36,23 +40,30 @@ export function ViewSwitch() {
             Sort: {s.label}
           </option>
         ))}
-      </select>
-      <button onClick={() => setSort(sortKey)} title="Toggle direction" className="gy-soft" style={iconButtonStyle(t)}>
+      </select>}
+      {showSort && <button onClick={() => setSort(sortKey)} title="Toggle direction" className="gy-soft" style={iconButtonStyle(t)}>
         {sortDir === "asc" ? "↑" : "↓"}
-      </button>
-      <div style={{ width: 1, height: 20, background: t.border }} />
+      </button>}
+      {showSort && <div style={{ width: 1, height: 20, background: t.border }} />}
       <button onClick={() => setView("grid")} title="Grid view" className="gy-soft" style={iconButtonStyle(t, view === "grid")}>
         <Icon d={ICONS.grid} size={14} />
       </button>
       <button onClick={() => setView("list")} title="List view" className="gy-soft" style={iconButtonStyle(t, view === "list")}>
         <Icon d={ICONS.list} size={14} />
       </button>
-      <button onClick={toggleShowHidden} title="Show hidden files" className="gy-soft" style={iconButtonStyle(t, showHidden)}>
+      {showHiddenButton && <button onClick={toggleShowHidden} title="Show hidden files" className="gy-soft" style={iconButtonStyle(t, showHidden)}>
         .*
-      </button>
-      <button onClick={toggleEditMode} title="Edit layout" className="gy-soft" style={iconButtonStyle(t, editMode)}>
-        <Icon d={ICONS.pencil} size={14} />
-      </button>
+      </button>}
+      {showChrome && (
+        <>
+          <button onClick={() => showModule("appearance", "right")} title="Appearance" className="gy-soft" style={iconButtonStyle(t)}>
+            <Icon d={ICONS.gear} size={14} />
+          </button>
+          <button onClick={toggleEditMode} title="Edit layout" className="gy-soft" style={iconButtonStyle(t, editMode)}>
+            <Icon d={ICONS.pencil} size={14} />
+          </button>
+        </>
+      )}
     </div>
   );
 }

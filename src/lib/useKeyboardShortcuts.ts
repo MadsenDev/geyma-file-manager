@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useStore } from "../state/store";
+import { openWithDefaultApp } from "./openDefault";
 
 function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -23,6 +24,16 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           store.stepPreview(-1);
         }
+        return;
+      }
+
+      if (store.modMenu) {
+        if (e.key === "Escape") store.closeModMenu();
+        return;
+      }
+
+      if (store.menu) {
+        if (e.key === "Escape") store.closeMenu();
         return;
       }
 
@@ -50,7 +61,7 @@ export function useKeyboardShortcuts() {
         if (store.selected.length === 1) {
           const entry = store.visibleEntries().find((x) => x.path === store.selected[0]);
           if (entry?.isDir) store.goPath(entry.path);
-          else store.openPreview(store.selected[0]);
+          else if (entry) void openWithDefaultApp(entry.path);
         }
         return;
       }
@@ -96,8 +107,7 @@ export function useKeyboardShortcuts() {
         return;
       }
       if (e.key === "Escape") {
-        if (store.menu) store.closeMenu();
-        else if (store.selected.length) store.clearSelection();
+        if (store.selected.length) store.clearSelection();
         return;
       }
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {

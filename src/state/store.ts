@@ -148,7 +148,7 @@ interface AppState {
 
   // ui chrome
   menu: ContextMenuState | null;
-  modMenuId: ModuleId | null;
+  modMenu: { id: ModuleId; x: number; y: number } | null;
   toast: string;
   showHidden: boolean;
   pendingPermanentDelete: string | null;
@@ -213,6 +213,8 @@ interface AppState {
 
   openMenu(state: ContextMenuState): void;
   closeMenu(): void;
+  openModMenu(id: ModuleId, x: number, y: number): void;
+  closeModMenu(): void;
   showToast(msg: string): void;
 
   createManualSet(name: string): void;
@@ -318,7 +320,7 @@ export const useStore = create<AppState>()((set, get) => ({
   apTab: "skins",
 
   menu: null,
-  modMenuId: null,
+  modMenu: null,
   toast: "",
   showHidden: false,
   pendingPermanentDelete: null,
@@ -561,7 +563,7 @@ export const useStore = create<AppState>()((set, get) => ({
   stepPreview(dir) {
     const { preview } = get();
     if (!preview) return;
-    const entries = get().visibleEntries().filter((e) => !e.isDir);
+    const entries = get().visibleEntries();
     const idx = entries.findIndex((e) => e.path === preview);
     if (idx < 0) return;
     const next = (idx + dir + entries.length) % entries.length;
@@ -896,10 +898,16 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   openMenu(state) {
-    set({ menu: state });
+    set({ menu: state, modMenu: null });
   },
   closeMenu() {
     set({ menu: null });
+  },
+  openModMenu(id, x, y) {
+    set({ modMenu: { id, x, y }, menu: null });
+  },
+  closeModMenu() {
+    set({ modMenu: null });
   },
   showToast(msg) {
     set({ toast: msg });

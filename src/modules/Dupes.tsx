@@ -3,6 +3,7 @@ import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { DUPE_BADGE } from "../theme/skins";
 import { panelTitleStyle } from "./common";
+import { openReferencedPathMenu } from "../lib/contextMenus";
 
 export function Dupes() {
   const t = useTheme();
@@ -41,6 +42,7 @@ export function Dupes() {
                 goPath(list[0].dir);
                 setTimeout(() => select(list[0].path), 0);
               }}
+              onContextMenu={(event) => openReferencedPathMenu(event, list[0].path)}
               style={{ textAlign: "left", border: 0, background: "transparent", padding: "4px 4px", cursor: "pointer" }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

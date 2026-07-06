@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { DeviceEntry, DiskUsage, FsBackend, FsEntry } from "./types";
+import type { ArchivePreview, DeviceEntry, DiskUsage, FsBackend, FsEntry, MediaPlaybackSupport, TextPreview } from "./types";
 import { basenamePosix, dirnamePosix, joinPosix } from "./pathUtil";
 
 interface RawFsEntry {
@@ -10,6 +10,18 @@ interface RawFsEntry {
   modified_ms: number;
   created_ms: number;
   is_hidden: boolean;
+}
+
+interface MediaServerInfo {
+  port: number;
+  token: string;
+}
+
+let mediaServerInfo: Promise<MediaServerInfo> | null = null;
+
+function getMediaServerInfo(): Promise<MediaServerInfo> {
+  mediaServerInfo ??= invoke<MediaServerInfo>("media_server_info");
+  return mediaServerInfo;
 }
 
 function fromRaw(e: RawFsEntry): FsEntry {
@@ -40,6 +52,19 @@ export const tauriBackend: FsBackend = {
   },
   async readTextFile(path: string) {
     return invoke<string>("read_text_file", { path });
+  },
+  async fileUrl(path: string) {
+    const { port, token } = await getMediaServerInfo();
+    return `http://127.0.0.1:${port}/media?token=${encodeURIComponent(token)}&path=${encodeURIComponent(path)}`;
+  },
+  async mediaPlaybackSupport() {
+    return invoke<MediaPlaybackSupport>("media_playback_support");
+  },
+  async previewArchive(path: string) {
+    return invoke<ArchivePreview>("preview_archive", { path });
+  },
+  async previewTextFile(path: string) {
+    return invoke<TextPreview | null>("preview_text_file", { path });
   },
   async createFolder(parent: string, name: string) {
     return invoke<string>("create_folder", { parent, name });

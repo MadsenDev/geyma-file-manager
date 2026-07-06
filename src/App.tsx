@@ -4,10 +4,12 @@ import { useTheme } from "./theme/ThemeContext";
 import { hexA } from "./theme/skins";
 import { Zone } from "./layout/Zone";
 import { EditBar } from "./layout/EditBar";
+import { Titlebar } from "./layout/Titlebar";
 import { Icon } from "./icons/Icon";
 import { ICONS } from "./icons/paths";
 import { QuickLook } from "./overlays/QuickLook";
 import { ContextMenu } from "./overlays/ContextMenu";
+import { ModuleOptions } from "./overlays/ModuleOptions";
 import { Toast } from "./overlays/Toast";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts";
 
@@ -24,11 +26,19 @@ export function App() {
   const setCenterRatio = useStore((s) => s.setCenterRatio);
   const motion = useStore((s) => s.motion);
   const backend = useStore((s) => s.backend);
+  const openMenu = useStore((s) => s.openMenu);
+  const closeMenu = useStore((s) => s.closeMenu);
   const centerWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void init();
   }, [init]);
+
+  useEffect(() => {
+    const suppressNativeMenu = (event: MouseEvent) => event.preventDefault();
+    document.addEventListener("contextmenu", suppressNativeMenu);
+    return () => document.removeEventListener("contextmenu", suppressNativeMenu);
+  }, []);
 
   useKeyboardShortcuts();
 
@@ -73,8 +83,9 @@ export function App() {
 
   if (!backend) {
     return (
-      <div style={{ display: "grid", placeItems: "center", height: "100vh", color: t.inkFaint, fontFamily: t.body }}>
-        Loading Geyma…
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: t.bg, color: t.inkFaint, fontFamily: t.body }}>
+        <Titlebar />
+        <div style={{ flex: 1, display: "grid", placeItems: "center" }}>Loading Geyma…</div>
       </div>
     );
   }
@@ -82,6 +93,16 @@ export function App() {
   return (
     <div
       className={`gy-motion-${motion}`}
+      onContextMenu={(event) => {
+        if (event.defaultPrevented) return;
+        event.preventDefault();
+        const target = event.target;
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+          openTextContextMenu(event, target, openMenu);
+        } else {
+          closeMenu();
+        }
+      }}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -93,6 +114,7 @@ export function App() {
         overflow: "hidden",
       }}
     >
+      <Titlebar />
       {hasTop && (
         <Zone zoneId="top" orientation="h" emptyHint="Top zone — drop modules here" style={{ borderBottom: `1px solid ${t.border}`, background: t.surface, flex: "none" }} />
       )}
@@ -160,9 +182,45 @@ export function App() {
 
       <QuickLook />
       <ContextMenu />
+      <ModuleOptions />
       <Toast />
     </div>
   );
+}
+
+function openTextContextMenu(
+  event: React.MouseEvent,
+  target: HTMLInputElement | HTMLTextAreaElement,
+  openMenu: ReturnType<typeof useStore.getState>["openMenu"],
+) {
+  const start = target.selectionStart ?? 0;
+  const end = target.selectionEnd ?? start;
+  const selectedText = target.value.slice(start, end);
+  const editable = !target.readOnly && !target.disabled;
+
+  const replaceSelection = (text: string) => {
+    target.focus();
+    target.setRangeText(text, start, end, "end");
+    target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+  };
+  const copy = () => {
+    if (selectedText) navigator.clipboard?.writeText(selectedText).catch(() => {});
+  };
+
+  openMenu({
+    x: event.clientX,
+    y: event.clientY,
+    items: [
+      editable && selectedText ? { label: "Cut", onClick: () => { copy(); replaceSelection(""); } } : undefined,
+      selectedText ? { label: "Copy", onClick: copy } : undefined,
+      editable ? {
+        label: "Paste",
+        onClick: () => navigator.clipboard?.readText().then(replaceSelection).catch(() => useStore.getState().showToast("Clipboard access was denied")),
+      } : undefined,
+      { divider: true },
+      { label: "Select all", onClick: () => { target.focus(); target.select(); } },
+    ].filter(Boolean) as { label?: string; divider?: boolean; onClick?: () => void }[],
+  });
 }
 
 function gutterStyle(border: string): React.CSSProperties {

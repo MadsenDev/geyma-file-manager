@@ -2,6 +2,7 @@ import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { formatAgo } from "../lib/format";
 import { panelTitleStyle } from "./common";
+import { openReferencedPathMenu, revealReferencedPath } from "../lib/contextMenus";
 
 const KIND_DOT: Record<string, string> = {
   accent: "#2C6E49",
@@ -16,7 +17,6 @@ export function Recent() {
   const t = useTheme();
   const feed = useStore((s) => s.globalFeed);
   const mcfg = useStore((s) => s.mcfg);
-  const openPreview = useStore((s) => s.openPreview);
   const count = mcfg("recent", "count", 6);
 
   return (
@@ -26,7 +26,8 @@ export function Recent() {
         {feed.slice(0, count).map((ev) => (
           <button
             key={ev.id}
-            onClick={() => openPreview(ev.path)}
+            onClick={() => revealReferencedPath(ev.path, true)}
+            onContextMenu={(event) => openReferencedPathMenu(event, ev.path)}
             className="gy-row"
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", border: 0, background: "transparent", textAlign: "left", cursor: "pointer", borderRadius: 6 }}
           >

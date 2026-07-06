@@ -5,6 +5,7 @@ import { hexA } from "../theme/skins";
 import { formatSize } from "../lib/format";
 import { panelTitleStyle } from "./common";
 import type { DiskUsage } from "../fs/types";
+import { openLocationMenu } from "../lib/contextMenus";
 
 export function Disk() {
   const t = useTheme();
@@ -29,7 +30,7 @@ export function Disk() {
   const pct = usage.total > 0 ? (used / usage.total) * 100 : 0;
 
   return (
-    <div>
+    <div onContextMenu={(event) => openLocationMenu(event, path)}>
       <div style={panelTitleStyle(t)}>Disk usage</div>
       <div style={{ padding: "0 12px 12px" }}>
         <div style={{ height: 8, borderRadius: 99, background: hexA(t.ink, t.isDark ? 0.14 : 0.08), overflow: "hidden" }}>

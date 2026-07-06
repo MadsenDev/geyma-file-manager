@@ -1,5 +1,6 @@
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
+import { openLocationMenu } from "../lib/contextMenus";
 
 export function Title() {
   const t = useTheme();
@@ -10,6 +11,8 @@ export function Title() {
   const activeSetId = useStore((s) => s.activeSetId);
   const setDefs = useStore((s) => s.setDefs);
   const entries = useStore((s) => s.visibleEntries());
+  const showPath = useStore((s) => s.mcfg("title", "kicker", true));
+  const showSummary = useStore((s) => s.mcfg("title", "summary", true));
 
   const activeSet = activeSetId ? setDefs.find((s) => s.id === activeSetId) : null;
   const name = activeSet ? activeSet.name : trashView ? "Trash" : path === home ? "Home" : backend?.basename(path) || path;
@@ -24,16 +27,20 @@ export function Title() {
   const files = entries.length - folders;
 
   return (
-    <div style={{ padding: "10px 4px 6px" }}>
-      <div style={{ fontFamily: t.mono, fontSize: 10, textTransform: "uppercase", letterSpacing: ".1em", color: t.inkFaint, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {kicker}
-      </div>
+    <div onContextMenu={!activeSet && !trashView ? (event) => openLocationMenu(event, path) : undefined} style={{ padding: "10px 4px 6px" }}>
+      {showPath && (
+        <div style={{ fontFamily: t.mono, fontSize: 10, textTransform: "uppercase", letterSpacing: ".1em", color: t.inkFaint, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {kicker}
+        </div>
+      )}
       <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{name}</div>
-      <div style={{ fontSize: 12, color: t.inkSoft, marginTop: 2 }}>
-        {entries.length} item{entries.length === 1 ? "" : "s"}
-        {folders > 0 && files > 0 ? ` · ${folders} folder${folders === 1 ? "" : "s"}, ${files} file${files === 1 ? "" : "s"}` : ""}
-        {activeSet?.note ? ` · "${activeSet.note}"` : ""}
-      </div>
+      {showSummary && (
+        <div style={{ fontSize: 12, color: t.inkSoft, marginTop: 2 }}>
+          {entries.length} item{entries.length === 1 ? "" : "s"}
+          {folders > 0 && files > 0 ? ` · ${folders} folder${folders === 1 ? "" : "s"}, ${files} file${files === 1 ? "" : "s"}` : ""}
+          {activeSet?.note ? ` · "${activeSet.note}"` : ""}
+        </div>
+      )}
     </div>
   );
 }

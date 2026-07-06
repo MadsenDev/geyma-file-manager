@@ -2,6 +2,7 @@ import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { panelTitleStyle } from "./common";
 import type { FileEvent } from "../state/types";
+import { openReferencedPathMenu, revealReferencedPath } from "../lib/contextMenus";
 
 const KIND_DOT: Record<string, string> = {
   accent: "#2C6E49",
@@ -27,7 +28,6 @@ function groupLabel(ms: number): string {
 export function Timeline() {
   const t = useTheme();
   const feed = useStore((s) => s.globalFeed);
-  const openPreview = useStore((s) => s.openPreview);
 
   const groups = new Map<string, FileEvent[]>();
   feed.forEach((ev) => {
@@ -46,7 +46,8 @@ export function Timeline() {
             {evs.map((ev) => (
               <button
                 key={ev.id}
-                onClick={() => openPreview(ev.path)}
+                onClick={() => revealReferencedPath(ev.path, true)}
+                onContextMenu={(event) => openReferencedPathMenu(event, ev.path)}
                 style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: 0, background: "transparent", padding: "4px 2px", cursor: "pointer", textAlign: "left" }}
                 className="gy-row"
               >

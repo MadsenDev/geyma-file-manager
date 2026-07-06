@@ -1,8 +1,12 @@
 mod fsops;
+mod media;
+mod preview;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let media_server = media::start().expect("failed to start media server");
     tauri::Builder::default()
+        .manage(media_server)
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
@@ -32,6 +36,10 @@ pub fn run() {
             fsops::trash_dir_path,
             fsops::disk_usage,
             fsops::list_devices,
+            media::media_server_info,
+            media::media_playback_support,
+            preview::preview_archive,
+            preview::preview_text_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

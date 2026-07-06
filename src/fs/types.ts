@@ -18,6 +18,33 @@ export interface DiskUsage {
   available: number;
 }
 
+export interface MediaPlaybackSupport {
+  available: boolean;
+  title: string;
+  message: string;
+  details: string | null;
+  installCommand: string | null;
+}
+
+export interface ArchiveEntry {
+  path: string;
+  isDir: boolean;
+  size: number;
+  compressedSize: number;
+}
+
+export interface ArchivePreview {
+  format: string;
+  entries: ArchiveEntry[];
+  totalEntries: number;
+  truncated: boolean;
+}
+
+export interface TextPreview {
+  content: string;
+  truncated: boolean;
+}
+
 export interface FsBackend {
   kind: "tauri" | "mock";
   sep: string;
@@ -25,6 +52,12 @@ export interface FsBackend {
   listDir(path: string): Promise<FsEntry[]>;
   stat(path: string): Promise<FsEntry>;
   readTextFile(path: string): Promise<string>;
+  /** URL the webview can load for images/audio/video, or null if unavailable. */
+  fileUrl(path: string): Promise<string | null>;
+  /** Checks native audio/video prerequisites before WebKit creates a media element. */
+  mediaPlaybackSupport(): Promise<MediaPlaybackSupport>;
+  previewArchive(path: string): Promise<ArchivePreview>;
+  previewTextFile(path: string): Promise<TextPreview | null>;
   createFolder(parent: string, name: string): Promise<string>;
   createFile(parent: string, name: string, contents: string): Promise<string>;
   renamePath(from: string, toName: string): Promise<string>;
