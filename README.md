@@ -8,7 +8,7 @@
 of them, and reshapes itself to however you want to work.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-2C6E49)](LICENSE)
-![Status](https://img.shields.io/badge/status-v0.5%20in%20progress-2C7DD6)
+![Status](https://img.shields.io/badge/status-v0.6%20in%20progress-2C7DD6)
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20Tauri%202-7A4B8C)
 
 Geyma (Old Norse: *to keep, to guard*) is a from-scratch rewrite of a PySide6 file manager,
