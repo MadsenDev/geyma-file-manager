@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/banner.png" alt="Geyma — Old Norse: to keep, to guard. The file manager that remembers where your files have been — ghost trails, working sets, and a chrome you can reshape." width="100%">
+</p>
+
 # Geyma
 
 **A desktop file manager that remembers where your files have been, keeps living playlists
