@@ -45,6 +45,17 @@ export interface TextPreview {
   truncated: boolean;
 }
 
+export interface PathPermissions {
+  /** Unix permission bits, e.g. 0o755. */
+  mode: number;
+  uid: number;
+  gid: number;
+  owner: string;
+  group: string;
+  isSymlink: boolean;
+  symlinkTarget: string | null;
+}
+
 export interface FsBackend {
   kind: "tauri" | "mock";
   sep: string;
@@ -58,6 +69,7 @@ export interface FsBackend {
   mediaPlaybackSupport(): Promise<MediaPlaybackSupport>;
   previewArchive(path: string): Promise<ArchivePreview>;
   extractArchive(path: string, destDir: string, folderName: string): Promise<string>;
+  createArchive(paths: string[], destDir: string, archiveName: string): Promise<string>;
   previewTextFile(path: string): Promise<TextPreview | null>;
   createFolder(parent: string, name: string): Promise<string>;
   createFile(parent: string, name: string, contents: string): Promise<string>;
@@ -70,6 +82,9 @@ export interface FsBackend {
   trashDirPath(): Promise<string>;
   diskUsage(path: string): Promise<DiskUsage>;
   listDevices(): Promise<DeviceEntry[]>;
+  getPathPermissions(path: string): Promise<PathPermissions>;
+  setPathMode(path: string, mode: number): Promise<void>;
+  createSymlink(target: string, linkDir: string, linkName: string): Promise<string>;
   join(...parts: string[]): string;
   dirname(path: string): string;
   basename(path: string): string;

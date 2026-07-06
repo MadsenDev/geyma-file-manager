@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ArchivePreview, DeviceEntry, DiskUsage, FsBackend, FsEntry, MediaPlaybackSupport, TextPreview } from "./types";
+import type { ArchivePreview, DeviceEntry, DiskUsage, FsBackend, FsEntry, MediaPlaybackSupport, PathPermissions, TextPreview } from "./types";
 import { basenamePosix, dirnamePosix, joinPosix } from "./pathUtil";
 
 interface RawFsEntry {
@@ -15,6 +15,16 @@ interface RawFsEntry {
 interface MediaServerInfo {
   port: number;
   token: string;
+}
+
+interface RawPathPermissions {
+  mode: number;
+  uid: number;
+  gid: number;
+  owner: string;
+  group: string;
+  is_symlink: boolean;
+  symlink_target: string | null;
 }
 
 let mediaServerInfo: Promise<MediaServerInfo> | null = null;
@@ -66,6 +76,9 @@ export const tauriBackend: FsBackend = {
   async extractArchive(path: string, destDir: string, folderName: string) {
     return invoke<string>("extract_archive", { path, destDir, folderName });
   },
+  async createArchive(paths: string[], destDir: string, archiveName: string) {
+    return invoke<string>("create_archive", { paths, destDir, archiveName });
+  },
   async previewTextFile(path: string) {
     return invoke<TextPreview | null>("preview_text_file", { path });
   },
@@ -101,6 +114,24 @@ export const tauriBackend: FsBackend = {
   },
   async listDevices() {
     return invoke<DeviceEntry[]>("list_devices");
+  },
+  async getPathPermissions(path: string) {
+    const raw = await invoke<RawPathPermissions>("get_path_permissions", { path });
+    return {
+      mode: raw.mode,
+      uid: raw.uid,
+      gid: raw.gid,
+      owner: raw.owner,
+      group: raw.group,
+      isSymlink: raw.is_symlink,
+      symlinkTarget: raw.symlink_target,
+    } satisfies PathPermissions;
+  },
+  async setPathMode(path: string, mode: number) {
+    await invoke<void>("set_path_mode", { path, mode });
+  },
+  async createSymlink(target: string, linkDir: string, linkName: string) {
+    return invoke<string>("create_symlink", { target, linkDir, linkName });
   },
   join(...parts: string[]) {
     return joinPosix(...parts);
