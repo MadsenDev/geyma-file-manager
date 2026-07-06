@@ -127,13 +127,15 @@ The zone/module layout engine, skin/token system, and core modules (files grid/l
 location, search, view switch, title, places, devices, status, details, appearance, sets,
 disk, recent, timeline, duplicates, clock, visualizer, folder mood, second pane, Quick Look,
 ghost trails) are implemented against real filesystem data. Cut, copy/paste, duplicate, ZIP
-extraction, and batch rename (pattern + numbering, undoable) are all wired to the real FS
-(copy and extraction are recursive Rust commands), working-set references stay correct
-across every operation (move/rename/trash/restore/permanent delete), and set share codes
-round-trip full set data (items, rule, smart, note). `src-tauri` has unit test coverage for
-the filesystem commands (move/copy/rename/trash/restore/delete/extract, including a zip-slip
+extraction, ZIP compression, batch rename (pattern + numbering, undoable), symlink creation,
+and a Properties dialog (owner/group, unix permission bits, editable read/write/execute per
+owner/group/other) are all wired to the real FS (copy, extraction, and compression are
+recursive Rust commands), working-set references stay correct across every operation
+(move/rename/trash/restore/permanent delete), and set share codes round-trip full set data
+(items, rule, smart, note). `src-tauri` has unit test coverage for the filesystem commands
+(move/copy/rename/trash/restore/delete/extract/compress/symlink/chmod, including a zip-slip
 guard) and archive/text preview parsing; the frontend has none yet. `npm run tauri build`
 produces working `.deb` and `.rpm` bundles; AppImage bundling depends on a GitHub release
 download that may be blocked in restricted network environments. Still open, per the design
 spec: workspace (full environment) snapshots, binding a look/layout snapshot to a working
-set, and non-ZIP archive formats (tar/rar/7z), tabs, and network protocol (smb/sftp) support.
+set, non-ZIP archive formats (tar/rar/7z), tabs, and network protocol (smb/sftp) support.

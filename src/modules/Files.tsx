@@ -11,6 +11,7 @@ import type { Ghost } from "../state/types";
 import { joinPosix } from "../fs/pathUtil";
 import { openWithDefaultApp } from "../lib/openDefault";
 import { BatchRenameModal } from "../overlays/BatchRenameModal";
+import { PropertiesModal } from "../overlays/PropertiesModal";
 
 async function searchAll(root: string, query: string, cap = 1500): Promise<FsEntry[]> {
   const backend = await getFsBackend();
@@ -61,8 +62,12 @@ export function Files() {
   const moveEntries = useStore((s) => s.moveEntries);
   const duplicateEntries = useStore((s) => s.duplicateEntries);
   const extractHere = useStore((s) => s.extractHere);
+  const compressEntries = useStore((s) => s.compressEntries);
+  const createSymlinkFor = useStore((s) => s.createSymlinkFor);
   const batchRename = useStore((s) => s.batchRename);
   const [batchTargets, setBatchTargets] = useState<string[] | null>(null);
+  const [propertiesTarget, setPropertiesTarget] = useState<FsEntry | null>(null);
+  const showToast = useStore((s) => s.showToast);
   const trashEntries = useStore((s) => s.trashEntries);
   const restoreEntries = useStore((s) => s.restoreEntries);
   const requestPermanentDelete = useStore((s) => s.requestPermanentDelete);
@@ -154,11 +159,23 @@ export function Files() {
         !multi && extOf(entry.name) === "ZIP"
           ? { label: "Extract Here", onClick: () => void extractHere(entry.path) }
           : undefined,
+        !multi ? { label: "Create Symlink Here", onClick: () => void createSymlinkFor(entry.path) } : undefined,
         { divider: true },
         { label: "Cut", onClick: () => setClip("cut", targets) },
         { label: "Copy", onClick: () => setClip("copy", targets) },
         { label: multi ? `Duplicate ${targets.length} items` : "Duplicate", onClick: () => duplicateEntries(targets) },
         multi ? { label: `Batch rename ${targets.length} items…`, onClick: () => setBatchTargets(targets) } : undefined,
+        {
+          label: multi ? `Compress ${targets.length} items to ZIP` : `Compress "${entry.name}" to ZIP`,
+          onClick: () => void compressEntries(targets, multi ? "Archive" : `${entry.name}.zip`),
+        },
+        {
+          label: multi ? "Copy paths" : "Copy path",
+          onClick: () => {
+            void navigator.clipboard.writeText(targets.join("\n"));
+            showToast(multi ? "Paths copied" : "Path copied");
+          },
+        },
         ...manualSets.map((s) => ({
           label: `Add to "${s.name}"`,
           onClick: () =>
@@ -169,6 +186,7 @@ export function Files() {
         })),
         { divider: true },
         !multi ? { label: "Rename", onClick: () => startRename(entry.path) } : undefined,
+        !multi ? { label: "Properties", onClick: () => setPropertiesTarget(entry) } : undefined,
         { label: multi ? `Trash ${targets.length} items` : "Trash", danger: true, onClick: () => trashEntries(targets) },
       ].filter(Boolean) as { label: string; onClick?: () => void; danger?: boolean; divider?: boolean }[],
     });
@@ -202,6 +220,10 @@ export function Files() {
     />
   );
 
+  const propertiesModal = propertiesTarget && (
+    <PropertiesModal entry={propertiesTarget} onClose={() => setPropertiesTarget(null)} />
+  );
+
   if (sorted.length === 0 && showGhosts && ghostsForDir.length === 0) {
     return (
       <div onContextMenu={onBlankMenu} style={{ flex: 1, display: "grid", placeItems: "center", padding: 40 }}>
@@ -209,6 +231,7 @@ export function Files() {
           {query.trim() ? "No matches" : trashView ? "Trash is empty" : "Empty folder"}
         </span>
         {batchModal}
+        {propertiesModal}
       </div>
     );
   }
@@ -260,6 +283,7 @@ export function Files() {
         />
       )}
       {batchModal}
+      {propertiesModal}
     </div>
   );
 }

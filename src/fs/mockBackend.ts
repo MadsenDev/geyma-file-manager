@@ -1,4 +1,4 @@
-import type { DeviceEntry, FsBackend, FsEntry } from "./types";
+import type { DeviceEntry, FsBackend, FsEntry, PathPermissions } from "./types";
 import { basenamePosix, dirnamePosix, joinPosix } from "./pathUtil";
 
 interface MockNode {
@@ -7,6 +7,8 @@ interface MockNode {
   size: number;
   modifiedMs: number;
   createdMs: number;
+  isSymlink?: boolean;
+  symlinkTarget?: string;
 }
 
 function day(y: number, m: number, d: number, h = 12, min = 0): number {
@@ -126,6 +128,7 @@ const TREE: Record<string, MockNode[]> = {
 let trashCounter = 0;
 const trashNodes: Map<string, { origin: string; node: MockNode }> = new Map();
 const TRASH_DIR = "/trash";
+const modeOverrides: Map<string, number> = new Map();
 
 function ensureDir(path: string) {
   if (!TREE[path]) TREE[path] = [];
@@ -238,6 +241,19 @@ export const mockBackend: FsBackend = {
     insertNode(target, file("preview.png", 245760, Date.now()));
     return delay(target);
   },
+  async createArchive(paths: string[], destDir: string, archiveName: string) {
+    ensureDir(destDir);
+    const name = archiveName.toLowerCase().endsWith(".zip") ? archiveName : `${archiveName}.zip`;
+    if ((TREE[destDir] || []).some((n) => n.name === name)) {
+      throw new Error("A file or folder with that name already exists");
+    }
+    const totalSize = paths.reduce((sum, p) => {
+      const found = findNode(p);
+      return sum + (found ? found.node.size || 4096 : 0);
+    }, 0);
+    insertNode(destDir, file(name, Math.max(totalSize, 1024), Date.now()));
+    return delay(joinPosix(destDir, name));
+  },
   async previewTextFile(path: string) {
     const found = findNode(path);
     const name = found?.node.name ?? basenamePosix(path);
@@ -315,6 +331,40 @@ export const mockBackend: FsBackend = {
   async listDevices() {
     const devices: DeviceEntry[] = [{ label: "FIELD", path: "/run/media/chris/FIELD" }];
     return delay(devices);
+  },
+  async getPathPermissions(path: string) {
+    const found = findNode(path);
+    if (!found) throw new Error(`not found: ${path}`);
+    const mode = modeOverrides.get(path) ?? (found.node.isDir ? 0o755 : 0o644);
+    return delay({
+      mode,
+      uid: 1000,
+      gid: 1000,
+      owner: "chris",
+      group: "chris",
+      isSymlink: !!found.node.isSymlink,
+      symlinkTarget: found.node.symlinkTarget ?? null,
+    } satisfies PathPermissions);
+  },
+  async setPathMode(path: string, mode: number) {
+    modeOverrides.set(path, mode & 0o777);
+    return delay(undefined);
+  },
+  async createSymlink(target: string, linkDir: string, linkName: string) {
+    ensureDir(linkDir);
+    if ((TREE[linkDir] || []).some((n) => n.name === linkName)) {
+      throw new Error("A file or folder with that name already exists");
+    }
+    insertNode(linkDir, {
+      name: linkName,
+      isDir: false,
+      size: 0,
+      modifiedMs: Date.now(),
+      createdMs: Date.now(),
+      isSymlink: true,
+      symlinkTarget: target,
+    });
+    return delay(joinPosix(linkDir, linkName));
   },
   join(...parts: string[]) {
     return joinPosix(...parts);

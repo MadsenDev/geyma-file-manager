@@ -249,6 +249,163 @@ pub fn disk_usage(path: String) -> Result<DiskUsage, String> {
     Ok(DiskUsage { total, available })
 }
 
+#[derive(Serialize, Clone)]
+pub struct PathPermissions {
+    pub mode: u32,
+    pub uid: u32,
+    pub gid: u32,
+    pub owner: String,
+    pub group: String,
+    pub is_symlink: bool,
+    pub symlink_target: Option<String>,
+}
+
+/// /etc/passwd and /etc/group are plain colon-separated text on every Linux distro Geyma
+/// targets, so a name lookup doesn't need a new dependency (there's no libc/users crate here).
+#[cfg(unix)]
+fn id_to_name(passwd_like_file: &str, id: u32) -> Option<String> {
+    let content = fs::read_to_string(passwd_like_file).ok()?;
+    content.lines().find_map(|line| {
+        let fields: Vec<&str> = line.split(':').collect();
+        let matches = fields.get(2).and_then(|v| v.parse::<u32>().ok()) == Some(id);
+        matches.then(|| fields.first().map(|n| n.to_string())).flatten()
+    })
+}
+
+#[tauri::command]
+pub fn get_path_permissions(path: String) -> Result<PathPermissions, String> {
+    let p = Path::new(&path);
+    let symlink_meta = fs::symlink_metadata(p).map_err(|e| e.to_string())?;
+    let is_symlink = symlink_meta.file_type().is_symlink();
+    let symlink_target = if is_symlink {
+        fs::read_link(p).ok().map(|t| t.to_string_lossy().to_string())
+    } else {
+        None
+    };
+    let meta = fs::metadata(p).map_err(|e| e.to_string())?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let uid = meta.uid();
+        let gid = meta.gid();
+        Ok(PathPermissions {
+            mode: meta.mode() & 0o777,
+            uid,
+            gid,
+            owner: id_to_name("/etc/passwd", uid).unwrap_or_else(|| uid.to_string()),
+            group: id_to_name("/etc/group", gid).unwrap_or_else(|| gid.to_string()),
+            is_symlink,
+            symlink_target,
+        })
+    }
+    #[cfg(not(unix))]
+    {
+        Ok(PathPermissions {
+            mode: 0,
+            uid: 0,
+            gid: 0,
+            owner: String::new(),
+            group: String::new(),
+            is_symlink,
+            symlink_target,
+        })
+    }
+}
+
+#[tauri::command]
+pub fn set_path_mode(path: String, mode: u32) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&path, fs::Permissions::from_mode(mode & 0o777)).map_err(|e| e.to_string())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (path, mode);
+        Err("Changing permissions is only supported on Unix".to_string())
+    }
+}
+
+#[tauri::command]
+pub fn create_symlink(target: String, link_dir: String, link_name: String) -> Result<String, String> {
+    let link_path = PathBuf::from(&link_dir).join(&link_name);
+    if fs::symlink_metadata(&link_path).is_ok() {
+        return Err("A file or folder with that name already exists".to_string());
+    }
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(&target, &link_path).map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = target;
+        return Err("Creating symlinks is only supported on Unix".to_string());
+    }
+    Ok(link_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn create_archive(paths: Vec<String>, dest_dir: String, archive_name: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || zip_paths(&paths, &dest_dir, &archive_name))
+        .await
+        .map_err(|error| format!("Compression failed: {error}"))?
+}
+
+fn zip_paths(paths: &[String], dest_dir: &str, archive_name: &str) -> Result<String, String> {
+    if paths.is_empty() {
+        return Err("Nothing selected to compress".to_string());
+    }
+    let name = if archive_name.to_ascii_lowercase().ends_with(".zip") {
+        archive_name.to_string()
+    } else {
+        format!("{archive_name}.zip")
+    };
+    let target = PathBuf::from(dest_dir).join(&name);
+    if target.exists() {
+        return Err("A file or folder with that name already exists".to_string());
+    }
+
+    let file = fs::File::create(&target).map_err(|error| error.to_string())?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+    for raw in paths {
+        let src = PathBuf::from(raw);
+        let root_name = src
+            .file_name()
+            .ok_or("bad source name")?
+            .to_string_lossy()
+            .to_string();
+        add_to_zip(&mut zip, &src, Path::new(&root_name), options)?;
+    }
+
+    zip.finish().map_err(|error| error.to_string())?;
+    Ok(target.to_string_lossy().to_string())
+}
+
+fn add_to_zip<W: std::io::Write + std::io::Seek>(
+    zip: &mut zip::ZipWriter<W>,
+    src: &Path,
+    rel: &Path,
+    options: zip::write::SimpleFileOptions,
+) -> Result<(), String> {
+    let rel_str = rel.to_string_lossy().replace('\\', "/");
+    if src.is_dir() {
+        zip.add_directory(format!("{rel_str}/"), options)
+            .map_err(|error| error.to_string())?;
+        for entry in fs::read_dir(src).map_err(|error| error.to_string())? {
+            let entry = entry.map_err(|error| error.to_string())?;
+            add_to_zip(zip, &entry.path(), &rel.join(entry.file_name()), options)?;
+        }
+    } else {
+        zip.start_file(rel_str, options).map_err(|error| error.to_string())?;
+        let mut f = fs::File::open(src).map_err(|error| error.to_string())?;
+        std::io::copy(&mut f, zip).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -495,6 +652,123 @@ mod tests {
         delete_permanently(dir_tree.to_string_lossy().to_string()).unwrap();
         assert!(!dir_tree.exists());
 
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn get_and_set_path_mode_round_trip_permission_bits() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_workdir("perms");
+        let file = root.join("script.sh");
+        fs::write(&file, b"#!/bin/sh").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
+
+        let before = get_path_permissions(file.to_string_lossy().to_string()).unwrap();
+        assert_eq!(before.mode, 0o644);
+        assert!(!before.is_symlink);
+        assert!(before.symlink_target.is_none());
+
+        set_path_mode(file.to_string_lossy().to_string(), 0o755).unwrap();
+        let after = get_path_permissions(file.to_string_lossy().to_string()).unwrap();
+        assert_eq!(after.mode, 0o755);
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn get_path_permissions_reports_symlink_target() {
+        let root = temp_workdir("perms-symlink");
+        let target = root.join("original.txt");
+        fs::write(&target, b"data").unwrap();
+        let link = root.join("alias.txt");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let info = get_path_permissions(link.to_string_lossy().to_string()).unwrap();
+        assert!(info.is_symlink);
+        assert_eq!(info.symlink_target, Some(target.to_string_lossy().to_string()));
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn create_symlink_points_back_at_the_original() {
+        let root = temp_workdir("symlink-create");
+        let target = root.join("original.txt");
+        fs::write(&target, b"data").unwrap();
+
+        let link_path = create_symlink(
+            target.to_string_lossy().to_string(),
+            root.to_string_lossy().to_string(),
+            "alias.txt".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(fs::read_link(&link_path).unwrap(), target);
+        assert_eq!(fs::read_to_string(&link_path).unwrap(), "data");
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn create_symlink_refuses_to_overwrite_an_existing_entry() {
+        let root = temp_workdir("symlink-collide");
+        let target = root.join("original.txt");
+        fs::write(&target, b"data").unwrap();
+        fs::write(root.join("alias.txt"), b"already here").unwrap();
+
+        let result = create_symlink(
+            target.to_string_lossy().to_string(),
+            root.to_string_lossy().to_string(),
+            "alias.txt".to_string(),
+        );
+
+        assert!(result.is_err());
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn zip_paths_compresses_a_file_and_a_nested_directory() {
+        let root = temp_workdir("zip-create");
+        fs::write(root.join("top.txt"), b"top").unwrap();
+        fs::create_dir_all(root.join("folder/nested")).unwrap();
+        fs::write(root.join("folder/nested/deep.txt"), b"deep").unwrap();
+
+        let archive_path = zip_paths(
+            &[
+                root.join("top.txt").to_string_lossy().to_string(),
+                root.join("folder").to_string_lossy().to_string(),
+            ],
+            root.to_str().unwrap(),
+            "bundle",
+        )
+        .unwrap();
+        assert_eq!(Path::new(&archive_path), root.join("bundle.zip"));
+
+        let file = fs::File::open(&archive_path).unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        let mut names: Vec<String> = (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .collect();
+        names.sort();
+        assert_eq!(names, vec!["folder/", "folder/nested/", "folder/nested/deep.txt", "top.txt"]);
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn zip_paths_refuses_to_overwrite_an_existing_archive() {
+        let root = temp_workdir("zip-collide");
+        fs::write(root.join("top.txt"), b"top").unwrap();
+        fs::write(root.join("bundle.zip"), b"already here").unwrap();
+
+        let result = zip_paths(
+            &[root.join("top.txt").to_string_lossy().to_string()],
+            root.to_str().unwrap(),
+            "bundle",
+        );
+
+        assert!(result.is_err());
         fs::remove_dir_all(&root).unwrap();
     }
 }

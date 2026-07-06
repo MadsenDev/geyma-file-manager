@@ -206,6 +206,9 @@ interface AppState {
   moveEntries(paths: string[], destDir: string): Promise<void>;
   duplicateEntries(paths: string[]): Promise<void>;
   extractHere(path: string): Promise<void>;
+  compressEntries(paths: string[], archiveName: string): Promise<void>;
+  createSymlinkFor(path: string): Promise<void>;
+  setPathMode(path: string, mode: number): Promise<void>;
   batchRename(paths: string[], template: string, startAt: number): Promise<void>;
   trashEntries(paths: string[]): Promise<void>;
   restoreEntries(paths: string[]): Promise<void>;
@@ -782,6 +785,72 @@ export const useStore = create<AppState>()((set, get) => ({
       set({ selected: [newPath] });
     } catch (e) {
       get().showToast(`Extract failed: ${e}`);
+    }
+  },
+
+  async compressEntries(paths, archiveName) {
+    const { backend } = get();
+    if (!backend || paths.length === 0) return;
+    const dir = backend.dirname(paths[0]);
+    const existing = new Set(get().entriesFor(dir).map((e) => e.name));
+    const desired = archiveName.toLowerCase().endsWith(".zip") ? archiveName : `${archiveName}.zip`;
+    const finalName = uniqueNameFor(existing, desired);
+    try {
+      const newPath = await backend.createArchive(paths, dir, finalName);
+      logEvent(get, set, newPath, "Compressed", `${paths.length} item${paths.length > 1 ? "s" : ""}`, "archive");
+      get().pushUndo({
+        label: `Compress to ${finalName}`,
+        undo: async () => {
+          await backend.trashPath(newPath);
+          await get().loadDir(dir, true);
+        },
+      });
+      await get().loadDir(dir, true);
+      set({ selected: [newPath] });
+    } catch (e) {
+      get().showToast(`Compress failed: ${e}`);
+    }
+  },
+
+  async createSymlinkFor(path) {
+    const { backend } = get();
+    if (!backend) return;
+    const dir = backend.dirname(path);
+    const origName = backend.basename(path);
+    const existing = new Set(get().entriesFor(dir).map((e) => e.name));
+    const linkName = uniqueNameFor(existing, `${origName} (link)`);
+    try {
+      const newPath = await backend.createSymlink(path, dir, linkName);
+      logEvent(get, set, newPath, "Linked", `to "${origName}"`, "archive");
+      get().pushUndo({
+        label: `Create symlink to ${origName}`,
+        undo: async () => {
+          await backend.trashPath(newPath);
+          await get().loadDir(dir, true);
+        },
+      });
+      await get().loadDir(dir, true);
+      set({ selected: [newPath] });
+    } catch (e) {
+      get().showToast(`Create symlink failed: ${e}`);
+    }
+  },
+
+  async setPathMode(path, mode) {
+    const { backend } = get();
+    if (!backend) return;
+    try {
+      const before = await backend.getPathPermissions(path);
+      await backend.setPathMode(path, mode);
+      logEvent(get, set, path, "Permissions changed", `${before.mode.toString(8)} → ${mode.toString(8)}`, "muted");
+      get().pushUndo({
+        label: `Change permissions of ${backend.basename(path)}`,
+        undo: async () => {
+          await backend.setPathMode(path, before.mode);
+        },
+      });
+    } catch (e) {
+      get().showToast(`Permission change failed: ${e}`);
     }
   },
 
