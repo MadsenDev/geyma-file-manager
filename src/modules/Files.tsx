@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA, itemColors } from "../theme/skins";
@@ -39,17 +39,10 @@ export function Files() {
   const path = useStore((s) => s.path);
   const home = useStore((s) => s.home);
   const trashView = useStore((s) => s.trashView);
-  const trashDir = useStore((s) => s.trashDir);
   const activeSetId = useStore((s) => s.activeSetId);
   const setDefs = useStore((s) => s.setDefs);
-  const setEntriesFor = useStore((s) => s.setEntriesFor);
-  const dirEntries = useStore((s) => s.entriesFor(trashView ? trashDir : path));
   const query = useStore((s) => s.query);
   const searchScope = useStore((s) => s.searchScope);
-  const filters = useStore((s) => s.filters);
-  const showHidden = useStore((s) => s.showHidden);
-  const sortKey = useStore((s) => s.sortKey);
-  const sortDir = useStore((s) => s.sortDir);
   const selected = useStore((s) => s.selected);
   const select = useStore((s) => s.select);
   const goPath = useStore((s) => s.goPath);
@@ -62,6 +55,7 @@ export function Files() {
   const commitRename = useStore((s) => s.commitRename);
   const cancelRename = useStore((s) => s.cancelRename);
   const moveEntries = useStore((s) => s.moveEntries);
+  const duplicateEntries = useStore((s) => s.duplicateEntries);
   const trashEntries = useStore((s) => s.trashEntries);
   const restoreEntries = useStore((s) => s.restoreEntries);
   const requestPermanentDelete = useStore((s) => s.requestPermanentDelete);
@@ -76,58 +70,27 @@ export function Files() {
   const goPath2 = useStore((s) => s.goPath2);
   const backend = useStore((s) => s.backend);
 
-  const [allResults, setAllResults] = useState<FsEntry[] | null>(null);
+  const setSearchAllResults = useStore((s) => s.setSearchAllResults);
 
   useEffect(() => {
     if (searchScope !== "all" || !query.trim()) {
-      setAllResults(null);
+      setSearchAllResults(null);
       return;
     }
     let cancelled = false;
     searchAll(home, query.trim()).then((r) => {
-      if (!cancelled) setAllResults(r);
+      if (!cancelled) setSearchAllResults(r);
     });
     return () => {
       cancelled = true;
     };
-  }, [searchScope, query, home]);
+  }, [searchScope, query, home, setSearchAllResults]);
 
   const activeSet = activeSetId ? setDefs.find((s) => s.id === activeSetId) : null;
 
-  const baseEntries: FsEntry[] = activeSet
-    ? setEntriesFor(activeSet)
-    : searchScope === "all" && query.trim() && allResults
-      ? allResults
-      : dirEntries;
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return baseEntries.filter((e) => {
-      if (!showHidden && e.isHidden && !trashView) return false;
-      const kind = kindOf(e.name, e.isDir);
-      if (filters.kind && kind !== filters.kind) return false;
-      if (filters.starred && !starred.has(e.path)) return false;
-      if (q && searchScope === "folder") {
-        const ext = extOf(e.name).toLowerCase();
-        if (!e.name.toLowerCase().includes(q) && !kind.includes(q) && !ext.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [baseEntries, showHidden, filters, starred, query, searchScope, trashView]);
-
-  const sorted = useMemo(() => {
-    const arr = filtered.slice();
-    arr.sort((a, b) => {
-      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-      let cmp = 0;
-      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortKey === "kind") cmp = kindOf(a.name, a.isDir).localeCompare(kindOf(b.name, b.isDir));
-      else if (sortKey === "size") cmp = a.size - b.size;
-      else if (sortKey === "modified") cmp = a.modifiedMs - b.modifiedMs;
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return arr;
-  }, [filtered, sortKey, sortDir]);
+  // Kept in sync with the store's visibleEntries() — same filter/sort logic drives
+  // the grid here, the Title item count, keyboard nav, select-all, and Quick Look.
+  const sorted = useStore((s) => s.visibleEntries());
 
   const showGhosts = !trashView && !activeSet && !query.trim();
 
@@ -147,28 +110,32 @@ export function Files() {
   function itemMenu(entry: FsEntry, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!selected.includes(entry.path)) select(entry.path);
+    const wasSelected = selected.includes(entry.path);
+    if (!wasSelected) select(entry.path);
+    const targets = wasSelected ? selected : [entry.path];
+    const multi = targets.length > 1;
     const isStarred = starred.has(entry.path);
     if (trashView) {
       openMenu({
         x: e.clientX,
         y: e.clientY,
         items: [
-          { label: "Restore", onClick: () => restoreEntries([entry.path]) },
+          { label: multi ? `Restore ${targets.length} items` : "Restore", onClick: () => restoreEntries(targets) },
           { divider: true },
-          { label: "Delete permanently", danger: true, onClick: () => requestPermanentDelete([entry.path]) },
+          { label: multi ? `Delete ${targets.length} items permanently` : "Delete permanently", danger: true, onClick: () => requestPermanentDelete(targets) },
         ],
       });
       return;
     }
+    const manualSets = useStore.getState().setDefs.filter((s) => !s.smart);
     openMenu({
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: "Open", onClick: () => onOpen(entry) },
-        !entry.isDir ? { label: "Quick Look", onClick: () => openPreview(entry.path) } : undefined,
-        { label: isStarred ? "Remove star" : "Star", onClick: () => toggleStar([entry.path]) },
-        entry.isDir
+        !multi ? { label: "Open", onClick: () => onOpen(entry) } : undefined,
+        !multi && !entry.isDir ? { label: "Quick Look", onClick: () => openPreview(entry.path) } : undefined,
+        { label: isStarred ? "Remove star" : "Star", onClick: () => toggleStar(targets) },
+        !multi && entry.isDir
           ? {
               label: "Open in lower pane",
               onClick: () => {
@@ -178,23 +145,22 @@ export function Files() {
             }
           : undefined,
         { divider: true },
-        { label: "Cut", onClick: () => setClip("cut", [entry.path]) },
-        { label: "Add to set…", onClick: () => addToSetPrompt(entry) },
+        { label: "Cut", onClick: () => setClip("cut", targets) },
+        { label: "Copy", onClick: () => setClip("copy", targets) },
+        { label: multi ? `Duplicate ${targets.length} items` : "Duplicate", onClick: () => duplicateEntries(targets) },
+        ...manualSets.map((s) => ({
+          label: `Add to "${s.name}"`,
+          onClick: () =>
+            addToSet(
+              s.id,
+              targets.map((p) => ({ dir: backend?.dirname(p) || path, name: backend?.basename(p) || p })),
+            ),
+        })),
         { divider: true },
-        { label: "Rename", onClick: () => startRename(entry.path) },
-        { label: "Trash", danger: true, onClick: () => trashEntries([entry.path]) },
+        !multi ? { label: "Rename", onClick: () => startRename(entry.path) } : undefined,
+        { label: multi ? `Trash ${targets.length} items` : "Trash", danger: true, onClick: () => trashEntries(targets) },
       ].filter(Boolean) as { label: string; onClick?: () => void; danger?: boolean; divider?: boolean }[],
     });
-  }
-
-  function addToSetPrompt(entry: FsEntry) {
-    const manualSets = useStore.getState().setDefs.filter((s) => !s.smart);
-    if (manualSets.length === 0) {
-      useStore.getState().showToast("Create a working set first from the Sets module.");
-      return;
-    }
-    addToSet(manualSets[0].id, [{ dir: backend?.dirname(entry.path) || path, name: entry.name }]);
-    useStore.getState().showToast(`Added to "${manualSets[0].name}"`);
   }
 
   function onBlankMenu(e: React.MouseEvent) {

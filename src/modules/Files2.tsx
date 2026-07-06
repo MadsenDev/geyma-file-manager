@@ -10,7 +10,12 @@ export function Files2() {
   const t = useTheme();
   const path2 = useStore((s) => s.path2);
   const backend = useStore((s) => s.backend);
-  const entries = useStore((s) => s.entriesFor(path2));
+  const showHidden = useStore((s) => s.showHidden);
+  const rawEntries = useStore((s) => s.entriesFor(path2));
+  const entries = rawEntries
+    .filter((e) => showHidden || !e.isHidden)
+    .slice()
+    .sort((a, b) => (a.isDir !== b.isDir ? (a.isDir ? -1 : 1) : a.name.localeCompare(b.name)));
   const goUp2 = useStore((s) => s.goUp2);
   const goPath2 = useStore((s) => s.goPath2);
   const moveEntries = useStore((s) => s.moveEntries);

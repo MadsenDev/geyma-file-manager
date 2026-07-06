@@ -6,6 +6,18 @@ import { ICONS } from "../icons/paths";
 import { navItemStyle, iconButtonStyle } from "./common";
 import { PromptModal } from "../overlays/Modal";
 
+function toBase64Utf8(s: string): string {
+  const bytes = new TextEncoder().encode(s);
+  let binary = "";
+  bytes.forEach((b) => (binary += String.fromCharCode(b)));
+  return btoa(binary);
+}
+function fromBase64Utf8(b64: string): string {
+  const binary = atob(b64);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
 type DialogState =
   | { kind: "new-set" }
   | { kind: "new-smart" }
@@ -17,6 +29,9 @@ type DialogState =
 export function Sets() {
   const t = useTheme();
   const setDefs = useStore((s) => s.setDefs);
+  // Subscribed so this re-renders when directory caches refresh — setEntriesFor()
+  // resolves refs against s.dirs, but selecting the function alone wouldn't.
+  useStore((s) => s.dirs);
   const activeSetId = useStore((s) => s.activeSetId);
   const openSet = useStore((s) => s.openSet);
   const openMenu = useStore((s) => s.openMenu);
@@ -27,6 +42,8 @@ export function Sets() {
   const duplicateSet = useStore((s) => s.duplicateSet);
   const removeSet = useStore((s) => s.removeSet);
   const setEntriesFor = useStore((s) => s.setEntriesFor);
+  const importSet = useStore((s) => s.importSet);
+  const backend = useStore((s) => s.backend);
   const showToast = useStore((s) => s.showToast);
   const [dialog, setDialog] = useState<DialogState>(null);
 
@@ -73,7 +90,12 @@ export function Sets() {
                     {
                       label: "Copy set code",
                       onClick: () => {
-                        const code = "GYSET." + btoa(JSON.stringify(s));
+                        const items = setEntriesFor(s).map((e) => ({
+                          dir: backend?.dirname(e.path) ?? "",
+                          name: e.name,
+                        }));
+                        const payload = { name: s.name, note: s.note || "", smart: !!s.smart, rule: s.rule || null, items };
+                        const code = "GYSET." + toBase64Utf8(JSON.stringify(payload));
                         navigator.clipboard?.writeText(code).catch(() => {});
                         showToast("Set code copied to clipboard");
                       },
@@ -158,12 +180,18 @@ export function Sets() {
           onClose={() => setDialog(null)}
           onConfirm={(code) => {
             try {
-              const json = atob(code.replace(/^GYSET\./, ""));
+              const json = fromBase64Utf8(code.trim().replace(/^GYSET\./, ""));
               const parsed = JSON.parse(json);
-              createManualSet(parsed.name || "Imported set");
-              showToast("Set imported");
+              importSet({
+                name: parsed.name,
+                note: parsed.note || undefined,
+                smart: !!parsed.smart,
+                rule: parsed.rule || undefined,
+                items: Array.isArray(parsed.items) ? parsed.items : [],
+              });
+              showToast(`Imported "${parsed.name || "set"}"`);
             } catch {
-              showToast("Invalid set code");
+              showToast("That doesn't look like a set code");
             }
             setDialog(null);
           }}

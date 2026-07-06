@@ -48,7 +48,7 @@ export function useKeyboardShortcuts() {
       }
       if (e.key === "Enter") {
         if (store.selected.length === 1) {
-          const entry = store.entriesFor(store.trashView ? store.trashDir : store.path).find((x) => x.path === store.selected[0]);
+          const entry = store.visibleEntries().find((x) => x.path === store.selected[0]);
           if (entry?.isDir) store.goPath(entry.path);
           else store.openPreview(store.selected[0]);
         }
@@ -101,7 +101,7 @@ export function useKeyboardShortcuts() {
         return;
       }
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
-        const entries = store.entriesFor(store.trashView ? store.trashDir : store.path);
+        const entries = store.visibleEntries();
         if (!entries.length) return;
         e.preventDefault();
         const cols = computeColumns();

@@ -1,34 +1,78 @@
 # Geyma
 
-**Geyma** (Old Norse: *to keep, to guard*) is a desktop file manager built around three
-differentiating ideas:
+**A desktop file manager that remembers where your files have been, keeps living playlists
+of them, and reshapes itself to however you want to work.**
 
-1. **Files remember.** Every operation (move, rename, star, restore…) is logged. The UI
-   surfaces this memory everywhere: per-file activity timelines in the Details panel, a
-   disk-wide Timeline module, and "ghost trails" — faint markers left behind in a folder
-   showing where recently-departed files went.
-2. **Working Sets.** Playlist-like collections of file *references* (never copies). Files
-   stay where they live; sets follow them through moves and renames. Sets support notes and
-   rule-based "smart" variants that fill themselves from the whole disk.
-3. **Deep customizability.** The entire chrome is modular — every UI element (nav, search,
-   sidebar panels, even the file grid) is a module the user can drag between six layout
-   zones. Eight full color skins with token-level overrides.
+[![License: MIT](https://img.shields.io/badge/license-MIT-2C6E49)](LICENSE)
+![Status](https://img.shields.io/badge/status-v0.5%20in%20progress-2C7DD6)
+![Stack](https://img.shields.io/badge/stack-React%20%2B%20Tauri%202-7A4B8C)
 
-This is a from-scratch rewrite (v0.5, in progress) replacing the previous PySide6
-implementation, which is preserved at [`archive/pyside6-legacy`](archive/pyside6-legacy).
-The design spec this build follows lives at
-[`design/geyma-v3.2-handoff`](design/geyma-v3.2-handoff) — `Geyma.dc.html` there is the
-authoritative reference prototype.
+Geyma (Old Norse: *to keep, to guard*) is a from-scratch rewrite of a PySide6 file manager,
+now built as a React + TypeScript app inside a Tauri 2 shell with real filesystem access —
+list, rename, move, copy, a recoverable Trash, and disk usage, all backed by Rust.
 
-## Stack
+<p align="center">
+  <img src="docs/screenshots/hero.png" alt="Geyma's main window: file grid, working sets, and details panel" width="100%">
+</p>
+
+## Why Geyma is different
+
+### 🕰️ Files remember
+
+Every move, rename, star, and restore is logged. That memory surfaces everywhere: a
+per-file activity timeline in the Details panel, a disk-wide Timeline module, and **ghost
+trails** — faint, dashed markers left behind in a folder showing where a file that just
+left actually went. Click one and it takes you straight there.
+
+### 📎 Working Sets
+
+Playlist-like collections of file *references*, never copies. Files stay exactly where they
+live on disk; a set just follows them through moves, renames, trashing, and restoring. Sets
+can carry a note, or be **smart** — a rule (`starred`, `kind`, `modified since…`) that fills
+the set live from the whole disk instead of a fixed list. Share a set with anyone as a
+`GYSET.` code.
+
+### 🎨 Deep customizability
+
+The entire chrome is modular. Every piece of UI — nav, search, sidebar panels, even the
+file grid itself — is a module you can drag between six layout zones, hide, or bring back
+from the edit bar's chip strip. Eight full color skins, each overridable token-by-token
+(accent, font, radius, density, glow, background pattern).
+
+<p align="center">
+  <img src="docs/screenshots/skins.png" alt="Edit mode showing the modular layout and all eight color skins" width="100%">
+</p>
+
+## A closer look
+
+<table>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/dark-mode.png" alt="Obsidian dark skin with a selected image file">
+<p align="center"><em>Eight skins, light or dark — here, Obsidian</em></p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/list-view.png" alt="List view with sortable Kind, Size, and Modified columns">
+<p align="center"><em>List view with sortable columns</em></p>
+</td>
+</tr>
+<tr>
+<td width="50%" colspan="2">
+<img src="docs/screenshots/quick-look.png" alt="Quick Look overlay previewing a PDF, with step arrows">
+<p align="center"><em>Quick Look — Space to preview, arrow keys to step through the folder</em></p>
+</td>
+</tr>
+</table>
+
+## Under the hood
 
 - **React 18 + TypeScript + Vite** for the UI
 - **Zustand** for application state
-- **Tauri 2** as the desktop shell, giving the app real filesystem access (list/rename/move,
+- **Tauri 2** as the desktop shell — real filesystem access (list/rename/move/recursive copy,
   a recoverable app-level Trash, disk usage) via Rust commands in `src-tauri/src/fsops.rs`
-- A **mock in-memory filesystem** (`src/fs/mockBackend.ts`) is used automatically when the
+- A **mock in-memory filesystem** (`src/fs/mockBackend.ts`) kicks in automatically when the
   app runs in a plain browser (`npm run dev` without the Tauri shell), so the UI can be
-  developed and demoed without the native shell.
+  developed and demoed without the native shell — it's what the screenshots above are running.
 
 ## Getting started
 
@@ -73,6 +117,8 @@ design/        the v3.2 design handoff this rewrite implements
 The zone/module layout engine, skin/token system, and core modules (files grid/list, nav,
 location, search, view switch, title, places, devices, status, details, appearance, sets,
 disk, recent, timeline, duplicates, clock, visualizer, folder mood, second pane, Quick Look,
-ghost trails) are implemented against real filesystem data. Still open, per the design spec:
-recursive copy (only cut/move is wired to the real FS today), set share-code import/export
-polish, and workspace (full environment) snapshots.
+ghost trails) are implemented against real filesystem data. Cut, copy/paste, and duplicate are
+all wired to the real FS (copy is a recursive Rust command), working-set references stay
+correct across every operation (move/rename/trash/restore/permanent delete), and set share
+codes round-trip full set data (items, rule, smart, note). Still open, per the design spec:
+workspace (full environment) snapshots and binding a look/layout snapshot to a working set.

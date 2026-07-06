@@ -166,6 +166,15 @@ function insertNode(dir: string, node: MockNode) {
   TREE[dir].push(node);
 }
 
+function cloneSubtree(oldPath: string, newPath: string) {
+  const sub = TREE[oldPath];
+  if (!sub) return;
+  TREE[newPath] = sub.map((n) => ({ ...n }));
+  for (const child of sub) {
+    if (child.isDir) cloneSubtree(joinPosix(oldPath, child.name), joinPosix(newPath, child.name));
+  }
+}
+
 async function delay<T>(value: T): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), 30));
 }
@@ -226,6 +235,14 @@ export const mockBackend: FsBackend = {
       delete TREE[oldChildPath];
     }
     return delay(joinPosix(toDir, node.name));
+  },
+  async copyPath(from: string, toDir: string, toName: string) {
+    const found = findNode(from);
+    if (!found) throw new Error(`not found: ${from}`);
+    const clone: MockNode = { ...found.node, name: toName, modifiedMs: Date.now() };
+    insertNode(toDir, clone);
+    if (clone.isDir) cloneSubtree(joinPosix(found.dir, found.node.name), joinPosix(toDir, toName));
+    return delay(joinPosix(toDir, toName));
   },
   async trashPath(path: string) {
     const node = removeFromTree(path);
