@@ -19,6 +19,7 @@ export function openLocationMenu(event: ContextEvent, path: string) {
     y: event.clientY,
     items: [
       { label: "Open", onClick: () => store.goPlace(path) },
+      { label: "Open in new tab", onClick: () => store.newTab(path) },
       {
         label: "Open in lower pane",
         onClick: () => {

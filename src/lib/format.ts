@@ -52,6 +52,7 @@ const KIND_BY_EXT: Record<string, string> = {
   MP4: "video", WEBM: "video", MOV: "video", MKV: "video",
   MP3: "audio", FLAC: "audio", WAV: "audio", OGG: "audio",
   ZIP: "archive", GZ: "archive", TAR: "archive", RAR: "archive", "7Z": "archive",
+  TGZ: "archive", TBZ2: "archive", TBZ: "archive", TXZ: "archive", BZ2: "archive", XZ: "archive",
   APPIMAGE: "app", DEB: "app", RPM: "app", EXE: "app",
 };
 
@@ -59,6 +60,22 @@ export function kindOf(name: string, isDir: boolean): string {
   if (isDir) return "folder";
   const ext = extOf(name);
   return KIND_BY_EXT[ext] || "document";
+}
+
+const EXTRACTABLE_SUFFIXES = [".zip", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz", ".7z"];
+
+export function isExtractableArchive(name: string): boolean {
+  const lower = name.toLowerCase();
+  return EXTRACTABLE_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+}
+
+/** Strips a whole compound archive suffix (".tar.gz", not just ".gz") so extracting
+ * "project.tar.gz" suggests the folder name "project", not "project.tar". */
+export function archiveStem(name: string): string {
+  const lower = name.toLowerCase();
+  const suffix = EXTRACTABLE_SUFFIXES.find((candidate) => lower.endsWith(candidate));
+  if (suffix) return name.slice(0, name.length - suffix.length);
+  return name.replace(/\.[^./]+$/, "");
 }
 
 export function isTextLike(name: string): boolean {

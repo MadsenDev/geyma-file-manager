@@ -79,6 +79,7 @@ export function Sets() {
               onClick={() => openSet(s.id)}
               onContextMenu={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 openMenu({
                   x: e.clientX,
                   y: e.clientY,

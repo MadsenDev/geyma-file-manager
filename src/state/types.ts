@@ -87,3 +87,27 @@ export interface UndoAction {
   label: string;
   undo: () => Promise<void> | void;
 }
+
+export interface TabState {
+  id: string;
+  path: string;
+  hist: string[];
+  hi: number;
+  trashView: boolean;
+  activeSetId: string | null;
+}
+
+export interface RemoteConnection {
+  id: string;
+  protocol: "sftp" | "smb";
+  label: string;
+  host: string;
+  port: number;
+  username: string;
+  /** SMB only. */
+  share?: string;
+  /** Whether the password is (or should be) saved in the OS keyring, keyed by `id`. */
+  savePassword: boolean;
+}
+
+export type RemoteStatus = "disconnected" | "connecting" | "connected" | "error";

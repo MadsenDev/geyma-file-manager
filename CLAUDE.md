@@ -55,6 +55,37 @@ Arch Linux packaging lives in `packaging/arch/PKGBUILD` (a `-git` VCS package, b
 `window`. Never branch on "are we in Tauri" elsewhere — go through `getFsBackend()` and code
 against the `FsBackend` interface so both backends stay interchangeable.
 
+### Network places (SFTP/SMB) share the same path space
+
+Remote locations are addressed as `sftp://user@host:port/abs/path` and
+`smb://user@host:port/Share/sub/path` — ordinary strings that flow through the exact same
+`FsEntry.path`, nav state, and working-set refs as local paths. `src/fs/remotePath.ts` has the
+scheme-aware `dirname`/`basename`/`join` (SMB floors at the share root — `dirname(shareRoot) ===
+shareRoot` — the same trick `dirnamePosix` uses at `"/"`, which is what makes `canUp()` disable
+"Up" there for free). `tauriBackend.ts` checks `isRemotePath()` in every method and either routes
+to a `remote_*` Tauri command or falls back to the local one; `mockBackend.ts` mirrors this with
+a couple of simulated demo connections (`MOCK_SFTP_ROOT`/`MOCK_SMB_ROOT`, password `"demo"`) so
+the whole flow — add connection, connect, browse, copy in/out, rename, delete, disconnect — is
+clickable from a plain browser.
+
+Scope is deliberately narrower than local: browse, rename, copy/move within a connection, and
+permanent delete (there's no remote Trash) all work; symlinks, chmod/ownership, and archive
+extract-in-place don't — `tauriBackend.ts` throws a clear "not available for network locations"
+for those, and `Files.tsx`'s context menu hides them for remote entries (checked via
+`isRemotePath(entry.path)`) and swaps "Trash" for "Delete permanently" (reusing
+`requestPermanentDelete`, the same double-press-to-confirm flow the Trash view uses). RAR-style
+"no good option" tradeoffs don't apply here since the crates are mature (`russh`+`russh-sftp` for
+SFTP, the pure-Rust `smb` crate for SMB2/3) — but there is no host-key verification for SFTP
+(accepts any server key) and no OS-native SMB signing story beyond what the crate provides; both
+are noted in `src-tauri/src/remote/sftp.rs` and worth revisiting before treating this as
+hardened against a hostile network.
+
+Saved connections (`RemoteConnection` in `state/types.ts`) persist like everything else in
+`store.ts`, but never with a plaintext password — `keyring_save_password`/`keyring_load_password`
+(Rust, via the `keyring` crate's async-secret-service backend, so no libdbus/libsecret build
+dependency) store the password in the OS keyring, keyed by the connection's id, only when the
+user opts in via "Remember password".
+
 ### Single Zustand store drives everything
 
 `src/state/store.ts` is one large `useStore` (Zustand) holding navigation, selection, view/sort,
@@ -118,5 +149,25 @@ copy/trash/restore/delete-permanently/extract-archive/disk-usage/list-devices) i
 `tauriBackend.ts`. Extraction guards against zip-slip (paths escaping the destination directory
 during archive extraction) — preserve that check if you touch `extract_archive`. `media.rs`
 handles native audio/video playback capability checks and a local media server; `preview.rs`
-handles archive listing and text file preview parsing. All Tauri commands are registered once in
-`lib.rs`'s `invoke_handler!` list — a new command needs an entry there too.
+handles archive listing and text file preview parsing.
+
+`src-tauri/src/archives.rs` holds the non-ZIP read path: tar (plain, or gzip/bzip2/xz
+compressed) and 7z, listed and extracted via pure-Rust crates (`tar`, `flate2`, `bzip2-rs`,
+`lzma-rs`, `sevenz-rust`) with no system/native dependency. `fsops::extract_archive` and
+`preview::preview_archive` both call `archives::detect()` first and only fall back to the
+ZIP-specific path when it returns `None` — a new archive format should plug in there, not as a
+parallel command. RAR is deliberately unsupported: there's no mature pure-Rust reader for it
+(see the archives.rs module doc for the tradeoffs considered). Compression (`create_archive`)
+stays ZIP-only; only extraction/preview cover the wider format set. All Tauri commands are
+registered once in `lib.rs`'s `invoke_handler!` list — a new command needs an entry there too.
+
+`src-tauri/src/remote.rs` (plus `remote/sftp.rs` and `remote/smb.rs`) is the network-places
+backend: `RemoteAddr`/`parse()` turn an `sftp://`/`smb://` path string into a protocol+host+path,
+`RemoteSessions` is Tauri-managed state holding live connections keyed by
+`RemoteAddr::connection_key()` (host+port+username[+share], not by path — browsing around a
+connection reuses one session), and the `remote_*` commands dispatch to `sftp.rs`/`smb.rs`
+per protocol. There's no automatic reconnect: a dropped session surfaces as a "reconnect from
+the Network panel" error rather than retrying silently. Both submodules were verified against
+real local `sshd`/`smbd` instances during development (not part of the committed test suite,
+since that would need live servers in CI too) — the parsing/routing logic in `remote.rs` itself
+has ordinary `#[cfg(test)]` unit tests that need no network.

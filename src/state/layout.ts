@@ -1,4 +1,5 @@
 export type ModuleId =
+  | "tabs"
   | "nav"
   | "location"
   | "search"
@@ -10,6 +11,7 @@ export type ModuleId =
   | "appearance"
   | "places"
   | "devices"
+  | "network"
   | "sets"
   | "disk"
   | "recent"
@@ -27,12 +29,13 @@ export type Layout = Record<ZoneId, ModuleId[]>;
 export const ZONE_IDS: ZoneId[] = ["top", "left", "center", "center2", "right", "bottom"];
 
 export const ALL_MODULES: ModuleId[] = [
-  "nav", "location", "search", "viewswitch", "title", "files", "files2", "details",
-  "appearance", "places", "devices", "sets", "disk", "recent", "timeline", "dupes",
+  "tabs", "nav", "location", "search", "viewswitch", "title", "files", "files2", "details",
+  "appearance", "places", "devices", "network", "sets", "disk", "recent", "timeline", "dupes",
   "clock", "visualizer", "mood", "status",
 ];
 
 export const MODULE_NAMES: Record<ModuleId, string> = {
+  tabs: "Tabs",
   nav: "Navigation",
   location: "Location bar",
   search: "Search",
@@ -44,6 +47,7 @@ export const MODULE_NAMES: Record<ModuleId, string> = {
   appearance: "Appearance",
   places: "Places",
   devices: "Devices",
+  network: "Network",
   sets: "Working Sets",
   disk: "Disk usage",
   recent: "Recent activity",
@@ -57,8 +61,8 @@ export const MODULE_NAMES: Record<ModuleId, string> = {
 
 export function defaultLayout(): Layout {
   return {
-    top: ["nav", "location", "search", "viewswitch"],
-    left: ["places", "devices", "sets", "disk"],
+    top: ["tabs", "nav", "location", "search", "viewswitch"],
+    left: ["places", "devices", "network", "sets", "disk"],
     center: ["title", "files"],
     center2: [],
     right: ["details"],
@@ -73,14 +77,14 @@ export interface LayoutPreset {
 }
 
 export const LAYOUT_PRESETS: LayoutPreset[] = [
-  { id: "classic", name: "Classic", layout: { top: ["nav", "location", "search", "viewswitch"], left: ["places", "devices", "sets", "disk"], center: ["title", "files"], right: ["details"], bottom: ["status"] } },
-  { id: "focus", name: "Focus", layout: { top: ["nav", "location", "search", "viewswitch"], left: [], center: ["title", "files"], right: [], bottom: ["status"] } },
+  { id: "classic", name: "Classic", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: ["places", "devices", "sets", "disk"], center: ["title", "files"], right: ["details"], bottom: ["status"] } },
+  { id: "focus", name: "Focus", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: [], center: ["title", "files"], right: [], bottom: ["status"] } },
   { id: "minimal", name: "Minimal", layout: { top: ["location", "search"], left: [], center: ["files"], right: [], bottom: [] } },
-  { id: "commander", name: "Commander", layout: { top: ["nav", "location", "search", "viewswitch"], left: ["places", "devices", "sets"], center: ["files"], right: ["details"], bottom: ["status"] } },
-  { id: "righthand", name: "Right rail", layout: { top: ["nav", "location", "search", "viewswitch"], left: [], center: ["title", "files"], right: ["places", "devices", "details"], bottom: ["status"] } },
-  { id: "dashboard", name: "Dashboard", layout: { top: ["nav", "location", "search", "viewswitch"], left: ["places", "clock", "recent", "visualizer"], center: ["title", "files"], right: ["details", "disk"], bottom: ["status"] } },
-  { id: "bottombar", name: "Bottom dock", layout: { top: ["title"], left: ["places", "devices", "sets"], center: ["files"], right: ["details"], bottom: ["nav", "location", "search", "viewswitch"] } },
-  { id: "stack", name: "Stacked", layout: { top: ["nav", "location", "search", "viewswitch"], left: [], center: ["title", "files", "details"], right: [], bottom: ["status"] } },
+  { id: "commander", name: "Commander", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: ["places", "devices", "sets"], center: ["files"], right: ["details"], bottom: ["status"] } },
+  { id: "righthand", name: "Right rail", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: [], center: ["title", "files"], right: ["places", "devices", "details"], bottom: ["status"] } },
+  { id: "dashboard", name: "Dashboard", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: ["places", "clock", "recent", "visualizer"], center: ["title", "files"], right: ["details", "disk"], bottom: ["status"] } },
+  { id: "bottombar", name: "Bottom dock", layout: { top: ["title"], left: ["places", "devices", "sets"], center: ["files"], right: ["details"], bottom: ["tabs", "nav", "location", "search", "viewswitch"] } },
+  { id: "stack", name: "Stacked", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: [], center: ["title", "files", "details"], right: [], bottom: ["status"] } },
 ];
 
 export function mergeLayout(saved: Partial<Layout> | undefined | null): Layout {
@@ -105,7 +109,7 @@ export function layoutSignature(l: Layout): string {
   return ZONE_IDS.map((z) => (l[z] || []).join(",")).join("|");
 }
 
-const PANEL_MODULES: ModuleId[] = ["places", "devices", "sets", "disk", "recent", "timeline", "dupes", "clock", "visualizer", "mood", "details", "appearance"];
+const PANEL_MODULES: ModuleId[] = ["places", "devices", "network", "sets", "disk", "recent", "timeline", "dupes", "clock", "visualizer", "mood", "details", "appearance"];
 const STRETCH_MODULES: ModuleId[] = ["files", "files2", "details", "appearance"];
 
 export function isPanelModule(id: ModuleId): boolean {

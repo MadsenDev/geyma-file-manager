@@ -4,9 +4,10 @@ import { useTheme } from "../theme/ThemeContext";
 import { hexA, itemColors } from "../theme/skins";
 import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
-import { extOf, formatSize, formatWhen, kindOf } from "../lib/format";
+import { extOf, formatSize, formatWhen, isExtractableArchive, kindOf } from "../lib/format";
 import type { FsEntry } from "../fs/types";
 import { getFsBackend } from "../fs";
+import { isRemotePath } from "../fs/remotePath";
 import type { Ghost } from "../state/types";
 import { joinPosix } from "../fs/pathUtil";
 import { openWithDefaultApp } from "../lib/openDefault";
@@ -81,6 +82,7 @@ export function Files() {
   const showModule = useStore((s) => s.showModule);
   const goPath2 = useStore((s) => s.goPath2);
   const backend = useStore((s) => s.backend);
+  const newTab = useStore((s) => s.newTab);
 
   const setSearchAllResults = useStore((s) => s.setSearchAllResults);
 
@@ -127,6 +129,7 @@ export function Files() {
     const targets = wasSelected ? selected : [entry.path];
     const multi = targets.length > 1;
     const isStarred = starred.has(entry.path);
+    const remote = isRemotePath(entry.path);
     if (trashView) {
       openMenu({
         x: e.clientX,
@@ -148,6 +151,9 @@ export function Files() {
         !multi ? { label: "Quick Look", onClick: () => openPreview(entry.path) } : undefined,
         { label: isStarred ? "Remove star" : "Star", onClick: () => toggleStar(targets) },
         !multi && entry.isDir
+          ? { label: "Open in New Tab", onClick: () => newTab(entry.path) }
+          : undefined,
+        !multi && entry.isDir
           ? {
               label: "Open in lower pane",
               onClick: () => {
@@ -156,19 +162,21 @@ export function Files() {
               },
             }
           : undefined,
-        !multi && extOf(entry.name) === "ZIP"
+        !multi && !remote && isExtractableArchive(entry.name)
           ? { label: "Extract Here", onClick: () => void extractHere(entry.path) }
           : undefined,
-        !multi ? { label: "Create Symlink Here", onClick: () => void createSymlinkFor(entry.path) } : undefined,
+        !multi && !remote ? { label: "Create Symlink Here", onClick: () => void createSymlinkFor(entry.path) } : undefined,
         { divider: true },
         { label: "Cut", onClick: () => setClip("cut", targets) },
         { label: "Copy", onClick: () => setClip("copy", targets) },
         { label: multi ? `Duplicate ${targets.length} items` : "Duplicate", onClick: () => duplicateEntries(targets) },
         multi ? { label: `Batch rename ${targets.length} items…`, onClick: () => setBatchTargets(targets) } : undefined,
-        {
-          label: multi ? `Compress ${targets.length} items to ZIP` : `Compress "${entry.name}" to ZIP`,
-          onClick: () => void compressEntries(targets, multi ? "Archive" : `${entry.name}.zip`),
-        },
+        remote
+          ? undefined
+          : {
+              label: multi ? `Compress ${targets.length} items to ZIP` : `Compress "${entry.name}" to ZIP`,
+              onClick: () => void compressEntries(targets, multi ? "Archive" : `${entry.name}.zip`),
+            },
         {
           label: multi ? "Copy paths" : "Copy path",
           onClick: () => {
@@ -187,13 +195,16 @@ export function Files() {
         { divider: true },
         !multi ? { label: "Rename", onClick: () => startRename(entry.path) } : undefined,
         !multi ? { label: "Properties", onClick: () => setPropertiesTarget(entry) } : undefined,
-        { label: multi ? `Trash ${targets.length} items` : "Trash", danger: true, onClick: () => trashEntries(targets) },
+        remote
+          ? { label: multi ? `Delete ${targets.length} items permanently` : "Delete permanently", danger: true, onClick: () => requestPermanentDelete(targets) }
+          : { label: multi ? `Trash ${targets.length} items` : "Trash", danger: true, onClick: () => trashEntries(targets) },
       ].filter(Boolean) as { label: string; onClick?: () => void; danger?: boolean; divider?: boolean }[],
     });
   }
 
   function onBlankMenu(e: React.MouseEvent) {
     e.preventDefault();
+    e.stopPropagation();
     const clip = useStore.getState().clip;
     openMenu({
       x: e.clientX,
@@ -256,6 +267,7 @@ export function Files() {
               onRenameCancel={cancelRename}
               onSelect={(e) => select(entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
               onOpen={() => onOpen(entry)}
+              onOpenInNewTab={() => (entry.isDir ? newTab(entry.path) : undefined)}
               onContextMenu={(e) => itemMenu(entry, e)}
               onDragStart={(e) => onDragStartItem(e, entry.path)}
               onDropFiles={(paths) => (entry.isDir ? void moveEntries(paths, entry.path) : undefined)}
@@ -277,6 +289,7 @@ export function Files() {
           onRenameCancel={cancelRename}
           onSelect={select}
           onOpen={onOpen}
+          onOpenInNewTab={(entry) => (entry.isDir ? newTab(entry.path) : undefined)}
           onContextMenu={itemMenu}
           onDragStart={onDragStartItem}
           onDropFiles={(dir, paths) => void moveEntries(paths, dir)}
@@ -299,12 +312,13 @@ interface TileProps {
   onRenameCancel: () => void;
   onSelect: (e: React.MouseEvent) => void;
   onOpen: () => void;
+  onOpenInNewTab: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onDragStart: (e: React.DragEvent) => void;
   onDropFiles: (paths: string[]) => void;
 }
 
-function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onContextMenu, onDragStart, onDropFiles }: TileProps) {
+function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: TileProps) {
   const t = useTheme();
   const [dragOver, setDragOver] = useState(false);
   const kind = kindOf(entry.name, entry.isDir);
@@ -316,6 +330,12 @@ function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChang
       data-file={entry.path}
       draggable
       onDragStart={onDragStart}
+      onAuxClick={(e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          onOpenInNewTab();
+        }
+      }}
       onDragOver={(e) => {
         if (!entry.isDir) return;
         e.preventDefault();
@@ -430,12 +450,13 @@ interface ListProps {
   onRenameCancel: () => void;
   onSelect: (path: string, opts?: { ctrl?: boolean; shift?: boolean }) => void;
   onOpen: (entry: FsEntry) => void;
+  onOpenInNewTab: (entry: FsEntry) => void;
   onContextMenu: (entry: FsEntry, e: React.MouseEvent) => void;
   onDragStart: (e: React.DragEvent, path: string) => void;
   onDropFiles: (dir: string, paths: string[]) => void;
 }
 
-function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onContextMenu, onDragStart, onDropFiles }: ListProps) {
+function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: ListProps) {
   const t = useTheme();
   const columns = useStore((s) => s.columns);
   const sortKey = useStore((s) => s.sortKey);
@@ -470,6 +491,7 @@ function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onR
           onRenameCancel={onRenameCancel}
           onSelect={(e) => onSelect(entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
           onOpen={() => onOpen(entry)}
+          onOpenInNewTab={() => onOpenInNewTab(entry)}
           onContextMenu={(e) => onContextMenu(entry, e)}
           onDragStart={(e) => onDragStart(e, entry.path)}
           onDropFiles={(paths) => (entry.isDir ? onDropFiles(entry.path, paths) : undefined)}
@@ -495,7 +517,7 @@ function HeaderCell({ width, grow, active, dir, onClick, children, className }: 
   );
 }
 
-function FileRow({ entry, columns, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onContextMenu, onDragStart, onDropFiles }: TileProps & { columns: string[] }) {
+function FileRow({ entry, columns, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: TileProps & { columns: string[] }) {
   const t = useTheme();
   const [dragOver, setDragOver] = useState(false);
   const kind = kindOf(entry.name, entry.isDir);
@@ -507,6 +529,12 @@ function FileRow({ entry, columns, selected, starred, renaming, renameVal, onRen
       data-file={entry.path}
       draggable
       onDragStart={onDragStart}
+      onAuxClick={(e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          onOpenInNewTab();
+        }
+      }}
       onDragOver={(e) => {
         if (!entry.isDir) return;
         e.preventDefault();

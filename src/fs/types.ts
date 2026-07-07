@@ -56,6 +56,25 @@ export interface PathPermissions {
   symlinkTarget: string | null;
 }
 
+export interface RemoteConnectInput {
+  protocol: "sftp" | "smb";
+  host: string;
+  port: number;
+  username: string;
+  /** SMB only. */
+  share?: string;
+  password: string;
+}
+
+export interface RemoteDisconnectInput {
+  protocol: "sftp" | "smb";
+  host: string;
+  port: number;
+  username: string;
+  /** SMB only. */
+  share?: string;
+}
+
 export interface FsBackend {
   kind: "tauri" | "mock";
   sep: string;
@@ -88,4 +107,11 @@ export interface FsBackend {
   join(...parts: string[]): string;
   dirname(path: string): string;
   basename(path: string): string;
+
+  /** Returns the connection's root path (e.g. "sftp://user@host:22/" or "smb://user@host:445/Share"). */
+  connectRemote(input: RemoteConnectInput): Promise<string>;
+  disconnectRemote(input: RemoteDisconnectInput): Promise<void>;
+  keyringSavePassword(connectionId: string, password: string): Promise<void>;
+  keyringLoadPassword(connectionId: string): Promise<string | null>;
+  keyringDeletePassword(connectionId: string): Promise<void>;
 }

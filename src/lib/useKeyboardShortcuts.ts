@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useStore } from "../state/store";
 import { openWithDefaultApp } from "./openDefault";
+import { isRemotePath } from "../fs/remotePath";
 
 function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -99,10 +100,30 @@ export function useKeyboardShortcuts() {
         void store.pasteClip();
         return;
       }
+      if (mod && (e.key === "t" || e.key === "T")) {
+        e.preventDefault();
+        store.newTab(store.home);
+        return;
+      }
+      if (mod && (e.key === "w" || e.key === "W")) {
+        e.preventDefault();
+        store.closeTab(store.activeTabId);
+        return;
+      }
+      if (mod && e.key === "Tab") {
+        e.preventDefault();
+        store.cycleTab(e.shiftKey ? -1 : 1);
+        return;
+      }
+      if (mod && /^[1-9]$/.test(e.key)) {
+        e.preventDefault();
+        store.goToTabIndex(Number(e.key) - 1);
+        return;
+      }
       if (e.key === "Delete") {
         if (!store.selected.length) return;
         e.preventDefault();
-        if (store.trashView) store.requestPermanentDelete(store.selected);
+        if (store.trashView || isRemotePath(store.selected[0])) store.requestPermanentDelete(store.selected);
         else void store.trashEntries(store.selected);
         return;
       }
