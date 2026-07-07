@@ -204,6 +204,7 @@ export function Files() {
 
   function onBlankMenu(e: React.MouseEvent) {
     e.preventDefault();
+    e.stopPropagation();
     const clip = useStore.getState().clip;
     openMenu({
       x: e.clientX,
