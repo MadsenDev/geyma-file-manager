@@ -81,6 +81,7 @@ export function Files() {
   const showModule = useStore((s) => s.showModule);
   const goPath2 = useStore((s) => s.goPath2);
   const backend = useStore((s) => s.backend);
+  const newTab = useStore((s) => s.newTab);
 
   const setSearchAllResults = useStore((s) => s.setSearchAllResults);
 
@@ -147,6 +148,9 @@ export function Files() {
         !multi ? { label: "Open", onClick: () => onOpen(entry) } : undefined,
         !multi ? { label: "Quick Look", onClick: () => openPreview(entry.path) } : undefined,
         { label: isStarred ? "Remove star" : "Star", onClick: () => toggleStar(targets) },
+        !multi && entry.isDir
+          ? { label: "Open in New Tab", onClick: () => newTab(entry.path) }
+          : undefined,
         !multi && entry.isDir
           ? {
               label: "Open in lower pane",
@@ -256,6 +260,7 @@ export function Files() {
               onRenameCancel={cancelRename}
               onSelect={(e) => select(entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
               onOpen={() => onOpen(entry)}
+              onOpenInNewTab={() => (entry.isDir ? newTab(entry.path) : undefined)}
               onContextMenu={(e) => itemMenu(entry, e)}
               onDragStart={(e) => onDragStartItem(e, entry.path)}
               onDropFiles={(paths) => (entry.isDir ? void moveEntries(paths, entry.path) : undefined)}
@@ -277,6 +282,7 @@ export function Files() {
           onRenameCancel={cancelRename}
           onSelect={select}
           onOpen={onOpen}
+          onOpenInNewTab={(entry) => (entry.isDir ? newTab(entry.path) : undefined)}
           onContextMenu={itemMenu}
           onDragStart={onDragStartItem}
           onDropFiles={(dir, paths) => void moveEntries(paths, dir)}
@@ -299,12 +305,13 @@ interface TileProps {
   onRenameCancel: () => void;
   onSelect: (e: React.MouseEvent) => void;
   onOpen: () => void;
+  onOpenInNewTab: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onDragStart: (e: React.DragEvent) => void;
   onDropFiles: (paths: string[]) => void;
 }
 
-function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onContextMenu, onDragStart, onDropFiles }: TileProps) {
+function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: TileProps) {
   const t = useTheme();
   const [dragOver, setDragOver] = useState(false);
   const kind = kindOf(entry.name, entry.isDir);
@@ -316,6 +323,12 @@ function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChang
       data-file={entry.path}
       draggable
       onDragStart={onDragStart}
+      onAuxClick={(e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          onOpenInNewTab();
+        }
+      }}
       onDragOver={(e) => {
         if (!entry.isDir) return;
         e.preventDefault();
@@ -430,12 +443,13 @@ interface ListProps {
   onRenameCancel: () => void;
   onSelect: (path: string, opts?: { ctrl?: boolean; shift?: boolean }) => void;
   onOpen: (entry: FsEntry) => void;
+  onOpenInNewTab: (entry: FsEntry) => void;
   onContextMenu: (entry: FsEntry, e: React.MouseEvent) => void;
   onDragStart: (e: React.DragEvent, path: string) => void;
   onDropFiles: (dir: string, paths: string[]) => void;
 }
 
-function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onContextMenu, onDragStart, onDropFiles }: ListProps) {
+function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: ListProps) {
   const t = useTheme();
   const columns = useStore((s) => s.columns);
   const sortKey = useStore((s) => s.sortKey);
@@ -470,6 +484,7 @@ function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onR
           onRenameCancel={onRenameCancel}
           onSelect={(e) => onSelect(entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
           onOpen={() => onOpen(entry)}
+          onOpenInNewTab={() => onOpenInNewTab(entry)}
           onContextMenu={(e) => onContextMenu(entry, e)}
           onDragStart={(e) => onDragStart(e, entry.path)}
           onDropFiles={(paths) => (entry.isDir ? onDropFiles(entry.path, paths) : undefined)}
@@ -495,7 +510,7 @@ function HeaderCell({ width, grow, active, dir, onClick, children, className }: 
   );
 }
 
-function FileRow({ entry, columns, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onContextMenu, onDragStart, onDropFiles }: TileProps & { columns: string[] }) {
+function FileRow({ entry, columns, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: TileProps & { columns: string[] }) {
   const t = useTheme();
   const [dragOver, setDragOver] = useState(false);
   const kind = kindOf(entry.name, entry.isDir);
@@ -507,6 +522,12 @@ function FileRow({ entry, columns, selected, starred, renaming, renameVal, onRen
       data-file={entry.path}
       draggable
       onDragStart={onDragStart}
+      onAuxClick={(e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          onOpenInNewTab();
+        }
+      }}
       onDragOver={(e) => {
         if (!entry.isDir) return;
         e.preventDefault();

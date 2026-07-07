@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { ModuleId } from "../state/layout";
+import { Tabs } from "./Tabs";
 import { Nav } from "./Nav";
 import { Location } from "./Location";
 import { Search } from "./Search";
@@ -22,6 +23,7 @@ import { Mood } from "./Mood";
 import { Status } from "./Status";
 
 export const MODULE_COMPONENTS: Record<ModuleId, ComponentType> = {
+  tabs: Tabs,
   nav: Nav,
   location: Location,
   search: Search,

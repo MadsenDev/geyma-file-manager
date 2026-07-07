@@ -87,3 +87,12 @@ export interface UndoAction {
   label: string;
   undo: () => Promise<void> | void;
 }
+
+export interface TabState {
+  id: string;
+  path: string;
+  hist: string[];
+  hi: number;
+  trashView: boolean;
+  activeSetId: string | null;
+}

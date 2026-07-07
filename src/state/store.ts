@@ -20,6 +20,7 @@ import type {
   SetItemRef,
   SortDir,
   SortKey,
+  TabState,
   UndoAction,
   ViewMode,
   WorkingSet,
@@ -53,6 +54,8 @@ interface PersistedShape {
   fileEvents?: Record<string, FileEvent[]>;
   trashOrigins?: Record<string, string>;
   trashOriginNames?: Record<string, string>;
+  tabs?: TabState[];
+  activeTabId?: string;
 }
 
 function loadPersisted(): PersistedShape {
@@ -80,6 +83,10 @@ interface AppState {
   hist: string[];
   hi: number;
   path2: string;
+
+  // tabs
+  tabs: TabState[];
+  activeTabId: string;
 
   // dir cache
   dirs: Record<string, FsEntry[]>;
@@ -171,6 +178,16 @@ interface AppState {
   canUp(): boolean;
   goPath2(path: string): void;
   goUp2(): void;
+
+  newTab(path?: string): void;
+  switchTab(id: string): void;
+  closeTab(id: string): void;
+  closeOtherTabs(id: string): void;
+  closeTabsToRight(id: string): void;
+  duplicateTab(id: string): void;
+  reorderTab(id: string, toIndex: number): void;
+  cycleTab(dir: 1 | -1): void;
+  goToTabIndex(index: number): void;
 
   select(path: string, opts?: { ctrl?: boolean; shift?: boolean }): void;
   selectAll(): void;
@@ -272,6 +289,9 @@ export const useStore = create<AppState>()((set, get) => ({
   hi: 0,
   path2: "/home",
 
+  tabs: [{ id: "tab-1", path: "/home", hist: ["/home"], hi: 0, trashView: false, activeSetId: null }],
+  activeTabId: "tab-1",
+
   dirs: {},
   loading: {},
   devices: [],
@@ -338,12 +358,20 @@ export const useStore = create<AppState>()((set, get) => ({
     const home = await backend.homeDir();
     const trashDir = await backend.trashDirPath();
     const devices = await backend.listDevices();
+    const tabs = persisted.tabs && persisted.tabs.length
+      ? persisted.tabs
+      : [{ id: "tab-1", path: home, hist: [home], hi: 0, trashView: false, activeSetId: null }];
+    const activeTab = tabs.find((tb) => tb.id === persisted.activeTabId) || tabs[0];
     set({
       backend,
       home,
-      path: home,
-      hist: [home],
-      hi: 0,
+      path: activeTab.path,
+      hist: activeTab.hist,
+      hi: activeTab.hi,
+      trashView: activeTab.trashView,
+      activeSetId: activeTab.activeSetId,
+      tabs,
+      activeTabId: activeTab.id,
       path2: persisted.path2 || home,
       trashDir,
       devices,
@@ -364,7 +392,7 @@ export const useStore = create<AppState>()((set, get) => ({
       trashOrigins: persisted.trashOrigins || {},
       trashOriginNames: persisted.trashOriginNames || {},
     });
-    await get().loadDir(home);
+    await get().loadDir(get().path);
     await get().loadDir(get().path2);
   },
 
@@ -435,6 +463,7 @@ export const useStore = create<AppState>()((set, get) => ({
     const { hist, hi } = get();
     const newHist = hist.slice(0, hi + 1).concat(path);
     set({ path, hist: newHist, hi: newHist.length - 1, selected: [], anchor: null, trashView: false, activeSetId: null, query: "" });
+    syncActiveTab(get, set);
     void get().loadDir(path);
   },
   goPlace(path: string) {
@@ -445,6 +474,7 @@ export const useStore = create<AppState>()((set, get) => ({
     if (hi <= 0) return;
     const path = hist[hi - 1];
     set({ hi: hi - 1, path, selected: [], anchor: null, trashView: false, activeSetId: null, query: "" });
+    syncActiveTab(get, set);
     void get().loadDir(path);
   },
   goForward() {
@@ -452,6 +482,7 @@ export const useStore = create<AppState>()((set, get) => ({
     if (hi >= hist.length - 1) return;
     const path = hist[hi + 1];
     set({ hi: hi + 1, path, selected: [], anchor: null, trashView: false, activeSetId: null, query: "" });
+    syncActiveTab(get, set);
     void get().loadDir(path);
   },
   goUp() {
@@ -480,6 +511,169 @@ export const useStore = create<AppState>()((set, get) => ({
     const { backend, path2 } = get();
     if (!backend) return;
     get().goPath2(backend.dirname(path2));
+  },
+
+  newTab(path) {
+    syncActiveTab(get, set);
+    const st = get();
+    const startPath = path ?? st.path;
+    const id = `tab-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const tab: TabState = { id, path: startPath, hist: [startPath], hi: 0, trashView: false, activeSetId: null };
+    set({
+      tabs: [...st.tabs, tab],
+      activeTabId: id,
+      path: startPath,
+      hist: [startPath],
+      hi: 0,
+      trashView: false,
+      activeSetId: null,
+      selected: [],
+      anchor: null,
+      query: "",
+    });
+    void get().loadDir(startPath);
+    get().persist();
+  },
+  switchTab(id) {
+    const st = get();
+    if (id === st.activeTabId) return;
+    const target = st.tabs.find((tb) => tb.id === id);
+    if (!target) return;
+    syncActiveTab(get, set);
+    set({
+      activeTabId: target.id,
+      path: target.path,
+      hist: target.hist,
+      hi: target.hi,
+      trashView: target.trashView,
+      activeSetId: target.activeSetId,
+      selected: [],
+      anchor: null,
+      query: "",
+    });
+    void get().loadDir(target.path);
+    get().persist();
+  },
+  closeTab(id) {
+    const st = get();
+    if (st.tabs.length <= 1) return;
+    const idx = st.tabs.findIndex((tb) => tb.id === id);
+    if (idx < 0) return;
+    const remaining = st.tabs.filter((tb) => tb.id !== id);
+    if (id !== st.activeTabId) {
+      set({ tabs: remaining });
+      get().persist();
+      return;
+    }
+    const next = remaining[Math.min(idx, remaining.length - 1)];
+    set({
+      tabs: remaining,
+      activeTabId: next.id,
+      path: next.path,
+      hist: next.hist,
+      hi: next.hi,
+      trashView: next.trashView,
+      activeSetId: next.activeSetId,
+      selected: [],
+      anchor: null,
+      query: "",
+    });
+    void get().loadDir(next.path);
+    get().persist();
+  },
+  closeOtherTabs(id) {
+    const st = get();
+    const target = id === st.activeTabId
+      ? { ...st.tabs.find((tb) => tb.id === id)!, path: st.path, hist: st.hist, hi: st.hi, trashView: st.trashView, activeSetId: st.activeSetId }
+      : st.tabs.find((tb) => tb.id === id);
+    if (!target) return;
+    set({
+      tabs: [target],
+      activeTabId: target.id,
+      path: target.path,
+      hist: target.hist,
+      hi: target.hi,
+      trashView: target.trashView,
+      activeSetId: target.activeSetId,
+      selected: [],
+      anchor: null,
+      query: "",
+    });
+    void get().loadDir(target.path);
+    get().persist();
+  },
+  closeTabsToRight(id) {
+    syncActiveTab(get, set);
+    const st = get();
+    const idx = st.tabs.findIndex((tb) => tb.id === id);
+    if (idx < 0) return;
+    const kept = st.tabs.slice(0, idx + 1);
+    if (kept.some((tb) => tb.id === st.activeTabId)) {
+      set({ tabs: kept });
+      get().persist();
+      return;
+    }
+    const target = kept[kept.length - 1];
+    set({
+      tabs: kept,
+      activeTabId: target.id,
+      path: target.path,
+      hist: target.hist,
+      hi: target.hi,
+      trashView: target.trashView,
+      activeSetId: target.activeSetId,
+      selected: [],
+      anchor: null,
+      query: "",
+    });
+    void get().loadDir(target.path);
+    get().persist();
+  },
+  duplicateTab(id) {
+    syncActiveTab(get, set);
+    const st = get();
+    const src = st.tabs.find((tb) => tb.id === id);
+    if (!src) return;
+    const newId = `tab-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const clone: TabState = { ...src, id: newId, hist: [...src.hist] };
+    const idx = st.tabs.findIndex((tb) => tb.id === id);
+    const tabs = st.tabs.slice();
+    tabs.splice(idx + 1, 0, clone);
+    set({
+      tabs,
+      activeTabId: clone.id,
+      path: clone.path,
+      hist: clone.hist,
+      hi: clone.hi,
+      trashView: clone.trashView,
+      activeSetId: clone.activeSetId,
+      selected: [],
+      anchor: null,
+      query: "",
+    });
+    void get().loadDir(clone.path);
+    get().persist();
+  },
+  reorderTab(id, toIndex) {
+    syncActiveTab(get, set);
+    const tabs = get().tabs.slice();
+    const from = tabs.findIndex((tb) => tb.id === id);
+    if (from < 0) return;
+    const [moved] = tabs.splice(from, 1);
+    tabs.splice(Math.max(0, Math.min(toIndex, tabs.length)), 0, moved);
+    set({ tabs });
+    get().persist();
+  },
+  cycleTab(dir) {
+    const st = get();
+    if (st.tabs.length <= 1) return;
+    const idx = st.tabs.findIndex((tb) => tb.id === st.activeTabId);
+    const next = (idx + dir + st.tabs.length) % st.tabs.length;
+    get().switchTab(st.tabs[next].id);
+  },
+  goToTabIndex(index) {
+    const tab = get().tabs[index];
+    if (tab) get().switchTab(tab.id);
   },
 
   select(path: string, opts) {
@@ -1128,10 +1322,12 @@ export const useStore = create<AppState>()((set, get) => ({
   },
   openSet(setId) {
     set({ activeSetId: setId, trashView: false, selected: [], anchor: null, query: "" });
+    syncActiveTab(get, set);
   },
   openTrash() {
     const { trashDir } = get();
     set({ trashView: true, path: trashDir, activeSetId: null, selected: [], anchor: null, query: "" });
+    syncActiveTab(get, set);
     void get().loadDir(trashDir);
   },
   setEntriesFor(setDef) {
@@ -1278,6 +1474,8 @@ export const useStore = create<AppState>()((set, get) => ({
       fileEvents: st.fileEvents,
       trashOrigins: st.trashOrigins,
       trashOriginNames: st.trashOriginNames,
+      tabs: st.tabs,
+      activeTabId: st.activeTabId,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -1286,6 +1484,20 @@ export const useStore = create<AppState>()((set, get) => ({
     }
   },
 }));
+
+// Tabs mirror the live nav fields (path/hist/hi/trashView/activeSetId) for the active
+// tab only — call this after any action that mutates those fields directly, so the tab
+// bar and tab-switching always see up-to-date state for the tab currently in view.
+function syncActiveTab(get: () => AppState, set: (partial: Partial<AppState>) => void) {
+  const st = get();
+  set({
+    tabs: st.tabs.map((tab) =>
+      tab.id === st.activeTabId
+        ? { ...tab, path: st.path, hist: st.hist, hi: st.hi, trashView: st.trashView, activeSetId: st.activeSetId }
+        : tab,
+    ),
+  });
+}
 
 function logEvent(
   get: () => AppState,
