@@ -32,8 +32,9 @@ export function QuickLook() {
   const [inspectionState, setInspectionState] = useState<InspectionState>({ status: "idle" });
   const [previewRetry, setPreviewRetry] = useState(0);
 
-  const entry = entries.find((e) => e.path === preview);
-  const idx = entries.findIndex((e) => e.path === preview);
+  const previewPath = preview?.path ?? null;
+  const entry = entries.find((e) => e.path === previewPath);
+  const idx = entries.findIndex((e) => e.path === previewPath);
 
   const ext = entry ? extOf(entry.name) || (entry.isDir ? "DIR" : "") : "";
   const kind = entry ? kindOf(entry.name, entry.isDir) : "document";
@@ -132,8 +133,9 @@ export function QuickLook() {
     [content, ext],
   );
 
-  if (!preview || !entry) return null;
+  if (!previewPath || !entry) return null;
 
+  const origin = preview?.origin;
   const colors = itemColors(kind, t);
   const showText = content != null;
   const showFileUrl = usesFileUrl && mediaState.status === "ready";
@@ -149,12 +151,18 @@ export function QuickLook() {
       <div
         role="dialog"
         aria-label="Quick Look"
-        className="gy-anim"
+        className={origin ? "gy-preview-anim" : "gy-dialog-anim"}
         style={{
           position: "fixed",
           left: "50%",
           top: "50%",
           transform: "translate(-50%,-50%)",
+          transformOrigin: origin
+            ? `${origin.left + origin.width / 2}px ${origin.top + origin.height / 2}px`
+            : "center",
+          ["--gy-preview-x" as string]: origin ? `${origin.left + origin.width / 2 - window.innerWidth / 2}px` : "0px",
+          ["--gy-preview-y" as string]: origin ? `${origin.top + origin.height / 2 - window.innerHeight / 2}px` : "0px",
+          ["--gy-preview-scale" as string]: origin ? Math.max(0.12, Math.min(0.55, origin.width / 560)).toString() : "0.92",
           width: (showFileUrl || showInspection) && wide ? "min(880px, 100vw - 48px)" : "min(560px, 100vw - 48px)",
           maxHeight: "min(80vh, 720px)",
           display: "flex",

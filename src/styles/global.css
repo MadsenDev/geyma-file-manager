@@ -37,6 +37,17 @@ button { font-family: inherit; }
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+@keyframes gy-dialog-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(.98); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes gy-preview-in {
+  from {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--gy-preview-x, 0px)), calc(-50% + var(--gy-preview-y, 0px))) scale(var(--gy-preview-scale, .35));
+  }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 @keyframes gy-pulse {
   0%, 100% { opacity: .5; }
   50% { opacity: 1; }
@@ -48,3 +59,9 @@ button { font-family: inherit; }
 .gy-motion-full .gy-anim { animation: gy-in .13s ease; }
 .gy-motion-subtle .gy-anim { animation: gy-in .08s ease; }
 .gy-motion-off .gy-anim { animation: none; }
+.gy-motion-full .gy-dialog-anim { animation: gy-dialog-in .13s ease; }
+.gy-motion-subtle .gy-dialog-anim { animation: gy-dialog-in .08s ease; }
+.gy-motion-off .gy-dialog-anim { animation: none; }
+.gy-motion-full .gy-preview-anim { animation: gy-preview-in .16s cubic-bezier(.2, .8, .2, 1); }
+.gy-motion-subtle .gy-preview-anim { animation: gy-dialog-in .08s ease; }
+.gy-motion-off .gy-preview-anim { animation: none; }

@@ -83,6 +83,16 @@ export interface ContextMenuState {
   items: ContextMenuItem[];
 }
 
+export interface PreviewState {
+  path: string;
+  origin?: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+}
+
 export interface UndoAction {
   label: string;
   undo: () => Promise<void> | void;

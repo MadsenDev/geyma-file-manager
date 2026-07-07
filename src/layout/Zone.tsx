@@ -6,6 +6,8 @@ import { isPanelModule, type ModuleId, type ZoneId } from "../state/layout";
 import { ModuleShell } from "./ModuleShell";
 import { MODULE_COMPONENTS } from "../modules/registry";
 
+const MODULE_DRAG_TYPE = "application/x-geyma-module";
+
 interface ZoneProps {
   zoneId: ZoneId;
   orientation: "h" | "v";
@@ -41,14 +43,14 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
       ref={containerRef}
       data-zone={zoneId}
       onDragOver={(e) => {
-        if (!draggingRef.current && !editMode) return;
+        if (!draggingRef.current && !e.dataTransfer.types.includes(MODULE_DRAG_TYPE)) return;
         e.preventDefault();
         setDragOverIndex(computeIndex(e));
       }}
       onDragLeave={() => setDragOverIndex(null)}
       onDrop={(e) => {
         e.preventDefault();
-        const id = e.dataTransfer.getData("text/plain") as ModuleId;
+        const id = e.dataTransfer.getData(MODULE_DRAG_TYPE) as ModuleId;
         if (id) moveModule(id, zoneId, dragOverIndex ?? modules.length);
         setDragOverIndex(null);
       }}
@@ -119,6 +121,8 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
     </div>
   );
 }
+
+export { MODULE_DRAG_TYPE };
 
 function ModuleShellFor({
   id,

@@ -9,6 +9,14 @@ function isTypingTarget(el: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable;
 }
 
+function selectedFileOrigin(path: string) {
+  const escapedPath = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(path) : path.replace(/"/g, '\\"');
+  const el = document.querySelector<HTMLElement>(`[data-file="${escapedPath}"]`);
+  if (!el) return undefined;
+  const rect = el.getBoundingClientRect();
+  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+}
+
 export function useKeyboardShortcuts() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -25,6 +33,11 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           store.stepPreview(-1);
         }
+        return;
+      }
+
+      if (store.appearanceOpen) {
+        if (e.key === "Escape") store.closeAppearance();
         return;
       }
 
@@ -48,7 +61,7 @@ export function useKeyboardShortcuts() {
 
       if (e.key === " ") {
         e.preventDefault();
-        if (store.selected.length === 1) store.openPreview(store.selected[0]);
+        if (store.selected.length === 1) store.openPreview(store.selected[0], selectedFileOrigin(store.selected[0]));
         return;
       }
       if (e.key === "s" || e.key === "S") {

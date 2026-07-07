@@ -3,6 +3,8 @@ import { useTheme } from "../theme/ThemeContext";
 import { hexA } from "../theme/skins";
 import { ALL_MODULES, MODULE_NAMES, type ModuleId } from "../state/layout";
 
+const MODULE_DRAG_TYPE = "application/x-geyma-module";
+
 function hiddenModules(layout: Record<string, ModuleId[]>): ModuleId[] {
   const placed = new Set<ModuleId>();
   Object.values(layout).forEach((list) => list.forEach((id) => placed.add(id)));
@@ -49,7 +51,7 @@ export function EditBar() {
           <button
             key={id}
             draggable
-            onDragStart={(e) => e.dataTransfer.setData("text/plain", id)}
+            onDragStart={(e) => e.dataTransfer.setData(MODULE_DRAG_TYPE, id)}
             onClick={() => showModule(id, "left")}
             title="Drag into a zone, or click to add"
             style={{

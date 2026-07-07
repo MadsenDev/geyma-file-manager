@@ -7,6 +7,8 @@ import { ICONS } from "../icons/paths";
 import { MODULE_NAMES, type ModuleId, type ZoneId } from "../state/layout";
 import { isStretchModule } from "../state/layout";
 
+const MODULE_DRAG_TYPE = "application/x-geyma-module";
+
 interface ModuleShellProps {
   id: ModuleId;
   zone: ZoneId;
@@ -31,6 +33,7 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
   const showModule = useStore((s) => s.showModule);
   const ref = useRef<HTMLDivElement>(null);
   const stretch = isStretchModule(id);
+  const sizing = moduleSizing(id, zone, stretch);
 
   const openModuleMenu = (x: number, y: number) => {
     const destinations: { zone: ZoneId; label: string }[] = [
@@ -72,7 +75,7 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
       draggable={editMode}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", id);
+        e.dataTransfer.setData(MODULE_DRAG_TYPE, id);
         onDragStart(id, zone);
       }}
       onDragEnd={onDragEnd}
@@ -84,9 +87,11 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
       style={{
         display: "flex",
         flexDirection: "column",
-        flex: stretch ? "1 1 0" : "none",
+        flex: sizing.flex,
         minHeight: stretch ? (id === "files" || id === "files2" ? 200 : 140) : undefined,
-        minWidth: 0,
+        minWidth: sizing.minWidth,
+        width: sizing.width,
+        maxWidth: sizing.maxWidth,
         background: isPanel ? t.card : "transparent",
         border: isPanel ? `1px solid ${t.border}` : "none",
         borderRadius: isPanel ? t.radius : 0,
@@ -135,6 +140,18 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
       </div>
     </div>
   );
+}
+
+function moduleSizing(id: ModuleId, zone: ZoneId, stretch: boolean): Pick<React.CSSProperties, "flex" | "minWidth" | "width" | "maxWidth"> {
+  if (stretch) return { flex: "1 1 0", minWidth: 0 };
+  if (zone === "top" || zone === "bottom") {
+    if (id === "location") return { flex: "1 1 280px", minWidth: 180, maxWidth: 520 };
+    if (id === "search") return { flex: "0 0 clamp(220px, 28vw, 360px)", minWidth: 220 };
+    if (id === "nav") return { flex: "0 0 112px", width: 112, minWidth: 112 };
+    if (id === "viewswitch") return { flex: "0 0 auto", minWidth: 160 };
+    if (id === "tabs") return { flex: "0 1 360px", minWidth: 180, maxWidth: 440 };
+  }
+  return { flex: "none", minWidth: 0 };
 }
 
 function iconBtnStyle(color: string): React.CSSProperties {

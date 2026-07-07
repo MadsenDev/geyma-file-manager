@@ -30,7 +30,7 @@ export const ZONE_IDS: ZoneId[] = ["top", "left", "center", "center2", "right", 
 
 export const ALL_MODULES: ModuleId[] = [
   "tabs", "nav", "location", "search", "viewswitch", "title", "files", "files2", "details",
-  "appearance", "places", "devices", "network", "sets", "disk", "recent", "timeline", "dupes",
+  "places", "devices", "network", "sets", "disk", "recent", "timeline", "dupes",
   "clock", "visualizer", "mood", "status",
 ];
 
@@ -109,8 +109,8 @@ export function layoutSignature(l: Layout): string {
   return ZONE_IDS.map((z) => (l[z] || []).join(",")).join("|");
 }
 
-const PANEL_MODULES: ModuleId[] = ["places", "devices", "network", "sets", "disk", "recent", "timeline", "dupes", "clock", "visualizer", "mood", "details", "appearance"];
-const STRETCH_MODULES: ModuleId[] = ["files", "files2", "details", "appearance"];
+const PANEL_MODULES: ModuleId[] = ["places", "devices", "network", "sets", "disk", "recent", "timeline", "dupes", "clock", "visualizer", "mood", "details"];
+const STRETCH_MODULES: ModuleId[] = ["files", "files2", "details"];
 
 export function isPanelModule(id: ModuleId): boolean {
   return PANEL_MODULES.includes(id);

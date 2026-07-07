@@ -10,6 +10,7 @@ import { ICONS } from "./icons/paths";
 import { QuickLook } from "./overlays/QuickLook";
 import { ContextMenu } from "./overlays/ContextMenu";
 import { ModuleOptions } from "./overlays/ModuleOptions";
+import { AppearanceModal } from "./overlays/AppearanceModal";
 import { Toast } from "./overlays/Toast";
 import { RemotePasswordPrompt } from "./overlays/RemotePasswordPrompt";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts";
@@ -182,6 +183,7 @@ export function App() {
       )}
 
       <QuickLook />
+      <AppearanceModal />
       <ContextMenu />
       <ModuleOptions />
       <Toast />

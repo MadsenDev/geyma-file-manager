@@ -37,6 +37,12 @@ async function searchAll(root: string, query: string, cap = 1500): Promise<FsEnt
   return out;
 }
 
+function fileOrigin(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return undefined;
+  const rect = target.getBoundingClientRect();
+  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+}
+
 export function Files() {
   const t = useTheme();
   const toolbarView = useStore((s) => s.view);
@@ -148,7 +154,7 @@ export function Files() {
       y: e.clientY,
       items: [
         !multi ? { label: "Open", onClick: () => onOpen(entry) } : undefined,
-        !multi ? { label: "Quick Look", onClick: () => openPreview(entry.path) } : undefined,
+        !multi ? { label: "Quick Look", onClick: () => openPreview(entry.path, fileOrigin(e.currentTarget)) } : undefined,
         { label: isStarred ? "Remove star" : "Star", onClick: () => toggleStar(targets) },
         !multi && entry.isDir
           ? { label: "Open in New Tab", onClick: () => newTab(entry.path) }

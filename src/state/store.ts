@@ -19,6 +19,7 @@ import type {
   RemoteConnection,
   RemoteStatus,
   SearchScope,
+  PreviewState,
   SetItemRef,
   SortDir,
   SortKey,
@@ -121,7 +122,7 @@ interface AppState {
   trashDir: string;
 
   // quick look
-  preview: string | null;
+  preview: PreviewState | null;
 
   // rename
   renaming: string | null;
@@ -160,6 +161,7 @@ interface AppState {
   // ui chrome
   menu: ContextMenuState | null;
   modMenu: { id: ModuleId; x: number; y: number } | null;
+  appearanceOpen: boolean;
   toast: string;
   showHidden: boolean;
   pendingPermanentDelete: string | null;
@@ -221,7 +223,7 @@ interface AppState {
 
   toggleStar(paths: string[]): void;
 
-  openPreview(path: string): void;
+  openPreview(path: string, origin?: PreviewState["origin"]): void;
   closePreview(): void;
   stepPreview(dir: 1 | -1): void;
 
@@ -253,6 +255,8 @@ interface AppState {
   closeMenu(): void;
   openModMenu(id: ModuleId, x: number, y: number): void;
   closeModMenu(): void;
+  openAppearance(): void;
+  closeAppearance(): void;
   showToast(msg: string): void;
 
   createManualSet(name: string): void;
@@ -362,6 +366,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   menu: null,
   modMenu: null,
+  appearanceOpen: false,
   toast: "",
   showHidden: false,
   pendingPermanentDelete: null,
@@ -841,8 +846,8 @@ export const useStore = create<AppState>()((set, get) => ({
     get().persist();
   },
 
-  openPreview(path) {
-    set({ preview: path });
+  openPreview(path, origin) {
+    set({ preview: { path, origin } });
   },
   closePreview() {
     set({ preview: null });
@@ -851,10 +856,10 @@ export const useStore = create<AppState>()((set, get) => ({
     const { preview } = get();
     if (!preview) return;
     const entries = get().visibleEntries();
-    const idx = entries.findIndex((e) => e.path === preview);
+    const idx = entries.findIndex((e) => e.path === preview.path);
     if (idx < 0) return;
     const next = (idx + dir + entries.length) % entries.length;
-    set({ preview: entries[next].path, selected: [entries[next].path], anchor: entries[next].path });
+    set({ preview: { path: entries[next].path }, selected: [entries[next].path], anchor: entries[next].path });
   },
 
   startRename(path) {
@@ -1350,6 +1355,12 @@ export const useStore = create<AppState>()((set, get) => ({
   closeModMenu() {
     set({ modMenu: null });
   },
+  openAppearance() {
+    set({ appearanceOpen: true, menu: null, modMenu: null });
+  },
+  closeAppearance() {
+    set({ appearanceOpen: false });
+  },
   showToast(msg) {
     set({ toast: msg });
     setTimeout(() => {
@@ -1495,6 +1506,10 @@ export const useStore = create<AppState>()((set, get) => ({
     get().persist();
   },
   showModule(id, zone) {
+    if (id === "appearance") {
+      get().openAppearance();
+      return;
+    }
     get().moveModule(id, zone, get().layout[zone].length);
   },
   setRailWidth(side, w) {
