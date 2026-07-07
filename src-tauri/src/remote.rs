@@ -347,8 +347,22 @@ pub async fn remote_delete_permanently(path: String, sessions: tauri::State<'_, 
     }
 }
 
+/// Kept in sync with `preview::MAX_TEXT_BYTES`, the cap local text previews already
+/// enforce. Unlike the local path, `sftp::read_file`/`smb::read_file` have no partial-read
+/// support to stream up to a limit, so this checks the remote size via `stat` first and
+/// refuses outright rather than pulling an arbitrarily large file into memory just to
+/// preview it — a malicious or compromised server could otherwise OOM the client by
+/// serving one huge file to `remote_read_text_file`.
+const MAX_REMOTE_TEXT_BYTES: u64 = 1024 * 1024;
+
 #[tauri::command]
 pub async fn remote_read_text_file(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    let size = remote_stat(path.clone(), sessions.clone()).await?.size;
+    if size > MAX_REMOTE_TEXT_BYTES {
+        return Err(format!(
+            "File is too large to preview ({size} bytes; the limit is {MAX_REMOTE_TEXT_BYTES} bytes)"
+        ));
+    }
     let bytes = read_remote_bytes(&path, &sessions).await?;
     String::from_utf8(bytes).map_err(|error| error.to_string())
 }

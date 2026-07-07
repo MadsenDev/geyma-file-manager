@@ -12,10 +12,45 @@
 //! matter enough to users to justify one of those tradeoffs.
 
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Write};
 use std::path::{Component, Path, PathBuf};
 
 use sevenz_rust::{Password, SevenZReader};
+
+/// Ceiling on the in-memory buffer used to hold a fully-decompressed .tar.xz stream
+/// (see the comment in `tar_reader` on why XZ can't be streamed like the other tar
+/// variants). Without this, a small hostile XZ stream with an extreme compression
+/// ratio can exhaust memory during `list()` (Quick Look preview) or `extract()`.
+const MAX_XZ_DECOMPRESSED_BYTES: usize = 512 * 1024 * 1024;
+
+/// Caps on tar/7z extraction, kept in sync with the matching constants in fsops.rs's
+/// ZIP path — a defense against a hostile archive that's tiny on disk but expands to
+/// an enormous number of files or bytes ("archive bomb").
+const MAX_EXTRACT_ENTRIES: usize = 100_000;
+const MAX_EXTRACT_TOTAL_BYTES: u64 = 10 * 1024 * 1024 * 1024;
+
+/// A `Write` sink that errors out once more than `limit` bytes have been written,
+/// instead of growing an unbounded `Vec<u8>` for the lifetime of the decompression.
+struct BoundedBuffer {
+    data: Vec<u8>,
+    limit: usize,
+}
+
+impl Write for BoundedBuffer {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if self.data.len() + buf.len() > self.limit {
+            return Err(std::io::Error::other(
+                "XZ stream exceeds the maximum supported decompressed size",
+            ));
+        }
+        self.data.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ArchiveKind {
@@ -73,10 +108,13 @@ fn tar_reader(kind: ArchiveKind, path: &str) -> Result<Box<dyn Read>, String> {
             // Read adapter), so .tar.xz is buffered fully in memory before the tar
             // reader ever sees it. Fine for the file sizes this app deals with; the
             // other tar variants above stream instead.
-            let mut decompressed = Vec::new();
+            let mut decompressed = BoundedBuffer {
+                data: Vec::new(),
+                limit: MAX_XZ_DECOMPRESSED_BYTES,
+            };
             lzma_rs::xz_decompress(&mut BufReader::new(file), &mut decompressed)
                 .map_err(|error| format!("Could not decompress XZ stream: {error}"))?;
-            Box::new(std::io::Cursor::new(decompressed))
+            Box::new(std::io::Cursor::new(decompressed.data))
         }
         ArchiveKind::SevenZ => unreachable!("7z has its own reader path, not the tar one"),
     };
@@ -167,10 +205,18 @@ pub fn extract(kind: ArchiveKind, path: &str, dest_dir: &str, folder_name: &str)
 fn extract_tar(kind: ArchiveKind, path: &str, target_root: &Path) -> Result<(), String> {
     let reader = tar_reader(kind, path)?;
     let mut archive = tar::Archive::new(reader);
+    let mut remaining_budget = MAX_EXTRACT_TOTAL_BYTES;
+    let mut entry_count = 0usize;
     for entry in archive
         .entries()
         .map_err(|error| format!("Could not read TAR directory: {error}"))?
     {
+        entry_count += 1;
+        if entry_count > MAX_EXTRACT_ENTRIES {
+            return Err(format!(
+                "Archive has too many entries to extract (the limit is {MAX_EXTRACT_ENTRIES})"
+            ));
+        }
         let mut entry = entry.map_err(|error| format!("Could not read TAR entry: {error}"))?;
         let entry_path = entry.path().map_err(|error| error.to_string())?.to_path_buf();
         let out_path = safe_join(target_root, &entry_path)
@@ -183,7 +229,14 @@ fn extract_tar(kind: ArchiveKind, path: &str, target_root: &Path) -> Result<(), 
                 std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
             }
             let mut out_file = std::fs::File::create(&out_path).map_err(|error| error.to_string())?;
-            std::io::copy(&mut entry, &mut out_file).map_err(|error| error.to_string())?;
+            // Bounded by actual bytes written, not the header's (attacker-controlled)
+            // declared size, so a lying header can't smuggle a bomb past this check.
+            let mut limited = (&mut entry).take(remaining_budget.saturating_add(1));
+            let copied = std::io::copy(&mut limited, &mut out_file).map_err(|error| error.to_string())?;
+            if copied > remaining_budget {
+                return Err("Archive exceeds the maximum supported extraction size".to_string());
+            }
+            remaining_budget -= copied;
         }
     }
     Ok(())
@@ -195,6 +248,14 @@ fn extract_7z(path: &str, target_root: &Path) -> Result<(), String> {
     let mut reader = SevenZReader::new(file, len, Password::empty())
         .map_err(|error| format!("Could not read 7z directory: {error}"))?;
 
+    if reader.archive().files.len() > MAX_EXTRACT_ENTRIES {
+        return Err(format!(
+            "Archive has too many entries to extract ({} entries; the limit is {MAX_EXTRACT_ENTRIES})",
+            reader.archive().files.len()
+        ));
+    }
+
+    let mut remaining_budget = MAX_EXTRACT_TOTAL_BYTES;
     reader
         .for_each_entries(|entry, source| {
             let entry_path = Path::new(entry.name());
@@ -209,7 +270,16 @@ fn extract_7z(path: &str, target_root: &Path) -> Result<(), String> {
                     std::fs::create_dir_all(parent).map_err(sevenz_rust::Error::io)?;
                 }
                 let mut out_file = std::fs::File::create(&out_path).map_err(sevenz_rust::Error::io)?;
-                std::io::copy(source, &mut out_file).map_err(sevenz_rust::Error::io)?;
+                // Bounded by actual bytes written, not the entry's (attacker-controlled)
+                // declared size, so a lying header can't smuggle a bomb past this check.
+                let mut limited = source.take(remaining_budget.saturating_add(1));
+                let copied = std::io::copy(&mut limited, &mut out_file).map_err(sevenz_rust::Error::io)?;
+                if copied > remaining_budget {
+                    return Err(sevenz_rust::Error::other(
+                        "Archive exceeds the maximum supported extraction size",
+                    ));
+                }
+                remaining_budget -= copied;
             }
             Ok(true)
         })
@@ -220,7 +290,6 @@ fn extract_7z(path: &str, target_root: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_workdir(label: &str) -> PathBuf {
@@ -276,6 +345,18 @@ mod tests {
         assert_eq!(content, "hello tar");
 
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn bounded_buffer_rejects_writes_past_the_limit() {
+        let mut buf = BoundedBuffer {
+            data: Vec::new(),
+            limit: 8,
+        };
+        assert!(buf.write(b"1234").is_ok());
+        assert!(buf.write(b"5678").is_ok());
+        assert!(buf.write(b"9").is_err());
+        assert_eq!(buf.data, b"12345678");
     }
 
     #[test]
