@@ -2,11 +2,13 @@
 //!
 //! This module owns the whole lifecycle: detect the `ollama` binary, install it (Linux
 //! only — Ollama's own install script has no macOS/Windows path, those ship a downloadable
-//! app instead), start/stop `ollama serve` as a child process, and manage models, all
-//! talking to Ollama's REST API on localhost. `ai_generate` is a single generic
-//! prompt-in/text-out entrypoint — every capability (NL search parsing, rename
-//! suggestions, folder summaries) builds its own prompt on the frontend and is gated
-//! behind its own opt-in toggle there; this module has no feature-specific logic.
+//! app instead) via `pkexec` so privilege escalation goes through the desktop's own
+//! authentication dialog rather than a terminal prompt nobody can answer, start/stop
+//! `ollama serve` as a child process, and manage models, all talking to Ollama's REST API
+//! on localhost. `ai_generate` is a single generic prompt-in/text-out entrypoint — every
+//! capability (NL search parsing, rename suggestions, folder summaries) builds its own
+//! prompt on the frontend and is gated behind its own opt-in toggle there; this module has
+//! no feature-specific logic.
 //!
 //! Every model download and generate call only ever talks to `http://127.0.0.1:11434`,
 //! so the `reqwest` dependency below is built with no TLS backend at all.
@@ -70,9 +72,31 @@ pub async fn ai_status() -> AiStatus {
     AiStatus { installed: ollama_binary_present().await, running: ping().await }
 }
 
+async fn is_root() -> bool {
+    Command::new("id")
+        .arg("-u")
+        .output()
+        .await
+        .ok()
+        .and_then(|out| String::from_utf8(out.stdout).ok())
+        .map(|s| s.trim() == "0")
+        .unwrap_or(false)
+}
+
 /// Runs Ollama's official install script and streams its output back as `ai-install-log`
 /// events so Settings can show live progress instead of a bare spinner. Only reachable
 /// from an explicit "Install" button press in Settings — this never runs on its own.
+///
+/// The script calls `sudo` itself, separately, for several unrelated steps (installing the
+/// binary, creating the `ollama` system user, enabling the systemd service) rather than
+/// once up front. Piping a password into the first `sudo` prompt wouldn't reliably cover
+/// the later ones from a non-interactive child process with no controlling terminal, and
+/// there's no terminal here for the user to answer a prompt in anyway. So instead the
+/// *entire* script is elevated once via `pkexec`, which raises the desktop's own native
+/// authentication dialog (not a terminal prompt) — the script then sees `id -u` == 0 from
+/// the start and never invokes `sudo` internally at all. If no polkit agent is running,
+/// `pkexec` fails fast with a clear error instead of hanging, which still surfaces in the
+/// install log below rather than silently stalling.
 #[tauri::command]
 pub async fn ai_install(app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(not(target_os = "linux"))]
@@ -87,12 +111,25 @@ pub async fn ai_install(app: tauri::AppHandle) -> Result<(), String> {
     {
         use tauri::Emitter;
 
-        let mut child = Command::new("sh")
-            .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
+        const INSTALL_CMD: &str = "curl -fsSL https://ollama.com/install.sh | sh";
+        let (program, args): (&str, Vec<&str>) = if is_root().await {
+            ("sh", vec!["-c", INSTALL_CMD])
+        } else {
+            ("pkexec", vec!["sh", "-c", INSTALL_CMD])
+        };
+
+        let mut child = Command::new(program)
+            .args(&args)
+            .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|error| format!("Could not start installer: {error}"))?;
+            .map_err(|error| {
+                format!(
+                    "Could not start installer via {program}: {error}. If PolicyKit (pkexec) isn't \
+                     installed, install Ollama manually from https://ollama.com/download instead."
+                )
+            })?;
 
         let stdout = child.stdout.take().expect("piped stdout");
         let stderr = child.stderr.take().expect("piped stderr");

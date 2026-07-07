@@ -256,8 +256,11 @@ export function AiSettings() {
             </button>
           </div>
           <div style={hintStyle(t)}>
-            Linux only — runs the official install script from ollama.com. On other platforms, download it manually
-            from <span style={{ fontFamily: t.mono }}>{OLLAMA_DOWNLOAD_URL}</span> and reopen this panel.
+            Linux only — runs the official install script from ollama.com. It needs admin rights, so your desktop's
+            own authentication dialog will pop up to ask for your password (not a terminal — if that dialog never
+            appears, your system may be missing a PolicyKit agent, and installing manually from{" "}
+            <span style={{ fontFamily: t.mono }}>{OLLAMA_DOWNLOAD_URL}</span> is the fallback). On other platforms,
+            download it manually from the same link and reopen this panel.
           </div>
           {(installing || installLog.length > 0) && (
             <pre
