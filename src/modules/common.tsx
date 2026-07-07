@@ -1,6 +1,17 @@
 import type { ResolvedTheme } from "../theme/skins";
 import { hexA } from "../theme/skins";
 
+export function ToggleRow({ label, value, onChange, t }: { label: string; value: boolean; onChange: (v: boolean) => void; t: ResolvedTheme }) {
+  return (
+    <button onClick={() => onChange(!value)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: 0, background: "transparent", padding: 0, cursor: "pointer", width: "100%" }}>
+      <span style={{ fontSize: 12.5, color: t.ink }}>{label}</span>
+      <span style={{ width: 34, height: 20, borderRadius: 99, background: value ? t.accent : hexA(t.ink, 0.18), position: "relative" }}>
+        <span style={{ position: "absolute", top: 2, left: value ? 16 : 2, width: 16, height: 16, borderRadius: 99, background: "#fff", transition: "left .15s" }} />
+      </span>
+    </button>
+  );
+}
+
 export function panelTitleStyle(t: ResolvedTheme): React.CSSProperties {
   return {
     fontFamily: t.mono,

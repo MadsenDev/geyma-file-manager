@@ -60,6 +60,11 @@ interface PersistedShape {
   tabs?: TabState[];
   activeTabId?: string;
   remoteConnections?: RemoteConnection[];
+  showHidden?: boolean;
+  sortKey?: SortKey;
+  sortDir?: SortDir;
+  confirmPermanentDelete?: boolean;
+  confirmTrash?: boolean;
 }
 
 function loadPersisted(): PersistedShape {
@@ -158,14 +163,18 @@ interface AppState {
   modCfg: Record<string, ModOptionValue>;
   apTab: "skins" | "style" | "layout";
 
+  // settings
+  settingsOpen: boolean;
+  settingsTab: "appearance" | "confirmations" | "general";
+  confirmPermanentDelete: boolean;
+  confirmTrash: boolean;
+
   // ui chrome
   menu: ContextMenuState | null;
   modMenu: { id: ModuleId; x: number; y: number } | null;
-  appearanceOpen: boolean;
   toast: string;
   showHidden: boolean;
-  pendingPermanentDelete: string | null;
-  pendingPermanentAt: number;
+  pendingConfirm: { kind: "trash" | "permanent"; key: string; at: number } | null;
 
   // network places
   remoteConnections: RemoteConnection[];
@@ -255,8 +264,11 @@ interface AppState {
   closeMenu(): void;
   openModMenu(id: ModuleId, x: number, y: number): void;
   closeModMenu(): void;
-  openAppearance(): void;
-  closeAppearance(): void;
+  openSettings(): void;
+  closeSettings(): void;
+  setSettingsTab(tab: AppState["settingsTab"]): void;
+  toggleConfirmPermanentDelete(): void;
+  toggleConfirmTrash(): void;
   showToast(msg: string): void;
 
   createManualSet(name: string): void;
@@ -364,13 +376,16 @@ export const useStore = create<AppState>()((set, get) => ({
   modCfg: {},
   apTab: "skins",
 
+  settingsOpen: false,
+  settingsTab: "appearance",
+  confirmPermanentDelete: true,
+  confirmTrash: false,
+
   menu: null,
   modMenu: null,
-  appearanceOpen: false,
   toast: "",
   showHidden: false,
-  pendingPermanentDelete: null,
-  pendingPermanentAt: 0,
+  pendingConfirm: null,
 
   remoteConnections: [],
   remoteStatus: {},
@@ -405,6 +420,11 @@ export const useStore = create<AppState>()((set, get) => ({
       glow: persisted.glow ?? true,
       view: persisted.view || "grid",
       columns: persisted.columns || ["kind", "size", "modified"],
+      showHidden: persisted.showHidden ?? false,
+      sortKey: persisted.sortKey || "name",
+      sortDir: persisted.sortDir || "asc",
+      confirmPermanentDelete: persisted.confirmPermanentDelete ?? true,
+      confirmTrash: persisted.confirmTrash ?? false,
       layout: persisted.layout ? mergeLayout(persisted.layout) : defaultLayout(),
       railW: persisted.railW || { left: 270, right: 340 },
       centerSplit: !!persisted.centerSplit,
@@ -808,6 +828,7 @@ export const useStore = create<AppState>()((set, get) => ({
     } else {
       set({ sortKey: key, sortDir: "asc" });
     }
+    get().persist();
   },
   toggleColumn(key) {
     const { columns } = get();
@@ -832,6 +853,7 @@ export const useStore = create<AppState>()((set, get) => ({
   },
   toggleShowHidden() {
     set({ showHidden: !get().showHidden });
+    get().persist();
   },
 
   toggleStar(paths) {
@@ -1196,52 +1218,21 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   async trashEntries(paths) {
-    const { backend, trashDir } = get();
-    if (!backend) return;
-    const trashed: { origin: string; name: string; trashedPath: string; trashedName: string }[] = [];
-    for (const p of paths) {
-      const origin = backend.dirname(p);
-      const name = backend.basename(p);
-      try {
-        const trashedPath = await backend.trashPath(p);
-        const trashedName = backend.basename(trashedPath);
-        trashed.push({ origin, name, trashedPath, trashedName });
-        logEvent(get, set, trashedPath, "Deleted", "to Trash", "document");
-        addGhost(get, set, origin, { name, fromPath: p, toDir: trashDir, toName: name, atMs: Date.now() });
-        updateSetRefs(get, set, origin, name, trashDir, trashedName);
-        set({
-          trashOrigins: { ...get().trashOrigins, [trashedPath]: origin },
-          trashOriginNames: { ...get().trashOriginNames, [trashedPath]: name },
-        });
-        get().persist();
-      } catch (e) {
-        get().showToast(`Trash failed: ${e}`);
-      }
+    const { backend, confirmTrash, pendingConfirm } = get();
+    if (!backend || paths.length === 0) return;
+    if (!confirmTrash) {
+      await doTrash(get, set, paths);
+      return;
     }
-    if (trashed.length) {
-      get().pushUndo({
-        label: `Trash ${trashed.length} item${trashed.length > 1 ? "s" : ""}`,
-        undo: async () => {
-          for (const t of trashed) {
-            const restoredPath = await backend.restorePath(t.trashedPath, t.origin);
-            const finalPath = await finishRestore(backend, get, t.origin, restoredPath, t.name);
-            updateSetRefs(get, set, trashDir, t.trashedName, t.origin, backend.basename(finalPath));
-            const origins = { ...get().trashOrigins };
-            const originNames = { ...get().trashOriginNames };
-            delete origins[t.trashedPath];
-            delete originNames[t.trashedPath];
-            set({ trashOrigins: origins, trashOriginNames: originNames });
-            get().persist();
-          }
-          await get().loadDir(trashDir, true);
-          trashed.forEach((t) => get().loadDir(t.origin, true));
-        },
-      });
+    const key = paths.join("|");
+    const now = Date.now();
+    if (pendingConfirm && pendingConfirm.kind === "trash" && pendingConfirm.key === key && now - pendingConfirm.at < 4000) {
+      set({ pendingConfirm: null });
+      await doTrash(get, set, paths);
+    } else {
+      set({ pendingConfirm: { kind: "trash", key, at: now } });
+      get().showToast("Press again within 4s to move to Trash.");
     }
-    const dirsToRefresh = new Set(trashed.map((t) => t.origin));
-    dirsToRefresh.add(trashDir);
-    for (const d of dirsToRefresh) await get().loadDir(d, true);
-    set({ selected: [] });
   },
 
   async restoreEntries(paths) {
@@ -1293,35 +1284,19 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   requestPermanentDelete(paths) {
-    const { backend, pendingPermanentDelete, pendingPermanentAt } = get();
+    const { backend, confirmPermanentDelete, pendingConfirm } = get();
     if (!backend || paths.length === 0) return;
+    if (!confirmPermanentDelete) {
+      void doPermanentDelete(get, set, paths);
+      return;
+    }
     const key = paths.join("|");
     const now = Date.now();
-    if (pendingPermanentDelete === key && now - pendingPermanentAt < 4000) {
-      (async () => {
-        const origins = { ...get().trashOrigins };
-        const originNames = { ...get().trashOriginNames };
-        for (const p of paths) {
-          try {
-            await backend.deletePermanently(p);
-            updateSetRefs(get, set, backend.dirname(p), backend.basename(p), null);
-            delete origins[p];
-            delete originNames[p];
-          } catch (e) {
-            get().showToast(`Delete failed: ${e}`);
-          }
-        }
-        set({ trashOrigins: origins, trashOriginNames: originNames });
-        get().persist();
-        await get().loadDir(get().trashDir, true);
-        // Also refreshes the current folder — a no-op reload when this ran from the
-        // Trash view itself, but required when it ran against a network place, which
-        // has no Trash and lands here directly from the normal folder view.
-        await get().loadDir(get().path, true);
-        set({ selected: [], pendingPermanentDelete: null });
-      })();
+    if (pendingConfirm && pendingConfirm.kind === "permanent" && pendingConfirm.key === key && now - pendingConfirm.at < 4000) {
+      set({ pendingConfirm: null });
+      void doPermanentDelete(get, set, paths);
     } else {
-      set({ pendingPermanentDelete: key, pendingPermanentAt: now });
+      set({ pendingConfirm: { kind: "permanent", key, at: now } });
       get().showToast("Press Delete again within 4s to permanently delete — this cannot be undone.");
     }
   },
@@ -1355,11 +1330,22 @@ export const useStore = create<AppState>()((set, get) => ({
   closeModMenu() {
     set({ modMenu: null });
   },
-  openAppearance() {
-    set({ appearanceOpen: true, menu: null, modMenu: null });
+  openSettings() {
+    set({ settingsOpen: true, menu: null, modMenu: null });
   },
-  closeAppearance() {
-    set({ appearanceOpen: false });
+  closeSettings() {
+    set({ settingsOpen: false });
+  },
+  setSettingsTab(tab) {
+    set({ settingsTab: tab });
+  },
+  toggleConfirmPermanentDelete() {
+    set({ confirmPermanentDelete: !get().confirmPermanentDelete });
+    get().persist();
+  },
+  toggleConfirmTrash() {
+    set({ confirmTrash: !get().confirmTrash });
+    get().persist();
   },
   showToast(msg) {
     set({ toast: msg });
@@ -1506,8 +1492,8 @@ export const useStore = create<AppState>()((set, get) => ({
     get().persist();
   },
   showModule(id, zone) {
-    if (id === "appearance") {
-      get().openAppearance();
+    if (id === "settings") {
+      get().openSettings();
       return;
     }
     get().moveModule(id, zone, get().layout[zone].length);
@@ -1574,6 +1560,11 @@ export const useStore = create<AppState>()((set, get) => ({
       glow: st.glow,
       view: st.view,
       columns: st.columns,
+      showHidden: st.showHidden,
+      sortKey: st.sortKey,
+      sortDir: st.sortDir,
+      confirmPermanentDelete: st.confirmPermanentDelete,
+      confirmTrash: st.confirmTrash,
       layout: st.layout,
       railW: st.railW,
       centerSplit: st.centerSplit,
@@ -1625,6 +1616,80 @@ function logEvent(
   const globalFeed = [ev, ...get().globalFeed].slice(0, 60);
   set({ fileEvents, globalFeed });
   get().persist();
+}
+
+async function doTrash(get: () => AppState, set: (partial: Partial<AppState>) => void, paths: string[]) {
+  const { backend, trashDir } = get();
+  if (!backend) return;
+  const trashed: { origin: string; name: string; trashedPath: string; trashedName: string }[] = [];
+  for (const p of paths) {
+    const origin = backend.dirname(p);
+    const name = backend.basename(p);
+    try {
+      const trashedPath = await backend.trashPath(p);
+      const trashedName = backend.basename(trashedPath);
+      trashed.push({ origin, name, trashedPath, trashedName });
+      logEvent(get, set, trashedPath, "Deleted", "to Trash", "document");
+      addGhost(get, set, origin, { name, fromPath: p, toDir: trashDir, toName: name, atMs: Date.now() });
+      updateSetRefs(get, set, origin, name, trashDir, trashedName);
+      set({
+        trashOrigins: { ...get().trashOrigins, [trashedPath]: origin },
+        trashOriginNames: { ...get().trashOriginNames, [trashedPath]: name },
+      });
+      get().persist();
+    } catch (e) {
+      get().showToast(`Trash failed: ${e}`);
+    }
+  }
+  if (trashed.length) {
+    get().pushUndo({
+      label: `Trash ${trashed.length} item${trashed.length > 1 ? "s" : ""}`,
+      undo: async () => {
+        for (const t of trashed) {
+          const restoredPath = await backend.restorePath(t.trashedPath, t.origin);
+          const finalPath = await finishRestore(backend, get, t.origin, restoredPath, t.name);
+          updateSetRefs(get, set, trashDir, t.trashedName, t.origin, backend.basename(finalPath));
+          const origins = { ...get().trashOrigins };
+          const originNames = { ...get().trashOriginNames };
+          delete origins[t.trashedPath];
+          delete originNames[t.trashedPath];
+          set({ trashOrigins: origins, trashOriginNames: originNames });
+          get().persist();
+        }
+        await get().loadDir(trashDir, true);
+        trashed.forEach((t) => get().loadDir(t.origin, true));
+      },
+    });
+  }
+  const dirsToRefresh = new Set(trashed.map((t) => t.origin));
+  dirsToRefresh.add(trashDir);
+  for (const d of dirsToRefresh) await get().loadDir(d, true);
+  set({ selected: [] });
+}
+
+async function doPermanentDelete(get: () => AppState, set: (partial: Partial<AppState>) => void, paths: string[]) {
+  const { backend } = get();
+  if (!backend) return;
+  const origins = { ...get().trashOrigins };
+  const originNames = { ...get().trashOriginNames };
+  for (const p of paths) {
+    try {
+      await backend.deletePermanently(p);
+      updateSetRefs(get, set, backend.dirname(p), backend.basename(p), null);
+      delete origins[p];
+      delete originNames[p];
+    } catch (e) {
+      get().showToast(`Delete failed: ${e}`);
+    }
+  }
+  set({ trashOrigins: origins, trashOriginNames: originNames });
+  get().persist();
+  await get().loadDir(get().trashDir, true);
+  // Also refreshes the current folder — a no-op reload when this ran from the
+  // Trash view itself, but required when it ran against a network place, which
+  // has no Trash and lands here directly from the normal folder view.
+  await get().loadDir(get().path, true);
+  set({ selected: [], pendingConfirm: null });
 }
 
 function addGhost(

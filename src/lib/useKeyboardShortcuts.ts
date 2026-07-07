@@ -36,8 +36,8 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      if (store.appearanceOpen) {
-        if (e.key === "Escape") store.closeAppearance();
+      if (store.settingsOpen) {
+        if (e.key === "Escape") store.closeSettings();
         return;
       }
 

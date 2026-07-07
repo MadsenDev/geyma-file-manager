@@ -33,7 +33,7 @@ export const MODULE_COMPONENTS: Record<ModuleId, ComponentType> = {
   files: Files,
   files2: Files2,
   details: Details,
-  appearance: Appearance,
+  settings: Appearance,
   places: Places,
   devices: Devices,
   network: Network,
