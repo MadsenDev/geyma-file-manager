@@ -115,7 +115,7 @@ export function useKeyboardShortcuts() {
       }
       if (mod && (e.key === "t" || e.key === "T")) {
         e.preventDefault();
-        store.newTab(store.home);
+        store.newTab();
         return;
       }
       if (mod && (e.key === "w" || e.key === "W")) {

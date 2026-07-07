@@ -31,6 +31,7 @@ import type {
 import type { SkinOverrides } from "../theme/skins";
 import { archiveStem, extOf, kindOf } from "../lib/format";
 import { computeBatchNames } from "../lib/batchRename";
+import { explainError } from "../lib/explainError";
 
 const STORAGE_KEY = "geyma-v1";
 
@@ -55,6 +56,7 @@ interface PersistedShape {
   setDefs?: WorkingSet[];
   starred?: string[];
   fileEvents?: Record<string, FileEvent[]>;
+  globalFeed?: FileEvent[];
   trashOrigins?: Record<string, string>;
   trashOriginNames?: Record<string, string>;
   tabs?: TabState[];
@@ -65,6 +67,10 @@ interface PersistedShape {
   sortDir?: SortDir;
   confirmPermanentDelete?: boolean;
   confirmTrash?: boolean;
+  confirmWindowMs?: number;
+  newTabAtHome?: boolean;
+  startupMode?: "resume" | "home";
+  searchScope?: SearchScope;
 }
 
 function loadPersisted(): PersistedShape {
@@ -168,6 +174,9 @@ interface AppState {
   settingsTab: "appearance" | "confirmations" | "general";
   confirmPermanentDelete: boolean;
   confirmTrash: boolean;
+  confirmWindowMs: number;
+  newTabAtHome: boolean;
+  startupMode: "resume" | "home";
 
   // ui chrome
   menu: ContextMenuState | null;
@@ -259,6 +268,7 @@ interface AppState {
 
   pushUndo(action: UndoAction): void;
   undo(): Promise<void>;
+  undoFileEvent(path: string, eventId: string): Promise<void>;
 
   openMenu(state: ContextMenuState): void;
   closeMenu(): void;
@@ -269,6 +279,9 @@ interface AppState {
   setSettingsTab(tab: AppState["settingsTab"]): void;
   toggleConfirmPermanentDelete(): void;
   toggleConfirmTrash(): void;
+  setConfirmWindowMs(ms: number): void;
+  toggleNewTabAtHome(): void;
+  setStartupMode(mode: AppState["startupMode"]): void;
   showToast(msg: string): void;
 
   createManualSet(name: string): void;
@@ -307,8 +320,8 @@ interface AppState {
   persist(): void;
 }
 
-function nowEvent(path: string, action: string, detail: string | undefined, kind: FileEvent["kind"]): FileEvent {
-  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, path, action, detail, whenMs: Date.now(), kind };
+function nowEvent(path: string, action: string, detail: string | undefined, kind: FileEvent["kind"], prevPath?: string): FileEvent {
+  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, path, action, detail, whenMs: Date.now(), kind, prevPath };
 }
 
 export const useStore = create<AppState>()((set, get) => ({
@@ -380,6 +393,9 @@ export const useStore = create<AppState>()((set, get) => ({
   settingsTab: "appearance",
   confirmPermanentDelete: true,
   confirmTrash: false,
+  confirmWindowMs: 4000,
+  newTabAtHome: true,
+  startupMode: "resume",
 
   menu: null,
   modMenu: null,
@@ -397,7 +413,8 @@ export const useStore = create<AppState>()((set, get) => ({
     const home = await backend.homeDir();
     const trashDir = await backend.trashDirPath();
     const devices = await backend.listDevices();
-    const tabs = persisted.tabs && persisted.tabs.length
+    const startupMode = persisted.startupMode || "resume";
+    const tabs = startupMode === "resume" && persisted.tabs && persisted.tabs.length
       ? persisted.tabs
       : [{ id: "tab-1", path: home, hist: [home], hi: 0, trashView: false, activeSetId: null }];
     const activeTab = tabs.find((tb) => tb.id === persisted.activeTabId) || tabs[0];
@@ -425,6 +442,10 @@ export const useStore = create<AppState>()((set, get) => ({
       sortDir: persisted.sortDir || "asc",
       confirmPermanentDelete: persisted.confirmPermanentDelete ?? true,
       confirmTrash: persisted.confirmTrash ?? false,
+      confirmWindowMs: persisted.confirmWindowMs ?? 4000,
+      newTabAtHome: persisted.newTabAtHome ?? true,
+      startupMode,
+      searchScope: persisted.searchScope || "folder",
       layout: persisted.layout ? mergeLayout(persisted.layout) : defaultLayout(),
       railW: persisted.railW || { left: 270, right: 340 },
       centerSplit: !!persisted.centerSplit,
@@ -433,6 +454,7 @@ export const useStore = create<AppState>()((set, get) => ({
       setDefs: persisted.setDefs && persisted.setDefs.length ? persisted.setDefs : seedSets(),
       starred: new Set(persisted.starred || []),
       fileEvents: persisted.fileEvents || {},
+      globalFeed: persisted.globalFeed || [],
       trashOrigins: persisted.trashOrigins || {},
       trashOriginNames: persisted.trashOriginNames || {},
       remoteConnections: persisted.remoteConnections || [],
@@ -561,7 +583,7 @@ export const useStore = create<AppState>()((set, get) => ({
   newTab(path) {
     syncActiveTab(get, set);
     const st = get();
-    const startPath = path ?? st.path;
+    const startPath = path ?? (st.newTabAtHome ? st.home : st.path);
     const id = `tab-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const tab: TabState = { id, path: startPath, hist: [startPath], hi: 0, trashView: false, activeSetId: null };
     set({
@@ -770,7 +792,7 @@ export const useStore = create<AppState>()((set, get) => ({
       get().newTab(root);
     } catch (e) {
       set({ remoteStatus: { ...get().remoteStatus, [id]: "error" }, pendingRemotePasswordPromptId: id });
-      get().showToast(`Connection failed: ${e}`);
+      get().showToast(`Connection failed: ${explainError(e)}`);
     }
   },
   async disconnectRemoteConnection(id) {
@@ -780,7 +802,7 @@ export const useStore = create<AppState>()((set, get) => ({
     try {
       await backend.disconnectRemote({ protocol: conn.protocol, host: conn.host, port: conn.port, username: conn.username, share: conn.share });
     } catch (e) {
-      get().showToast(`Disconnect failed: ${e}`);
+      get().showToast(`Disconnect failed: ${explainError(e)}`);
     }
     set({ remoteStatus: { ...get().remoteStatus, [id]: "disconnected" } });
   },
@@ -842,6 +864,7 @@ export const useStore = create<AppState>()((set, get) => ({
   },
   setSearchScope(s) {
     set({ searchScope: s });
+    get().persist();
   },
   toggleKindFilter(k) {
     const { filters } = get();
@@ -905,19 +928,21 @@ export const useStore = create<AppState>()((set, get) => ({
     try {
       const newPath = await backend.renamePath(renaming, newName);
       updateSetRefs(get, set, dir, oldName, dir, newName);
+      migrateFileEvents(get, set, renaming, newPath);
       get().pushUndo({
         label: `Rename ${oldName}`,
         undo: async () => {
           await backend.renamePath(newPath, oldName);
           updateSetRefs(get, set, dir, newName, dir, oldName);
+          migrateFileEvents(get, set, newPath, renaming);
           await get().loadDir(path, true);
         },
       });
-      logEvent(get, set, newPath, "Renamed", `from "${oldName}"`, "archive");
+      logEvent(get, set, newPath, "Renamed", `from "${oldName}"`, "archive", renaming);
       set({ renaming: null, selected: [newPath] });
       await get().loadDir(path, true);
     } catch (e) {
-      get().showToast(`Rename failed: ${e}`);
+      get().showToast(`Rename failed: ${explainError(e)}`);
       set({ renaming: null });
     }
   },
@@ -979,7 +1004,7 @@ export const useStore = create<AppState>()((set, get) => ({
         logEvent(get, set, newPath, "Copied here", origDir !== destDir ? `from ${origDir}` : undefined, "video");
         await get().loadDir(destDir, true);
       } catch (e) {
-        get().showToast(`Copy failed: ${e}`);
+        get().showToast(`Copy failed: ${explainError(e)}`);
       }
     }
     if (copied.length) {
@@ -990,7 +1015,7 @@ export const useStore = create<AppState>()((set, get) => ({
             try {
               await backend.trashPath(c);
             } catch (e) {
-              get().showToast(`Undo failed: ${e}`);
+              get().showToast(`Undo failed: ${explainError(e)}`);
             }
           }
           await get().loadDir(destDir, true);
@@ -1010,11 +1035,12 @@ export const useStore = create<AppState>()((set, get) => ({
         const to = await backend.movePath(p, destDir);
         moved.push({ from: p, to });
         const name = backend.basename(p);
-        logEvent(get, set, to, "Moved here", `from ${srcDir}`, "video");
+        logEvent(get, set, to, "Moved here", `from ${srcDir}`, "video", p);
         addGhost(get, set, srcDir, { name, fromPath: p, toDir: destDir, toName: name, atMs: Date.now() });
         updateSetRefs(get, set, srcDir, name, destDir);
+        migrateFileEvents(get, set, p, to);
       } catch (e) {
-        get().showToast(`Move failed: ${e}`);
+        get().showToast(`Move failed: ${explainError(e)}`);
       }
     }
     if (moved.length) {
@@ -1024,6 +1050,7 @@ export const useStore = create<AppState>()((set, get) => ({
           for (const m of moved) {
             await backend.movePath(m.to, srcDir);
             updateSetRefs(get, set, destDir, backend.basename(m.to), srcDir);
+            migrateFileEvents(get, set, m.to, m.from);
           }
           await get().loadDir(srcDir, true);
           await get().loadDir(destDir, true);
@@ -1050,7 +1077,7 @@ export const useStore = create<AppState>()((set, get) => ({
         logEvent(get, set, newPath, "Duplicated", `from "${origName}"`, "video");
         await get().loadDir(dir, true);
       } catch (e) {
-        get().showToast(`Duplicate failed: ${e}`);
+        get().showToast(`Duplicate failed: ${explainError(e)}`);
       }
     }
     if (copied.length) {
@@ -1062,7 +1089,7 @@ export const useStore = create<AppState>()((set, get) => ({
             try {
               await backend.trashPath(c);
             } catch (e) {
-              get().showToast(`Undo failed: ${e}`);
+              get().showToast(`Undo failed: ${explainError(e)}`);
             }
           }
           for (const d of dirs) await get().loadDir(d, true);
@@ -1092,7 +1119,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await get().loadDir(dir, true);
       set({ selected: [newPath] });
     } catch (e) {
-      get().showToast(`Extract failed: ${e}`);
+      get().showToast(`Extract failed: ${explainError(e)}`);
     }
   },
 
@@ -1116,7 +1143,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await get().loadDir(dir, true);
       set({ selected: [newPath] });
     } catch (e) {
-      get().showToast(`Compress failed: ${e}`);
+      get().showToast(`Compress failed: ${explainError(e)}`);
     }
   },
 
@@ -1140,7 +1167,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await get().loadDir(dir, true);
       set({ selected: [newPath] });
     } catch (e) {
-      get().showToast(`Create symlink failed: ${e}`);
+      get().showToast(`Create symlink failed: ${explainError(e)}`);
     }
   },
 
@@ -1158,7 +1185,7 @@ export const useStore = create<AppState>()((set, get) => ({
         },
       });
     } catch (e) {
-      get().showToast(`Permission change failed: ${e}`);
+      get().showToast(`Permission change failed: ${explainError(e)}`);
     }
   },
 
@@ -1187,7 +1214,7 @@ export const useStore = create<AppState>()((set, get) => ({
       seen.add(name);
     }
 
-    const renamed: { to: string; oldName: string; newName: string }[] = [];
+    const renamed: { from: string; to: string; oldName: string; newName: string }[] = [];
     for (let i = 0; i < targets.length; i++) {
       const entry = targets[i];
       const newName = newNames[i];
@@ -1195,10 +1222,11 @@ export const useStore = create<AppState>()((set, get) => ({
       try {
         const newPath = await backend.renamePath(entry.path, newName);
         updateSetRefs(get, set, dir, entry.name, dir, newName);
-        logEvent(get, set, newPath, "Renamed", `from "${entry.name}"`, "archive");
-        renamed.push({ to: newPath, oldName: entry.name, newName });
+        migrateFileEvents(get, set, entry.path, newPath);
+        logEvent(get, set, newPath, "Renamed", `from "${entry.name}"`, "archive", entry.path);
+        renamed.push({ from: entry.path, to: newPath, oldName: entry.name, newName });
       } catch (e) {
-        get().showToast(`Rename failed for "${entry.name}": ${e}`);
+        get().showToast(`Rename failed for "${entry.name}": ${explainError(e)}`);
       }
     }
     if (renamed.length) {
@@ -1208,6 +1236,7 @@ export const useStore = create<AppState>()((set, get) => ({
           for (const r of renamed) {
             await backend.renamePath(r.to, r.oldName);
             updateSetRefs(get, set, dir, r.newName, dir, r.oldName);
+            migrateFileEvents(get, set, r.to, r.from);
           }
           await get().loadDir(dir, true);
         },
@@ -1218,7 +1247,7 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   async trashEntries(paths) {
-    const { backend, confirmTrash, pendingConfirm } = get();
+    const { backend, confirmTrash, pendingConfirm, confirmWindowMs } = get();
     if (!backend || paths.length === 0) return;
     if (!confirmTrash) {
       await doTrash(get, set, paths);
@@ -1226,12 +1255,12 @@ export const useStore = create<AppState>()((set, get) => ({
     }
     const key = paths.join("|");
     const now = Date.now();
-    if (pendingConfirm && pendingConfirm.kind === "trash" && pendingConfirm.key === key && now - pendingConfirm.at < 4000) {
+    if (pendingConfirm && pendingConfirm.kind === "trash" && pendingConfirm.key === key && now - pendingConfirm.at < confirmWindowMs) {
       set({ pendingConfirm: null });
       await doTrash(get, set, paths);
     } else {
       set({ pendingConfirm: { kind: "trash", key, at: now } });
-      get().showToast("Press again within 4s to move to Trash.");
+      get().showToast(`Press again within ${Math.round(confirmWindowMs / 1000)}s to move to Trash.`);
     }
   },
 
@@ -1248,14 +1277,15 @@ export const useStore = create<AppState>()((set, get) => ({
       try {
         const movedPath = await backend.restorePath(p, toDir);
         const finalPath = await finishRestore(backend, get, toDir, movedPath, desiredName);
-        logEvent(get, set, finalPath, "Restored", "from Trash", "app");
+        logEvent(get, set, finalPath, "Restored", "from Trash", "app", p);
         updateSetRefs(get, set, trashDir, trashedName, toDir, backend.basename(finalPath));
+        migrateFileEvents(get, set, p, finalPath);
         restored.push({ toDir, finalPath, trashedName, origName: desiredName });
         delete origins[p];
         delete originNames[p];
         await get().loadDir(toDir, true);
       } catch (e) {
-        get().showToast(`Restore failed: ${e}`);
+        get().showToast(`Restore failed: ${explainError(e)}`);
       }
     }
     if (restored.length) {
@@ -1266,6 +1296,7 @@ export const useStore = create<AppState>()((set, get) => ({
             const trashedAgain = await backend.trashPath(r.finalPath);
             const trashedAgainName = backend.basename(trashedAgain);
             updateSetRefs(get, set, r.toDir, backend.basename(r.finalPath), trashDir, trashedAgainName);
+            migrateFileEvents(get, set, r.finalPath, trashedAgain);
             set({
               trashOrigins: { ...get().trashOrigins, [trashedAgain]: r.toDir },
               trashOriginNames: { ...get().trashOriginNames, [trashedAgain]: r.origName },
@@ -1284,7 +1315,7 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   requestPermanentDelete(paths) {
-    const { backend, confirmPermanentDelete, pendingConfirm } = get();
+    const { backend, confirmPermanentDelete, pendingConfirm, confirmWindowMs } = get();
     if (!backend || paths.length === 0) return;
     if (!confirmPermanentDelete) {
       void doPermanentDelete(get, set, paths);
@@ -1292,12 +1323,12 @@ export const useStore = create<AppState>()((set, get) => ({
     }
     const key = paths.join("|");
     const now = Date.now();
-    if (pendingConfirm && pendingConfirm.kind === "permanent" && pendingConfirm.key === key && now - pendingConfirm.at < 4000) {
+    if (pendingConfirm && pendingConfirm.kind === "permanent" && pendingConfirm.key === key && now - pendingConfirm.at < confirmWindowMs) {
       set({ pendingConfirm: null });
       void doPermanentDelete(get, set, paths);
     } else {
       set({ pendingConfirm: { kind: "permanent", key, at: now } });
-      get().showToast("Press Delete again within 4s to permanently delete — this cannot be undone.");
+      get().showToast(`Press Delete again within ${Math.round(confirmWindowMs / 1000)}s to permanently delete — this cannot be undone.`);
     }
   },
 
@@ -1314,7 +1345,54 @@ export const useStore = create<AppState>()((set, get) => ({
       await action.undo();
       get().showToast(`Undid: ${action.label}`);
     } catch (e) {
-      get().showToast(`Undo failed: ${e}`);
+      get().showToast(`Undo failed: ${explainError(e)}`);
+    }
+  },
+  // Undoes a single past Journey entry independent of the global undo stack — resolves
+  // the file's *current* location (fileEvents is always keyed by that, see
+  // migrateFileEvents) and reverses just this one step, regardless of what happened to
+  // the file afterward. Only steps that changed the file's location are reversible here.
+  async undoFileEvent(path, eventId) {
+    const { backend, fileEvents } = get();
+    if (!backend) return;
+    const ev = (fileEvents[path] || []).find((e) => e.id === eventId);
+    if (!ev || !ev.prevPath) {
+      get().showToast("This step can't be undone.");
+      return;
+    }
+    try {
+      if (ev.action === "Renamed") {
+        const dir = backend.dirname(path);
+        const oldName = backend.basename(path);
+        const newName = backend.basename(ev.prevPath);
+        const newPath = await backend.renamePath(path, newName);
+        updateSetRefs(get, set, dir, oldName, dir, newName);
+        migrateFileEvents(get, set, path, newPath);
+        logEvent(get, set, newPath, "Renamed", `from "${oldName}"`, "archive", path);
+        await get().loadDir(dir, true);
+        set({ selected: [newPath] });
+      } else if (ev.action === "Moved here") {
+        const srcDir = backend.dirname(path);
+        const destDir = backend.dirname(ev.prevPath);
+        const name = backend.basename(path);
+        const newPath = await backend.movePath(path, destDir);
+        updateSetRefs(get, set, srcDir, name, destDir);
+        migrateFileEvents(get, set, path, newPath);
+        logEvent(get, set, newPath, "Moved here", `from ${srcDir}`, "video", path);
+        await get().loadDir(srcDir, true);
+        await get().loadDir(destDir, true);
+        set({ selected: [newPath] });
+      } else if (ev.action === "Deleted") {
+        await get().restoreEntries([path]);
+      } else if (ev.action === "Restored") {
+        await doTrash(get, set, [path]);
+      } else {
+        get().showToast("This step can't be undone.");
+        return;
+      }
+      get().showToast(`Undid: ${ev.action.toLowerCase()}`);
+    } catch (e) {
+      get().showToast(`Undo failed: ${explainError(e)}`);
     }
   },
 
@@ -1345,6 +1423,18 @@ export const useStore = create<AppState>()((set, get) => ({
   },
   toggleConfirmTrash() {
     set({ confirmTrash: !get().confirmTrash });
+    get().persist();
+  },
+  setConfirmWindowMs(ms) {
+    set({ confirmWindowMs: ms });
+    get().persist();
+  },
+  toggleNewTabAtHome() {
+    set({ newTabAtHome: !get().newTabAtHome });
+    get().persist();
+  },
+  setStartupMode(mode) {
+    set({ startupMode: mode });
     get().persist();
   },
   showToast(msg) {
@@ -1565,6 +1655,10 @@ export const useStore = create<AppState>()((set, get) => ({
       sortDir: st.sortDir,
       confirmPermanentDelete: st.confirmPermanentDelete,
       confirmTrash: st.confirmTrash,
+      confirmWindowMs: st.confirmWindowMs,
+      newTabAtHome: st.newTabAtHome,
+      startupMode: st.startupMode,
+      searchScope: st.searchScope,
       layout: st.layout,
       railW: st.railW,
       centerSplit: st.centerSplit,
@@ -1574,6 +1668,7 @@ export const useStore = create<AppState>()((set, get) => ({
       setDefs: st.setDefs,
       starred: Array.from(st.starred),
       fileEvents: st.fileEvents,
+      globalFeed: st.globalFeed,
       trashOrigins: st.trashOrigins,
       trashOriginNames: st.trashOriginNames,
       tabs: st.tabs,
@@ -1609,10 +1704,11 @@ function logEvent(
   action: string,
   detail: string | undefined,
   kind: FileEvent["kind"],
+  prevPath?: string,
 ) {
-  const ev = nowEvent(path, action, detail, kind);
+  const ev = nowEvent(path, action, detail, kind, prevPath);
   const fileEvents = { ...get().fileEvents };
-  fileEvents[path] = [ev, ...(fileEvents[path] || [])].slice(0, 30);
+  fileEvents[path] = [ev, ...(fileEvents[path] || [])].slice(0, 200);
   const globalFeed = [ev, ...get().globalFeed].slice(0, 60);
   set({ fileEvents, globalFeed });
   get().persist();
@@ -1629,16 +1725,17 @@ async function doTrash(get: () => AppState, set: (partial: Partial<AppState>) =>
       const trashedPath = await backend.trashPath(p);
       const trashedName = backend.basename(trashedPath);
       trashed.push({ origin, name, trashedPath, trashedName });
-      logEvent(get, set, trashedPath, "Deleted", "to Trash", "document");
+      logEvent(get, set, trashedPath, "Deleted", "to Trash", "document", p);
       addGhost(get, set, origin, { name, fromPath: p, toDir: trashDir, toName: name, atMs: Date.now() });
       updateSetRefs(get, set, origin, name, trashDir, trashedName);
+      migrateFileEvents(get, set, p, trashedPath);
       set({
         trashOrigins: { ...get().trashOrigins, [trashedPath]: origin },
         trashOriginNames: { ...get().trashOriginNames, [trashedPath]: name },
       });
       get().persist();
     } catch (e) {
-      get().showToast(`Trash failed: ${e}`);
+      get().showToast(`Trash failed: ${explainError(e)}`);
     }
   }
   if (trashed.length) {
@@ -1649,6 +1746,7 @@ async function doTrash(get: () => AppState, set: (partial: Partial<AppState>) =>
           const restoredPath = await backend.restorePath(t.trashedPath, t.origin);
           const finalPath = await finishRestore(backend, get, t.origin, restoredPath, t.name);
           updateSetRefs(get, set, trashDir, t.trashedName, t.origin, backend.basename(finalPath));
+          migrateFileEvents(get, set, t.trashedPath, finalPath);
           const origins = { ...get().trashOrigins };
           const originNames = { ...get().trashOriginNames };
           delete origins[t.trashedPath];
@@ -1676,10 +1774,14 @@ async function doPermanentDelete(get: () => AppState, set: (partial: Partial<App
     try {
       await backend.deletePermanently(p);
       updateSetRefs(get, set, backend.dirname(p), backend.basename(p), null);
+      // Left in fileEvents under this now-nonexistent path on purpose — a permanently
+      // deleted file's Journey is frozen at its last known location as its final record,
+      // instead of being dropped like its Working Set refs are.
+      logEvent(get, set, p, "Permanently deleted", undefined, "muted");
       delete origins[p];
       delete originNames[p];
     } catch (e) {
-      get().showToast(`Delete failed: ${e}`);
+      get().showToast(`Delete failed: ${explainError(e)}`);
     }
   }
   set({ trashOrigins: origins, trashOriginNames: originNames });
@@ -1740,6 +1842,22 @@ function updateSetRefs(
   });
   set({ setDefs });
   get().persist();
+}
+
+// fileEvents is keyed by a file's current path, so a file's Journey stays a single
+// continuous timeline across renames/moves instead of fragmenting into a dead entry
+// under the old path and a fresh one under the new path — call this alongside every
+// updateSetRefs(...) call that has a real destination (not permanent delete, which
+// leaves the entry frozen under its last known path as the file's final record).
+function migrateFileEvents(get: () => AppState, set: (partial: Partial<AppState>) => void, fromPath: string, toPath: string) {
+  if (fromPath === toPath) return;
+  const existing = get().fileEvents[fromPath];
+  if (!existing || existing.length === 0) return;
+  const fileEvents = { ...get().fileEvents };
+  delete fileEvents[fromPath];
+  const merged = [...(fileEvents[toPath] || []), ...existing].sort((a, b) => b.whenMs - a.whenMs).slice(0, 200);
+  fileEvents[toPath] = merged;
+  set({ fileEvents });
 }
 
 function appendSuffix(name: string, n: number): string {

@@ -10,8 +10,26 @@ const SORT_KEYS: { key: SortKey; label: string }[] = [
   { key: "modified", label: "Modified" },
 ];
 
+const CONFIRM_WINDOWS = [2000, 4000, 6000];
+
 function hintStyle(t: ReturnType<typeof useTheme>): React.CSSProperties {
   return { fontSize: 11, color: t.inkFaint, marginTop: 4, lineHeight: 1.4 };
+}
+
+function Segmented<T extends string>({ options, value, onChange, t }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void; t: ReturnType<typeof useTheme> }) {
+  return (
+    <div style={{ display: "flex", gap: 4, background: t.isDark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.05)", borderRadius: 8, padding: 3 }}>
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          style={{ flex: 1, height: 28, border: 0, borderRadius: 6, background: value === opt.value ? t.card : "transparent", color: value === opt.value ? t.ink : t.inkSoft, fontWeight: value === opt.value ? 700 : 500, fontSize: 11.5, cursor: "pointer" }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function ConfirmationsSettings() {
@@ -20,6 +38,8 @@ export function ConfirmationsSettings() {
   const toggleConfirmTrash = useStore((s) => s.toggleConfirmTrash);
   const confirmPermanentDelete = useStore((s) => s.confirmPermanentDelete);
   const toggleConfirmPermanentDelete = useStore((s) => s.toggleConfirmPermanentDelete);
+  const confirmWindowMs = useStore((s) => s.confirmWindowMs);
+  const setConfirmWindowMs = useStore((s) => s.setConfirmWindowMs);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -29,7 +49,17 @@ export function ConfirmationsSettings() {
       </div>
       <div>
         <ToggleRow label="Confirm before permanent delete" value={confirmPermanentDelete} onChange={toggleConfirmPermanentDelete} t={t} />
-        <div style={hintStyle(t)}>When on, press Delete twice within 4 seconds. When off, permanent delete (including Empty Trash) happens immediately — this cannot be undone.</div>
+        <div style={hintStyle(t)}>When on, press Delete twice within the window below. When off, permanent delete (including Empty Trash) happens immediately — this cannot be undone.</div>
+      </div>
+      <div>
+        <div style={panelTitleStyle(t)}>Confirmation window</div>
+        <Segmented
+          options={CONFIRM_WINDOWS.map((ms) => ({ value: String(ms), label: `${ms / 1000}s` }))}
+          value={String(confirmWindowMs)}
+          onChange={(v) => setConfirmWindowMs(Number(v))}
+          t={t}
+        />
+        <div style={hintStyle(t)}>How long the second press has to land, for both confirmations above.</div>
       </div>
     </div>
   );
@@ -44,6 +74,12 @@ export function GeneralSettings() {
   const sortKey = useStore((s) => s.sortKey);
   const sortDir = useStore((s) => s.sortDir);
   const setSort = useStore((s) => s.setSort);
+  const searchScope = useStore((s) => s.searchScope);
+  const setSearchScope = useStore((s) => s.setSearchScope);
+  const newTabAtHome = useStore((s) => s.newTabAtHome);
+  const toggleNewTabAtHome = useStore((s) => s.toggleNewTabAtHome);
+  const startupMode = useStore((s) => s.startupMode);
+  const setStartupMode = useStore((s) => s.setStartupMode);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -52,18 +88,26 @@ export function GeneralSettings() {
         <div style={hintStyle(t)}>Remembered between restarts.</div>
       </div>
       <div>
+        <ToggleRow label="New tabs open at Home" value={newTabAtHome} onChange={toggleNewTabAtHome} t={t} />
+        <div style={hintStyle(t)}>Off opens new tabs at the current folder instead. Doesn't affect "Open in new tab" on a specific folder.</div>
+      </div>
+      <div>
+        <div style={panelTitleStyle(t)}>On startup</div>
+        <Segmented
+          options={[{ value: "resume", label: "Reopen last session" }, { value: "home", label: "Always start at Home" }]}
+          value={startupMode}
+          onChange={setStartupMode}
+          t={t}
+        />
+      </div>
+      <div>
         <div style={panelTitleStyle(t)}>Default view</div>
-        <div style={{ display: "flex", gap: 4, background: t.isDark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.05)", borderRadius: 8, padding: 3 }}>
-          {(["grid", "list"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              style={{ flex: 1, height: 28, border: 0, borderRadius: 6, background: view === v ? t.card : "transparent", color: view === v ? t.ink : t.inkSoft, fontWeight: view === v ? 700 : 500, fontSize: 11.5, cursor: "pointer", textTransform: "capitalize" }}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
+        <Segmented options={[{ value: "grid", label: "Grid" }, { value: "list", label: "List" }]} value={view} onChange={setView} t={t} />
+      </div>
+      <div>
+        <div style={panelTitleStyle(t)}>Default search scope</div>
+        <Segmented options={[{ value: "folder", label: "This folder" }, { value: "all", label: "Everywhere" }]} value={searchScope} onChange={setSearchScope} t={t} />
+        <div style={hintStyle(t)}>Remembered between restarts.</div>
       </div>
       <div>
         <div style={panelTitleStyle(t)}>Default sort</div>
