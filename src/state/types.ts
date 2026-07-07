@@ -18,6 +18,9 @@ export interface FileEvent {
   detail?: string;
   whenMs: number;
   kind: "accent" | "video" | "archive" | "document" | "app" | "muted";
+  /** The file's path immediately before this event, for rename/move/trash/restore — lets an
+   *  undo-this-event action compute its inverse without parsing the free-text `detail`. */
+  prevPath?: string;
 }
 
 export interface Ghost {

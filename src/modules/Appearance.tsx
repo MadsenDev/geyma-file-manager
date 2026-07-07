@@ -2,7 +2,7 @@ import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { ACCENTS, FONT_LABELS, hexA, SKIN_ORDER, SKINS, type FontKey } from "../theme/skins";
 import { LAYOUT_PRESETS } from "../state/layout";
-import { panelTitleStyle } from "./common";
+import { panelTitleStyle, ToggleRow } from "./common";
 
 const TABS = [
   { id: "skins", label: "Skins" },
@@ -229,16 +229,5 @@ function LayoutTab() {
         Reset layout to default
       </button>
     </div>
-  );
-}
-
-function ToggleRow({ label, value, onChange, t }: { label: string; value: boolean; onChange: (v: boolean) => void; t: ReturnType<typeof useTheme> }) {
-  return (
-    <button onClick={() => onChange(!value)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: 0, background: "transparent", padding: 0, cursor: "pointer", width: "100%" }}>
-      <span style={{ fontSize: 12.5, color: t.ink }}>{label}</span>
-      <span style={{ width: 34, height: 20, borderRadius: 99, background: value ? t.accent : hexA(t.ink, 0.18), position: "relative" }}>
-        <span style={{ position: "absolute", top: 2, left: value ? 16 : 2, width: 16, height: 16, borderRadius: 99, background: "#fff", transition: "left .15s" }} />
-      </span>
-    </button>
   );
 }

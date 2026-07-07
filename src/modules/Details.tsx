@@ -8,6 +8,9 @@ import { extOf, formatSize, formatWhen, kindOf, formatAgo } from "../lib/format"
 import { panelTitleStyle } from "./common";
 import { openReferencedPathMenu } from "../lib/contextMenus";
 import { getFsBackend, type FsEntry } from "../fs";
+import type { FileEvent } from "../state/types";
+
+const UNDOABLE_ACTIONS = new Set(["Renamed", "Moved here", "Deleted", "Restored"]);
 
 export function Details() {
   const t = useTheme();
@@ -92,12 +95,7 @@ export function Details() {
           <div style={panelTitleStyle(t)}>What this file remembers</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 4px" }}>
             {events.map((ev) => (
-              <div key={ev.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11.5 }}>
-                <span>
-                  <b style={{ color: t.ink }}>{ev.action}</b> {ev.detail && <span style={{ color: t.inkSoft }}>{ev.detail}</span>}
-                </span>
-                <span style={{ fontFamily: t.mono, fontSize: 9.5, color: t.inkFaint, flex: "none" }}>{formatAgo(ev.whenMs)}</span>
-              </div>
+              <JourneyRow key={ev.id} ev={ev} path={entry.path} t={t} />
             ))}
           </div>
         </div>
@@ -147,6 +145,36 @@ function DetailsContentPreview({ entry }: { entry: FsEntry }) {
         <div style={{ padding: "12px", border: `1px solid ${t.border}`, borderRadius: 10, background: t.bg, color: t.inkFaint, fontSize: 11.5 }}>
           {preview ? "No inline preview available for this format." : "Preparing preview…"}
         </div>
+      )}
+    </div>
+  );
+}
+
+function JourneyRow({ ev, path, t }: { ev: FileEvent; path: string; t: ReturnType<typeof useTheme> }) {
+  const [hover, setHover] = useState(false);
+  const undoFileEvent = useStore((s) => s.undoFileEvent);
+  const undoable = UNDOABLE_ACTIONS.has(ev.action) && !!ev.prevPath;
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 11.5, minHeight: 18 }}
+    >
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <b style={{ color: t.ink }}>{ev.action}</b> {ev.detail && <span style={{ color: t.inkSoft }}>{ev.detail}</span>}
+      </span>
+      {undoable && hover ? (
+        <button
+          onClick={() => undoFileEvent(path, ev.id)}
+          title={`Undo: ${ev.action}`}
+          className="gy-soft"
+          style={{ flex: "none", border: `1px solid ${t.border}`, background: t.card, color: t.inkSoft, borderRadius: 6, padding: "1px 7px", fontSize: 10, cursor: "pointer" }}
+        >
+          Undo
+        </button>
+      ) : (
+        <span style={{ fontFamily: t.mono, fontSize: 9.5, color: t.inkFaint, flex: "none" }}>{formatAgo(ev.whenMs)}</span>
       )}
     </div>
   );

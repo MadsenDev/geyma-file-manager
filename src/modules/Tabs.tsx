@@ -41,7 +41,7 @@ export function Tabs() {
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: "New Tab", onClick: () => newTab(home) },
+        { label: "New Tab", onClick: () => newTab() },
         { label: "Duplicate Tab", onClick: () => duplicateTab(tab.id) },
         { divider: true },
         { label: "Close Tab", onClick: () => closeTab(tab.id) },
@@ -62,7 +62,7 @@ export function Tabs() {
     <div
       style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0, overflowX: "auto" }}
       onDoubleClick={(e) => {
-        if (e.target === e.currentTarget) newTab(home);
+        if (e.target === e.currentTarget) newTab();
       }}
     >
       {tabs.map((tab, i) => {
@@ -141,7 +141,7 @@ export function Tabs() {
           </div>
         );
       })}
-      <button onClick={() => newTab(home)} title="New tab" className="gy-soft" style={{ ...iconButtonStyle(t), width: 24, height: 24, flex: "none" }}>
+      <button onClick={() => newTab()} title="New tab" className="gy-soft" style={{ ...iconButtonStyle(t), width: 24, height: 24, flex: "none" }}>
         <Icon d={ICONS.plus} size={13} />
       </button>
     </div>

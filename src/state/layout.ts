@@ -8,7 +8,7 @@ export type ModuleId =
   | "files"
   | "files2"
   | "details"
-  | "appearance"
+  | "settings"
   | "places"
   | "devices"
   | "network"
@@ -44,7 +44,7 @@ export const MODULE_NAMES: Record<ModuleId, string> = {
   files: "Files",
   files2: "Second pane",
   details: "Details",
-  appearance: "Appearance",
+  settings: "Settings",
   places: "Places",
   devices: "Devices",
   network: "Network",

@@ -61,7 +61,7 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
         { divider: true },
         { label: `Hide ${MODULE_NAMES[id]}`, danger: true, onClick: () => hideModule(id) },
         { divider: true },
-        { label: "Appearance…", onClick: () => showModule("appearance", "right") },
+        { label: "Settings…", onClick: () => showModule("settings", "right") },
         { label: "Reset layout", onClick: resetLayout },
       ],
     });

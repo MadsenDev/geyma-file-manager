@@ -36,8 +36,8 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      if (store.appearanceOpen) {
-        if (e.key === "Escape") store.closeAppearance();
+      if (store.settingsOpen) {
+        if (e.key === "Escape") store.closeSettings();
         return;
       }
 
@@ -115,7 +115,7 @@ export function useKeyboardShortcuts() {
       }
       if (mod && (e.key === "t" || e.key === "T")) {
         e.preventDefault();
-        store.newTab(store.home);
+        store.newTab();
         return;
       }
       if (mod && (e.key === "w" || e.key === "W")) {

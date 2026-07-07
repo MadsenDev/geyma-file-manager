@@ -56,7 +56,7 @@ export function ViewSwitch() {
       </button>}
       {showChrome && (
         <>
-          <button onClick={() => showModule("appearance", "right")} title="Appearance" className="gy-soft" style={iconButtonStyle(t)}>
+          <button onClick={() => showModule("settings", "right")} title="Settings" className="gy-soft" style={iconButtonStyle(t)}>
             <Icon d={ICONS.gear} size={14} />
           </button>
           <button onClick={toggleEditMode} title="Edit layout" className="gy-soft" style={iconButtonStyle(t, editMode)}>
