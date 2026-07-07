@@ -42,8 +42,11 @@ russh-sftp = "2.3"
 smb = "0.11"
 smb-fscc = "0.11"
 smb-msg = "0.11"
-tokio = { version = "1", features = ["fs"] }
+tokio = { version = "1", features = ["fs", "process", "io-util", "time"] }
 futures-util = "0.3"
+# default-tls is off — every request here targets http://localhost, never https, so no
+# TLS backend is needed at all.
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream"] }
 # async-secret-service is pure Rust (zbus talks D-Bus itself) so this needs no
 # libdbus/libsecret system dependency at build or run time.
 keyring = { version = "3", default-features = false, features = ["async-secret-service", "async-io", "crypto-rust"] }

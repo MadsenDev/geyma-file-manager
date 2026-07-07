@@ -1,5 +1,5 @@
 import { Appearance } from "../modules/Appearance";
-import { ConfirmationsSettings, GeneralSettings } from "../modules/Settings";
+import { AiSettings, ConfirmationsSettings, GeneralSettings } from "../modules/Settings";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA } from "../theme/skins";
@@ -10,6 +10,7 @@ const TABS = [
   { id: "appearance", label: "Appearance" },
   { id: "confirmations", label: "Confirmations" },
   { id: "general", label: "General" },
+  { id: "ai", label: "AI" },
 ] as const;
 
 export function SettingsModal() {
@@ -84,6 +85,11 @@ export function SettingsModal() {
           {tab === "general" && (
             <div style={{ padding: 12 }}>
               <GeneralSettings />
+            </div>
+          )}
+          {tab === "ai" && (
+            <div style={{ padding: 12 }}>
+              <AiSettings />
             </div>
           )}
         </div>

@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
 import { chipStyle } from "./common";
 import type { Filters } from "../state/types";
+import { aiGenerate, extractJson } from "../ai/ollama";
+import { explainError } from "../lib/explainError";
 
 const KIND_CHIPS: { key: NonNullable<Filters["kind"]>; label: string }[] = [
   { key: "document", label: "Docs" },
@@ -11,6 +14,17 @@ const KIND_CHIPS: { key: NonNullable<Filters["kind"]>; label: string }[] = [
   { key: "audio", label: "Audio" },
   { key: "code", label: "Code" },
 ];
+
+const ALLOWED_KINDS = new Set(["document", "image", "audio", "code"]);
+
+function buildSearchPrompt(text: string): string {
+  return `You convert a user's natural-language file search request into JSON. Respond with ONLY a JSON object with exactly these keys, no explanation:
+- "query": a short plain-text substring to match against file names (empty string if none)
+- "kind": one of "document", "image", "audio", "code", or null
+- "starred": true or false
+
+Request: "${text}"`;
+}
 
 export function Search() {
   const t = useTheme();
@@ -21,8 +35,31 @@ export function Search() {
   const filters = useStore((s) => s.filters);
   const toggleKindFilter = useStore((s) => s.toggleKindFilter);
   const toggleStarredFilter = useStore((s) => s.toggleStarredFilter);
+  const aiSearchEnabled = useStore((s) => s.aiSearchEnabled);
+  const aiRunning = useStore((s) => s.aiRunning);
+  const aiSelectedModel = useStore((s) => s.aiSelectedModel);
+  const applyAiSearch = useStore((s) => s.applyAiSearch);
+  const showToast = useStore((s) => s.showToast);
+  const [asking, setAsking] = useState(false);
 
   const active = !!query || filters.kind || filters.starred;
+  const aiAvailable = aiSearchEnabled && aiRunning && !!aiSelectedModel;
+
+  async function handleAskAi() {
+    if (!query.trim() || asking) return;
+    setAsking(true);
+    try {
+      const raw = await aiGenerate(aiSelectedModel, buildSearchPrompt(query));
+      const parsed = extractJson<{ query?: string; kind?: string | null; starred?: boolean }>(raw);
+      if (!parsed) throw new Error("Could not understand the AI's response");
+      const kind = ALLOWED_KINDS.has(parsed.kind || "") ? (parsed.kind as Filters["kind"]) : null;
+      applyAiSearch({ query: parsed.query || "", kind, starred: !!parsed.starred });
+    } catch (e) {
+      showToast(`AI search failed: ${explainError(e)}`);
+    } finally {
+      setAsking(false);
+    }
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 220 }}>
@@ -33,7 +70,10 @@ export function Search() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search this folder…"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && aiAvailable) handleAskAi();
+          }}
+          placeholder={aiAvailable ? "Search, or describe what you want…" : "Search this folder…"}
           style={{
             width: "100%",
             height: 30,
@@ -79,6 +119,11 @@ export function Search() {
           <button onClick={toggleStarredFilter} style={chipStyle(t, filters.starred)}>
             ★ Starred
           </button>
+          {aiAvailable && query.trim() && (
+            <button onClick={handleAskAi} disabled={asking} style={chipStyle(t, false)}>
+              {asking ? "Asking AI…" : "Ask AI ↵"}
+            </button>
+          )}
         </div>
       )}
     </div>

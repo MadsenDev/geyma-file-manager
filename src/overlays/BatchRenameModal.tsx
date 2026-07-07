@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useTheme } from "../theme/ThemeContext";
 import { Modal } from "./Modal";
 import { computeBatchNames } from "../lib/batchRename";
+import { useStore } from "../state/store";
+import { aiGenerate } from "../ai/ollama";
+import { explainError } from "../lib/explainError";
 import type { FsEntry } from "../fs/types";
 
 interface BatchRenameModalProps {
@@ -10,10 +13,40 @@ interface BatchRenameModalProps {
   onClose: () => void;
 }
 
+function buildRenamePrompt(names: string[]): string {
+  return `You suggest a rename template for a batch-rename tool in a file manager. The template
+supports two placeholders: {name} (the file's original base name, without extension) and one or
+more consecutive # characters (a zero-padded sequence number, e.g. ## becomes 01, 02, ...).
+Respond with ONLY the template string, nothing else — no quotes, no explanation.
+
+Files to rename (${names.length}):
+${names.slice(0, 25).join("\n")}`;
+}
+
 export function BatchRenameModal({ entries, onConfirm, onClose }: BatchRenameModalProps) {
   const t = useTheme();
   const [template, setTemplate] = useState("{name}");
   const [startAt, setStartAt] = useState(1);
+  const aiRenameEnabled = useStore((s) => s.aiRenameEnabled);
+  const aiRunning = useStore((s) => s.aiRunning);
+  const aiSelectedModel = useStore((s) => s.aiSelectedModel);
+  const showToast = useStore((s) => s.showToast);
+  const [suggesting, setSuggesting] = useState(false);
+  const aiAvailable = aiRenameEnabled && aiRunning && !!aiSelectedModel;
+
+  async function handleSuggest() {
+    setSuggesting(true);
+    try {
+      const raw = await aiGenerate(aiSelectedModel, buildRenamePrompt(entries.map((e) => e.name)));
+      const suggestion = raw.trim().replace(/^["'`]+|["'`]+$/g, "").split("\n")[0].trim();
+      if (!suggestion) throw new Error("Empty suggestion");
+      setTemplate(suggestion);
+    } catch (e) {
+      showToast(`AI suggestion failed: ${explainError(e)}`);
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   const preview = computeBatchNames(entries, template, startAt);
   const inputStyle = {
@@ -29,9 +62,21 @@ export function BatchRenameModal({ entries, onConfirm, onClose }: BatchRenameMod
 
   return (
     <Modal title={`Batch rename ${entries.length} items`} onClose={onClose}>
-      <label style={{ display: "block", fontSize: 12, color: t.inkSoft, marginBottom: 6 }}>
-        Pattern — {"{name}"} keeps the original name, # runs become a zero-padded number
-      </label>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+        <label style={{ display: "block", fontSize: 12, color: t.inkSoft }}>
+          Pattern — {"{name}"} keeps the original name, # runs become a zero-padded number
+        </label>
+        {aiAvailable && (
+          <button
+            onClick={handleSuggest}
+            disabled={suggesting}
+            className="gy-soft"
+            style={{ flex: "none", border: `1px solid ${t.border}`, background: "transparent", color: t.inkSoft, borderRadius: 7, padding: "3px 9px", fontSize: 11, cursor: "pointer" }}
+          >
+            {suggesting ? "Asking AI…" : "Suggest (AI)"}
+          </button>
+        )}
+      </div>
       <input autoFocus value={template} onChange={(e) => setTemplate(e.target.value)} style={inputStyle} />
 
       <label style={{ display: "block", fontSize: 12, color: t.inkSoft, margin: "10px 0 6px" }}>Start number</label>

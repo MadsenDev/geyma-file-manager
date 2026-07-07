@@ -8,12 +8,23 @@ import { extOf, formatSize, formatWhen, kindOf, formatAgo } from "../lib/format"
 import { panelTitleStyle } from "./common";
 import { openReferencedPathMenu } from "../lib/contextMenus";
 import { getFsBackend, type FsEntry } from "../fs";
+import { aiGenerate } from "../ai/ollama";
+import { explainError } from "../lib/explainError";
 import type { FileEvent } from "../state/types";
+
+function buildSummaryPrompt(entries: FsEntry[]): string {
+  const lines = entries.slice(0, 60).map((e) => `${e.isDir ? "[folder] " : ""}${e.name}${e.isDir ? "" : ` (${formatSize(e.size)})`}`);
+  return `Write a short (2-3 sentence) plain-language summary of what this folder seems to contain, based on its contents. No headings, no lists, just prose.
+
+Contents (${entries.length} items${entries.length > 60 ? ", showing first 60" : ""}):
+${lines.join("\n")}`;
+}
 
 const UNDOABLE_ACTIONS = new Set(["Renamed", "Moved here", "Deleted", "Restored"]);
 
 export function Details() {
   const t = useTheme();
+  const path = useStore((s) => s.path);
   const entries = useStore((s) => s.visibleEntries());
   const selected = useStore((s) => s.selected);
   const starred = useStore((s) => s.starred);
@@ -38,6 +49,7 @@ export function Details() {
           <Row label="Files" value={`${files}`} t={t} />
           <Row label="Size" value={formatSize(totalSize)} t={t} />
         </div>
+        <AiFolderSummary path={path} entries={entries} />
       </div>
     );
   }
@@ -99,6 +111,53 @@ export function Details() {
             ))}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function AiFolderSummary({ path, entries }: { path: string; entries: FsEntry[] }) {
+  const t = useTheme();
+  const aiSummaryEnabled = useStore((s) => s.aiSummaryEnabled);
+  const aiRunning = useStore((s) => s.aiRunning);
+  const aiSelectedModel = useStore((s) => s.aiSelectedModel);
+  const showToast = useStore((s) => s.showToast);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setSummary(null);
+  }, [path]);
+
+  if (!aiSummaryEnabled || !aiRunning || !aiSelectedModel || entries.length === 0) return null;
+
+  async function handleSummarize() {
+    setLoading(true);
+    try {
+      const text = await aiGenerate(aiSelectedModel, buildSummaryPrompt(entries));
+      setSummary(text.trim());
+    } catch (e) {
+      showToast(`AI summary failed: ${explainError(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={panelTitleStyle(t)}>AI summary</div>
+        <button
+          onClick={handleSummarize}
+          disabled={loading}
+          className="gy-soft"
+          style={{ flex: "none", marginRight: 4, border: `1px solid ${t.border}`, background: "transparent", color: t.inkSoft, borderRadius: 7, padding: "3px 9px", fontSize: 11, cursor: "pointer" }}
+        >
+          {loading ? "Thinking…" : summary ? "Regenerate" : "Summarize"}
+        </button>
+      </div>
+      {summary && (
+        <div style={{ padding: "0 4px", fontSize: 12, color: t.inkSoft, lineHeight: 1.5 }}>{summary}</div>
       )}
     </div>
   );
