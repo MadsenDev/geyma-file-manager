@@ -1,5 +1,6 @@
 use serde::Serialize;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -90,6 +91,9 @@ pub fn rename_path(from: String, to_name: String) -> Result<String, String> {
     let from_path = PathBuf::from(&from);
     let parent = from_path.parent().ok_or("no parent")?;
     let target = parent.join(&to_name);
+    if target != from_path && fs::symlink_metadata(&target).is_ok() {
+        return Err("A file or folder with that name already exists".to_string());
+    }
     fs::rename(&from_path, &target).map_err(|e| e.to_string())?;
     Ok(target.to_string_lossy().to_string())
 }
@@ -99,6 +103,9 @@ pub fn move_path(from: String, to_dir: String) -> Result<String, String> {
     let from_path = PathBuf::from(&from);
     let name = from_path.file_name().ok_or("bad source name")?;
     let target = PathBuf::from(&to_dir).join(name);
+    if target != from_path && fs::symlink_metadata(&target).is_ok() {
+        return Err("A file or folder with that name already exists".to_string());
+    }
     fs::rename(&from_path, &target).map_err(|e| e.to_string())?;
     Ok(target.to_string_lossy().to_string())
 }
@@ -142,6 +149,13 @@ pub async fn extract_archive(path: String, dest_dir: String, folder_name: String
     .map_err(|error| format!("Extraction failed: {error}"))?
 }
 
+// Extraction has no legitimate reason to write out more than this — it exists purely
+// to bound how much disk a hostile archive (a "zip bomb": a tiny file that expands to
+// an enormous one) can consume. Kept in sync with the matching constants in
+// archives.rs for the non-ZIP formats.
+const MAX_EXTRACT_ENTRIES: usize = 100_000;
+const MAX_EXTRACT_TOTAL_BYTES: u64 = 10 * 1024 * 1024 * 1024;
+
 fn extract_zip(path: &str, dest_dir: &str, folder_name: &str) -> Result<String, String> {
     let extension = Path::new(path)
         .extension()
@@ -163,8 +177,16 @@ fn extract_zip(path: &str, dest_dir: &str, folder_name: &str) -> Result<String, 
     let mut archive = zip::ZipArchive::new(file)
         .map_err(|error| format!("Could not read ZIP directory: {error}"))?;
 
+    if archive.len() > MAX_EXTRACT_ENTRIES {
+        return Err(format!(
+            "Archive has too many entries to extract ({} entries; the limit is {MAX_EXTRACT_ENTRIES})",
+            archive.len()
+        ));
+    }
+
     fs::create_dir_all(&target_root).map_err(|error| error.to_string())?;
 
+    let mut remaining_budget = MAX_EXTRACT_TOTAL_BYTES;
     for index in 0..archive.len() {
         let mut entry = archive
             .by_index(index)
@@ -183,7 +205,14 @@ fn extract_zip(path: &str, dest_dir: &str, folder_name: &str) -> Result<String, 
                 fs::create_dir_all(parent).map_err(|error| error.to_string())?;
             }
             let mut out_file = fs::File::create(&out_path).map_err(|error| error.to_string())?;
-            std::io::copy(&mut entry, &mut out_file).map_err(|error| error.to_string())?;
+            // Bounded by actual bytes written, not the entry's (attacker-controlled)
+            // declared size, so a lying header can't smuggle a bomb past this check.
+            let mut limited = (&mut entry).take(remaining_budget.saturating_add(1));
+            let copied = std::io::copy(&mut limited, &mut out_file).map_err(|error| error.to_string())?;
+            if copied > remaining_budget {
+                return Err("Archive exceeds the maximum supported extraction size".to_string());
+            }
+            remaining_budget -= copied;
         }
     }
 
@@ -730,6 +759,43 @@ mod tests {
         );
 
         assert!(result.is_err());
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn rename_path_refuses_to_overwrite_an_existing_entry() {
+        let root = temp_workdir("rename-collide");
+        let original = root.join("old.txt");
+        fs::write(&original, b"data").unwrap();
+        fs::write(root.join("new.txt"), b"already here").unwrap();
+
+        let result = rename_path(original.to_string_lossy().to_string(), "new.txt".to_string());
+
+        assert!(result.is_err());
+        assert!(original.exists());
+        assert_eq!(fs::read_to_string(root.join("new.txt")).unwrap(), "already here");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn move_path_refuses_to_overwrite_an_existing_entry() {
+        let root = temp_workdir("move-collide");
+        let src_dir = root.join("src");
+        let dst_dir = root.join("dst");
+        fs::create_dir_all(&src_dir).unwrap();
+        fs::create_dir_all(&dst_dir).unwrap();
+        let src_file = src_dir.join("file.txt");
+        fs::write(&src_file, b"payload").unwrap();
+        fs::write(dst_dir.join("file.txt"), b"already here").unwrap();
+
+        let result = move_path(
+            src_file.to_string_lossy().to_string(),
+            dst_dir.to_string_lossy().to_string(),
+        );
+
+        assert!(result.is_err());
+        assert!(src_file.exists());
+        assert_eq!(fs::read_to_string(dst_dir.join("file.txt")).unwrap(), "already here");
         fs::remove_dir_all(&root).unwrap();
     }
 

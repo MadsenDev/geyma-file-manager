@@ -1208,6 +1208,7 @@ export const useStore = create<AppState>()((set, get) => ({
           trashOrigins: { ...get().trashOrigins, [trashedPath]: origin },
           trashOriginNames: { ...get().trashOriginNames, [trashedPath]: name },
         });
+        get().persist();
       } catch (e) {
         get().showToast(`Trash failed: ${e}`);
       }
@@ -1225,6 +1226,7 @@ export const useStore = create<AppState>()((set, get) => ({
             delete origins[t.trashedPath];
             delete originNames[t.trashedPath];
             set({ trashOrigins: origins, trashOriginNames: originNames });
+            get().persist();
           }
           await get().loadDir(trashDir, true);
           trashed.forEach((t) => get().loadDir(t.origin, true));
@@ -1272,6 +1274,7 @@ export const useStore = create<AppState>()((set, get) => ({
               trashOrigins: { ...get().trashOrigins, [trashedAgain]: r.toDir },
               trashOriginNames: { ...get().trashOriginNames, [trashedAgain]: r.origName },
             });
+            get().persist();
           }
           await get().loadDir(trashDir, true);
           restored.forEach((r) => get().loadDir(r.toDir, true));
@@ -1279,6 +1282,7 @@ export const useStore = create<AppState>()((set, get) => ({
       });
     }
     set({ trashOrigins: origins, trashOriginNames: originNames });
+    get().persist();
     await get().loadDir(get().trashDir, true);
     set({ selected: [] });
   },
@@ -1303,6 +1307,7 @@ export const useStore = create<AppState>()((set, get) => ({
           }
         }
         set({ trashOrigins: origins, trashOriginNames: originNames });
+        get().persist();
         await get().loadDir(get().trashDir, true);
         // Also refreshes the current folder — a no-op reload when this ran from the
         // Trash view itself, but required when it ran against a network place, which

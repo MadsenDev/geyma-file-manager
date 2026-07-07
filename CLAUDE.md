@@ -171,3 +171,9 @@ the Network panel" error rather than retrying silently. Both submodules were ver
 real local `sshd`/`smbd` instances during development (not part of the committed test suite,
 since that would need live servers in CI too) — the parsing/routing logic in `remote.rs` itself
 has ordinary `#[cfg(test)]` unit tests that need no network.
+
+## Known gaps
+
+`docs/AUDIT.md` tracks unresolved findings from a full-codebase audit (security,
+correctness, dead code, feature parity vs. the PySide6 legacy app) — check it before
+assuming a rough edge you've hit is unknown.
