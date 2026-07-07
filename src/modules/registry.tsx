@@ -12,6 +12,7 @@ import { Details } from "./Details";
 import { Appearance } from "./Appearance";
 import { Places } from "./Places";
 import { Devices } from "./Devices";
+import { Network } from "./Network";
 import { Sets } from "./Sets";
 import { Disk } from "./Disk";
 import { Recent } from "./Recent";
@@ -35,6 +36,7 @@ export const MODULE_COMPONENTS: Record<ModuleId, ComponentType> = {
   appearance: Appearance,
   places: Places,
   devices: Devices,
+  network: Network,
   sets: Sets,
   disk: Disk,
   recent: Recent,

@@ -1,5 +1,6 @@
-import type { DeviceEntry, FsBackend, FsEntry, PathPermissions } from "./types";
+import type { DeviceEntry, FsBackend, FsEntry, PathPermissions, RemoteConnectInput, RemoteDisconnectInput } from "./types";
 import { basenamePosix, dirnamePosix, joinPosix } from "./pathUtil";
+import { isRemotePath, parseRemotePath, remoteBasename, remoteDirname, remoteJoin } from "./remotePath";
 
 interface MockNode {
   name: string;
@@ -25,6 +26,19 @@ function archiveFormatLabel(path: string): string {
   if (lower.endsWith(".tar")) return "TAR";
   if (lower.endsWith(".7z")) return "7Z";
   return "ZIP";
+}
+
+// Generic path helpers used by the tree-manipulation functions below, so the same mock
+// TREE can hold both local paths and sftp://.../smb://... demo entries — mirrors how
+// tauriBackend.ts branches between the plain POSIX helpers and the remote-aware ones.
+function dirOf(path: string): string {
+  return isRemotePath(path) ? remoteDirname(path) : dirnamePosix(path);
+}
+function baseOf(path: string): string {
+  return isRemotePath(path) ? remoteBasename(path) : basenamePosix(path);
+}
+function joinOf(base: string, ...names: string[]): string {
+  return isRemotePath(base) ? remoteJoin(base, ...names) : joinPosix(base, ...names);
 }
 
 function file(name: string, size: number, modified: number, created?: number): MockNode {
@@ -143,6 +157,35 @@ const trashNodes: Map<string, { origin: string; node: MockNode }> = new Map();
 const TRASH_DIR = "/trash";
 const modeOverrides: Map<string, number> = new Map();
 
+// Demo network places, purely for dev-mode (browser) testing of the Network module —
+// the real protocol work only exists in src-tauri/src/remote.rs, so this is just enough
+// simulated state to click through connect/browse/copy/disconnect without a real server.
+export const MOCK_SFTP_ROOT = "sftp://demo@filepile.local:22/";
+export const MOCK_SMB_ROOT = "smb://demo@office-nas:445/Shared";
+const MOCK_REMOTE_PASSWORD = "demo";
+const connectedKeys = new Set<string>();
+
+function connectionKeyForPath(path: string): string | null {
+  const parsed = parseRemotePath(path);
+  if (!parsed) return null;
+  return `${parsed.protocol}://${parsed.authority}${parsed.share ? `/${parsed.share}` : ""}`;
+}
+
+function connectionKeyForInput(input: { protocol: string; host: string; port: number; username: string; share?: string }): string {
+  return `${input.protocol}://${input.username}@${input.host}:${input.port}${input.share ? `/${input.share}` : ""}`;
+}
+
+TREE[MOCK_SFTP_ROOT] = [
+  folder("backups", day(2026, 6, 20)),
+  file("readme.txt", 512, day(2026, 6, 18)),
+];
+TREE[joinOf(MOCK_SFTP_ROOT, "backups")] = [file("weekly.tar.gz", 884736, day(2026, 6, 20))];
+TREE[MOCK_SMB_ROOT] = [
+  folder("Invoices", day(2026, 6, 27)),
+  file("team-notes.md", 2048, day(2026, 6, 29)),
+];
+TREE[joinOf(MOCK_SMB_ROOT, "Invoices")] = [file("2026-q2.pdf", 154624, day(2026, 6, 27))];
+
 function ensureDir(path: string) {
   if (!TREE[path]) TREE[path] = [];
 }
@@ -150,7 +193,7 @@ function ensureDir(path: string) {
 function toEntry(dir: string, node: MockNode): FsEntry {
   return {
     name: node.name,
-    path: joinPosix(dir, node.name),
+    path: joinOf(dir, node.name),
     isDir: node.isDir,
     size: node.size,
     modifiedMs: node.modifiedMs,
@@ -160,8 +203,8 @@ function toEntry(dir: string, node: MockNode): FsEntry {
 }
 
 function findNode(path: string): { dir: string; node: MockNode } | null {
-  const dir = dirnamePosix(path);
-  const name = basenamePosix(path);
+  const dir = dirOf(path);
+  const name = baseOf(path);
   const list = TREE[dir];
   if (!list) return null;
   const node = list.find((n) => n.name === name);
@@ -169,8 +212,8 @@ function findNode(path: string): { dir: string; node: MockNode } | null {
 }
 
 function removeFromTree(path: string): MockNode {
-  const dir = dirnamePosix(path);
-  const name = basenamePosix(path);
+  const dir = dirOf(path);
+  const name = baseOf(path);
   const list = TREE[dir] || [];
   const idx = list.findIndex((n) => n.name === name);
   if (idx < 0) throw new Error(`not found: ${path}`);
@@ -188,7 +231,15 @@ function cloneSubtree(oldPath: string, newPath: string) {
   if (!sub) return;
   TREE[newPath] = sub.map((n) => ({ ...n }));
   for (const child of sub) {
-    if (child.isDir) cloneSubtree(joinPosix(oldPath, child.name), joinPosix(newPath, child.name));
+    if (child.isDir) cloneSubtree(joinOf(oldPath, child.name), joinOf(newPath, child.name));
+  }
+}
+
+function requireConnected(path: string) {
+  if (!isRemotePath(path)) return;
+  const key = connectionKeyForPath(path);
+  if (!key || !connectedKeys.has(key)) {
+    throw new Error("Not connected — reconnect from the Network panel");
   }
 }
 
@@ -203,17 +254,20 @@ export const mockBackend: FsBackend = {
     return delay(HOME);
   },
   async listDir(path: string) {
+    requireConnected(path);
     const list = TREE[path] || [];
     return delay(list.map((n) => toEntry(path, n)));
   },
   async stat(path: string) {
+    requireConnected(path);
     const found = findNode(path);
     if (!found) throw new Error(`not found: ${path}`);
     return delay(toEntry(found.dir, found.node));
   },
   async readTextFile(path: string) {
+    requireConnected(path);
     const found = findNode(path);
-    const name = found?.node.name ?? basenamePosix(path);
+    const name = found?.node.name ?? baseOf(path);
     return delay(
       `# ${name}\n\nThis is placeholder content shown by Geyma's mock filesystem (used when running outside the Tauri shell).\n`,
     );
@@ -231,6 +285,7 @@ export const mockBackend: FsBackend = {
     };
   },
   async previewArchive(path: string) {
+    if (isRemotePath(path)) throw new Error("Archive previews aren't available for network locations yet");
     const format = archiveFormatLabel(path);
     const compressed = format === "ZIP";
     return {
@@ -244,7 +299,8 @@ export const mockBackend: FsBackend = {
       truncated: false,
     };
   },
-  async extractArchive(_path: string, destDir: string, folderName: string) {
+  async extractArchive(path: string, destDir: string, folderName: string) {
+    if (isRemotePath(path) || isRemotePath(destDir)) throw new Error("Extracting archives isn't available for network locations yet");
     ensureDir(destDir);
     if ((TREE[destDir] || []).some((n) => n.name === folderName)) {
       throw new Error("A file or folder with that name already exists");
@@ -257,6 +313,7 @@ export const mockBackend: FsBackend = {
     return delay(target);
   },
   async createArchive(paths: string[], destDir: string, archiveName: string) {
+    if (isRemotePath(destDir) || paths.some(isRemotePath)) throw new Error("Compressing to an archive isn't available for network locations yet");
     ensureDir(destDir);
     const name = archiveName.toLowerCase().endsWith(".zip") ? archiveName : `${archiveName}.zip`;
     if ((TREE[destDir] || []).some((n) => n.name === name)) {
@@ -270,57 +327,66 @@ export const mockBackend: FsBackend = {
     return delay(joinPosix(destDir, name));
   },
   async previewTextFile(path: string) {
+    requireConnected(path);
     const found = findNode(path);
-    const name = found?.node.name ?? basenamePosix(path);
+    const name = found?.node.name ?? baseOf(path);
     return {
       content: `# ${name}\n\nThis is placeholder content shown by Geyma's mock filesystem.\n`,
       truncated: false,
     };
   },
   async createFolder(parent: string, name: string) {
+    requireConnected(parent);
     insertNode(parent, folder(name, Date.now()));
-    ensureDir(joinPosix(parent, name));
-    return delay(joinPosix(parent, name));
+    ensureDir(joinOf(parent, name));
+    return delay(joinOf(parent, name));
   },
   async createFile(parent: string, name: string, contents: string) {
+    requireConnected(parent);
     insertNode(parent, file(name, contents.length, Date.now()));
-    return delay(joinPosix(parent, name));
+    return delay(joinOf(parent, name));
   },
   async renamePath(from: string, toName: string) {
+    requireConnected(from);
     const node = removeFromTree(from);
     node.name = toName;
     node.modifiedMs = Date.now();
-    const dir = dirnamePosix(from);
+    const dir = dirOf(from);
     insertNode(dir, node);
     if (node.isDir) {
-      const oldChildPath = joinPosix(dir, basenamePosix(from));
-      const newChildPath = joinPosix(dir, toName);
+      const oldChildPath = joinOf(dir, baseOf(from));
+      const newChildPath = joinOf(dir, toName);
       if (TREE[oldChildPath]) {
         TREE[newChildPath] = TREE[oldChildPath];
         delete TREE[oldChildPath];
       }
     }
-    return delay(joinPosix(dir, toName));
+    return delay(joinOf(dir, toName));
   },
   async movePath(from: string, toDir: string) {
+    requireConnected(from);
+    requireConnected(toDir);
     const node = removeFromTree(from);
-    const oldChildPath = joinPosix(dirnamePosix(from), node.name);
+    const oldChildPath = joinOf(dirOf(from), node.name);
     insertNode(toDir, node);
     if (node.isDir && TREE[oldChildPath]) {
-      TREE[joinPosix(toDir, node.name)] = TREE[oldChildPath];
+      TREE[joinOf(toDir, node.name)] = TREE[oldChildPath];
       delete TREE[oldChildPath];
     }
-    return delay(joinPosix(toDir, node.name));
+    return delay(joinOf(toDir, node.name));
   },
   async copyPath(from: string, toDir: string, toName: string) {
+    requireConnected(from);
+    requireConnected(toDir);
     const found = findNode(from);
     if (!found) throw new Error(`not found: ${from}`);
     const clone: MockNode = { ...found.node, name: toName, modifiedMs: Date.now() };
     insertNode(toDir, clone);
-    if (clone.isDir) cloneSubtree(joinPosix(found.dir, found.node.name), joinPosix(toDir, toName));
-    return delay(joinPosix(toDir, toName));
+    if (clone.isDir) cloneSubtree(joinOf(found.dir, found.node.name), joinOf(toDir, toName));
+    return delay(joinOf(toDir, toName));
   },
   async trashPath(path: string) {
+    if (isRemotePath(path)) throw new Error("Network locations have no Trash — delete permanently instead");
     const node = removeFromTree(path);
     const id = `${node.name}.${trashCounter++}`;
     trashNodes.set(id, { origin: dirnamePosix(path), node });
@@ -333,13 +399,15 @@ export const mockBackend: FsBackend = {
     return delay(joinPosix(toDir, node.name));
   },
   async deletePermanently(path: string) {
+    requireConnected(path);
     removeFromTree(path);
     return delay(undefined);
   },
   async trashDirPath() {
     return delay(TRASH_DIR);
   },
-  async diskUsage() {
+  async diskUsage(path: string) {
+    if (isRemotePath(path)) throw new Error("Disk usage isn't available for network locations");
     const total = 512 * 1024 * 1024 * 1024;
     return delay({ total, available: Math.round(total * 0.42) });
   },
@@ -348,6 +416,7 @@ export const mockBackend: FsBackend = {
     return delay(devices);
   },
   async getPathPermissions(path: string) {
+    if (isRemotePath(path)) throw new Error("Permissions aren't available for network locations");
     const found = findNode(path);
     if (!found) throw new Error(`not found: ${path}`);
     const mode = modeOverrides.get(path) ?? (found.node.isDir ? 0o755 : 0o644);
@@ -362,10 +431,12 @@ export const mockBackend: FsBackend = {
     } satisfies PathPermissions);
   },
   async setPathMode(path: string, mode: number) {
+    if (isRemotePath(path)) throw new Error("Permissions aren't available for network locations");
     modeOverrides.set(path, mode & 0o777);
     return delay(undefined);
   },
   async createSymlink(target: string, linkDir: string, linkName: string) {
+    if (isRemotePath(target) || isRemotePath(linkDir)) throw new Error("Symlinks aren't available for network locations");
     ensureDir(linkDir);
     if ((TREE[linkDir] || []).some((n) => n.name === linkName)) {
       throw new Error("A file or folder with that name already exists");
@@ -382,13 +453,36 @@ export const mockBackend: FsBackend = {
     return delay(joinPosix(linkDir, linkName));
   },
   join(...parts: string[]) {
+    if (parts.length > 0 && isRemotePath(parts[0])) return remoteJoin(parts[0], ...parts.slice(1));
     return joinPosix(...parts);
   },
   dirname(path: string) {
-    return dirnamePosix(path);
+    return dirOf(path);
   },
   basename(path: string) {
-    return basenamePosix(path);
+    return baseOf(path);
+  },
+  async connectRemote(input: RemoteConnectInput) {
+    await delay(undefined);
+    if (input.password !== MOCK_REMOTE_PASSWORD) {
+      throw new Error("Authentication failed: incorrect username or password");
+    }
+    connectedKeys.add(connectionKeyForInput(input));
+    if (input.protocol === "sftp") return `sftp://${input.username}@${input.host}:${input.port}/`;
+    return `smb://${input.username}@${input.host}:${input.port}/${input.share ?? ""}`;
+  },
+  async disconnectRemote(input: RemoteDisconnectInput) {
+    await delay(undefined);
+    connectedKeys.delete(connectionKeyForInput(input));
+  },
+  async keyringSavePassword() {
+    await delay(undefined);
+  },
+  async keyringLoadPassword() {
+    return delay(null);
+  },
+  async keyringDeletePassword() {
+    await delay(undefined);
   },
 };
 

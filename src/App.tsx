@@ -11,6 +11,7 @@ import { QuickLook } from "./overlays/QuickLook";
 import { ContextMenu } from "./overlays/ContextMenu";
 import { ModuleOptions } from "./overlays/ModuleOptions";
 import { Toast } from "./overlays/Toast";
+import { RemotePasswordPrompt } from "./overlays/RemotePasswordPrompt";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts";
 
 export function App() {
@@ -184,6 +185,7 @@ export function App() {
       <ContextMenu />
       <ModuleOptions />
       <Toast />
+      <RemotePasswordPrompt />
     </div>
   );
 }

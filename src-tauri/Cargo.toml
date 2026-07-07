@@ -6,7 +6,8 @@ authors = ["Geyma"]
 license = ""
 repository = ""
 edition = "2021"
-rust-version = "1.77.2"
+# Bumped from 1.77.2: the `smb` crate (pure-Rust SMB2/3 client) requires 1.89+.
+rust-version = "1.89"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -36,6 +37,17 @@ flate2 = { version = "1.1", default-features = false, features = ["rust_backend"
 bzip2-rs = "0.1"
 lzma-rs = "0.3"
 sevenz-rust = { version = "0.6", default-features = false }
+russh = "0.54"
+russh-sftp = "2.3"
+smb = "0.11"
+smb-fscc = "0.11"
+smb-msg = "0.11"
+tokio = { version = "1", features = ["fs"] }
+futures-util = "0.3"
+# async-secret-service is pure Rust (zbus talks D-Bus itself) so this needs no
+# libdbus/libsecret system dependency at build or run time.
+keyring = { version = "3", default-features = false, features = ["async-secret-service", "async-io", "crypto-rust"] }
+url = "2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libloading = "0.8"

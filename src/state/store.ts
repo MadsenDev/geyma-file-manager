@@ -16,6 +16,8 @@ import type {
   FileEvent,
   Filters,
   Ghost,
+  RemoteConnection,
+  RemoteStatus,
   SearchScope,
   SetItemRef,
   SortDir,
@@ -56,6 +58,7 @@ interface PersistedShape {
   trashOriginNames?: Record<string, string>;
   tabs?: TabState[];
   activeTabId?: string;
+  remoteConnections?: RemoteConnection[];
 }
 
 function loadPersisted(): PersistedShape {
@@ -162,6 +165,11 @@ interface AppState {
   pendingPermanentDelete: string | null;
   pendingPermanentAt: number;
 
+  // network places
+  remoteConnections: RemoteConnection[];
+  remoteStatus: Record<string, RemoteStatus>;
+  pendingRemotePasswordPromptId: string | null;
+
   // actions
   init(): Promise<void>;
   loadDir(path: string, force?: boolean): Promise<void>;
@@ -188,6 +196,13 @@ interface AppState {
   reorderTab(id: string, toIndex: number): void;
   cycleTab(dir: 1 | -1): void;
   goToTabIndex(index: number): void;
+
+  addRemoteConnection(input: Omit<RemoteConnection, "id">): string;
+  updateRemoteConnection(id: string, patch: Partial<Omit<RemoteConnection, "id">>): void;
+  removeRemoteConnection(id: string): void;
+  connectRemoteConnection(id: string, password?: string): Promise<void>;
+  disconnectRemoteConnection(id: string): Promise<void>;
+  dismissRemotePasswordPrompt(): void;
 
   select(path: string, opts?: { ctrl?: boolean; shift?: boolean }): void;
   selectAll(): void;
@@ -352,6 +367,10 @@ export const useStore = create<AppState>()((set, get) => ({
   pendingPermanentDelete: null,
   pendingPermanentAt: 0,
 
+  remoteConnections: [],
+  remoteStatus: {},
+  pendingRemotePasswordPromptId: null,
+
   async init() {
     const backend = await getFsBackend();
     const persisted = loadPersisted();
@@ -391,6 +410,7 @@ export const useStore = create<AppState>()((set, get) => ({
       fileEvents: persisted.fileEvents || {},
       trashOrigins: persisted.trashOrigins || {},
       trashOriginNames: persisted.trashOriginNames || {},
+      remoteConnections: persisted.remoteConnections || [],
     });
     await get().loadDir(get().path);
     await get().loadDir(get().path2);
@@ -674,6 +694,73 @@ export const useStore = create<AppState>()((set, get) => ({
   goToTabIndex(index) {
     const tab = get().tabs[index];
     if (tab) get().switchTab(tab.id);
+  },
+
+  addRemoteConnection(input) {
+    const id = `remote-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    set({ remoteConnections: [...get().remoteConnections, { ...input, id }] });
+    get().persist();
+    return id;
+  },
+  updateRemoteConnection(id, patch) {
+    set({ remoteConnections: get().remoteConnections.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+    get().persist();
+  },
+  removeRemoteConnection(id) {
+    const conn = get().remoteConnections.find((c) => c.id === id);
+    if (conn && get().remoteStatus[id] === "connected") void get().disconnectRemoteConnection(id);
+    get().backend?.keyringDeletePassword(id).catch(() => {});
+    const status = { ...get().remoteStatus };
+    delete status[id];
+    set({
+      remoteConnections: get().remoteConnections.filter((c) => c.id !== id),
+      remoteStatus: status,
+    });
+    get().persist();
+  },
+  async connectRemoteConnection(id, password) {
+    const { backend } = get();
+    const conn = get().remoteConnections.find((c) => c.id === id);
+    if (!backend || !conn) return;
+    set({ remoteStatus: { ...get().remoteStatus, [id]: "connecting" }, pendingRemotePasswordPromptId: null });
+    try {
+      let usedPassword = password;
+      if (!usedPassword && conn.savePassword) {
+        usedPassword = (await backend.keyringLoadPassword(id)) ?? undefined;
+      }
+      if (!usedPassword) {
+        set({ remoteStatus: { ...get().remoteStatus, [id]: "disconnected" }, pendingRemotePasswordPromptId: id });
+        return;
+      }
+      const root = await backend.connectRemote({
+        protocol: conn.protocol,
+        host: conn.host,
+        port: conn.port,
+        username: conn.username,
+        share: conn.share,
+        password: usedPassword,
+      });
+      if (conn.savePassword) await backend.keyringSavePassword(id, usedPassword).catch(() => {});
+      set({ remoteStatus: { ...get().remoteStatus, [id]: "connected" } });
+      get().newTab(root);
+    } catch (e) {
+      set({ remoteStatus: { ...get().remoteStatus, [id]: "error" }, pendingRemotePasswordPromptId: id });
+      get().showToast(`Connection failed: ${e}`);
+    }
+  },
+  async disconnectRemoteConnection(id) {
+    const { backend } = get();
+    const conn = get().remoteConnections.find((c) => c.id === id);
+    if (!backend || !conn) return;
+    try {
+      await backend.disconnectRemote({ protocol: conn.protocol, host: conn.host, port: conn.port, username: conn.username, share: conn.share });
+    } catch (e) {
+      get().showToast(`Disconnect failed: ${e}`);
+    }
+    set({ remoteStatus: { ...get().remoteStatus, [id]: "disconnected" } });
+  },
+  dismissRemotePasswordPrompt() {
+    set({ pendingRemotePasswordPromptId: null });
   },
 
   select(path: string, opts) {
@@ -1217,6 +1304,10 @@ export const useStore = create<AppState>()((set, get) => ({
         }
         set({ trashOrigins: origins, trashOriginNames: originNames });
         await get().loadDir(get().trashDir, true);
+        // Also refreshes the current folder — a no-op reload when this ran from the
+        // Trash view itself, but required when it ran against a network place, which
+        // has no Trash and lands here directly from the normal folder view.
+        await get().loadDir(get().path, true);
         set({ selected: [], pendingPermanentDelete: null });
       })();
     } else {
@@ -1476,6 +1567,7 @@ export const useStore = create<AppState>()((set, get) => ({
       trashOriginNames: st.trashOriginNames,
       tabs: st.tabs,
       activeTabId: st.activeTabId,
+      remoteConnections: st.remoteConnections,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));

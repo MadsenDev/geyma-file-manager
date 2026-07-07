@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useStore } from "../state/store";
 import { openWithDefaultApp } from "./openDefault";
+import { isRemotePath } from "../fs/remotePath";
 
 function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -122,7 +123,7 @@ export function useKeyboardShortcuts() {
       if (e.key === "Delete") {
         if (!store.selected.length) return;
         e.preventDefault();
-        if (store.trashView) store.requestPermanentDelete(store.selected);
+        if (store.trashView || isRemotePath(store.selected[0])) store.requestPermanentDelete(store.selected);
         else void store.trashEntries(store.selected);
         return;
       }

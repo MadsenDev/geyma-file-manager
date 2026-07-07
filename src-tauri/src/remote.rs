@@ -1,0 +1,480 @@
+//! Network places: SFTP and SMB, addressed as `sftp://user@host:port/abs/path`
+//! and `smb://user@host:port/Share/sub/path` respectively. These URIs flow through
+//! the same `path: String` used everywhere else in the app (FsEntry.path, the
+//! frontend's navigation state, working sets, ...) — `fsops::extract_archive`-style
+//! per-format dispatch, but for whole filesystem backends instead of archive kinds.
+//!
+//! Scope: browse, rename, copy/move within a connection, delete (permanently — there's
+//! no remote Trash), and transfer files to/from local disk. Deliberately NOT supported
+//! over the network: symlinks, chmod/ownership, and archive extract-in-place — none of
+//! those map cleanly onto SMB, and doing them "properly" per-protocol is out of scope
+//! for this first pass.
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+use crate::fsops::FsEntry;
+
+pub mod sftp;
+pub mod smb;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RemoteAddr {
+    Sftp {
+        host: String,
+        port: u16,
+        username: String,
+        /// Absolute path on the SFTP server, e.g. "/home/alice/docs". Always starts with '/'.
+        path: String,
+    },
+    Smb {
+        host: String,
+        port: u16,
+        username: String,
+        share: String,
+        /// Path within the share, using '/' separators, no leading slash. Empty string
+        /// means the share root.
+        path: String,
+    },
+}
+
+impl RemoteAddr {
+    /// The connection identity this address routes to, ignoring the path-within-connection —
+    /// used as the session-cache key so browsing around a connection reuses one session.
+    fn connection_key(&self) -> String {
+        match self {
+            RemoteAddr::Sftp { host, port, username, .. } => {
+                format!("sftp://{username}@{host}:{port}")
+            }
+            RemoteAddr::Smb { host, port, username, share, .. } => {
+                format!("smb://{username}@{host}:{port}/{share}")
+            }
+        }
+    }
+}
+
+pub fn parse(path: &str) -> Option<RemoteAddr> {
+    let url = url::Url::parse(path).ok()?;
+    let host = url.host_str()?.to_string();
+    let username = url.username();
+    if username.is_empty() {
+        return None;
+    }
+    let username = username.to_string();
+
+    match url.scheme() {
+        "sftp" => {
+            let port = url.port().unwrap_or(22);
+            let path = url.path().to_string();
+            Some(RemoteAddr::Sftp { host, port, username, path })
+        }
+        "smb" => {
+            let port = url.port().unwrap_or(445);
+            let mut segments = url.path_segments()?;
+            let share = segments.next().unwrap_or_default().to_string();
+            if share.is_empty() {
+                return None;
+            }
+            let path = segments.collect::<Vec<_>>().join("/");
+            Some(RemoteAddr::Smb { host, port, username, share, path })
+        }
+        _ => None,
+    }
+}
+
+/// Builds the sftp:// URI for a child of a listed directory, so entries returned from
+/// `list_dir` carry a path the rest of the app can navigate into or operate on directly.
+fn sftp_child_uri(host: &str, port: u16, username: &str, parent_path: &str, name: &str) -> String {
+    let base = parent_path.trim_end_matches('/');
+    format!("sftp://{username}@{host}:{port}{base}/{name}")
+}
+
+fn smb_child_uri(host: &str, port: u16, username: &str, share: &str, parent_path: &str, name: &str) -> String {
+    if parent_path.is_empty() {
+        format!("smb://{username}@{host}:{port}/{share}/{name}")
+    } else {
+        format!("smb://{username}@{host}:{port}/{share}/{parent_path}/{name}")
+    }
+}
+
+const KEYRING_SERVICE: &str = "geyma-remote";
+
+fn keyring_entry(connection_id: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new(KEYRING_SERVICE, connection_id).map_err(|error| error.to_string())
+}
+
+/// Runs a blocking keyring call off the async runtime thread — matches the
+/// `spawn_blocking` pattern already used for archive/extraction work in fsops.rs.
+async fn keyring_blocking<F, T>(f: F) -> Result<T, String>
+where
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+    T: Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|error| format!("Keyring task failed: {error}"))?
+}
+
+#[tauri::command]
+pub async fn keyring_save_password(connection_id: String, password: String) -> Result<(), String> {
+    keyring_blocking(move || {
+        keyring_entry(&connection_id)?
+            .set_password(&password)
+            .map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn keyring_load_password(connection_id: String) -> Result<Option<String>, String> {
+    keyring_blocking(move || match keyring_entry(&connection_id)?.get_password() {
+        Ok(password) => Ok(Some(password)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(error.to_string()),
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn keyring_delete_password(connection_id: String) -> Result<(), String> {
+    keyring_blocking(move || match keyring_entry(&connection_id)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(error.to_string()),
+    })
+    .await
+}
+
+/// Live sessions, keyed by [`RemoteAddr::connection_key`]. Kept as app-managed Tauri
+/// state so a session survives across command invocations; there is deliberately no
+/// automatic reconnect-on-drop — a failed operation surfaces as an error and the user
+/// reconnects from the Network panel, same as any other "connection lost" case.
+#[derive(Default)]
+pub struct RemoteSessions {
+    pub sftp: Mutex<HashMap<String, Arc<sftp::SftpConnection>>>,
+    pub smb: Mutex<HashMap<String, Arc<smb::SmbConnection>>>,
+}
+
+fn to_ms(t: std::time::SystemTime) -> i64 {
+    t.duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+fn not_connected(addr: &RemoteAddr) -> String {
+    format!(
+        "Not connected to {} — reconnect from the Network panel",
+        addr.connection_key()
+    )
+}
+
+#[tauri::command]
+pub async fn remote_connect(
+    protocol: String,
+    host: String,
+    port: u16,
+    username: String,
+    share: Option<String>,
+    password: String,
+    sessions: tauri::State<'_, RemoteSessions>,
+) -> Result<String, String> {
+    match protocol.as_str() {
+        "sftp" => {
+            let addr = RemoteAddr::Sftp { host: host.clone(), port, username: username.clone(), path: "/".to_string() };
+            let conn = sftp::connect(&host, port, &username, &password).await?;
+            sessions.sftp.lock().await.insert(addr.connection_key(), Arc::new(conn));
+            Ok(format!("sftp://{username}@{host}:{port}/"))
+        }
+        "smb" => {
+            let share = share.ok_or("SMB connections require a share name")?;
+            let addr = RemoteAddr::Smb { host: host.clone(), port, username: username.clone(), share: share.clone(), path: String::new() };
+            let conn = smb::connect(&host, port, &username, &password, &share).await?;
+            sessions.smb.lock().await.insert(addr.connection_key(), Arc::new(conn));
+            Ok(format!("smb://{username}@{host}:{port}/{share}"))
+        }
+        other => Err(format!("Unknown protocol: {other}")),
+    }
+}
+
+#[tauri::command]
+pub async fn remote_disconnect(
+    protocol: String,
+    host: String,
+    port: u16,
+    username: String,
+    share: Option<String>,
+    sessions: tauri::State<'_, RemoteSessions>,
+) -> Result<(), String> {
+    match protocol.as_str() {
+        "sftp" => {
+            let addr = RemoteAddr::Sftp { host, port, username, path: "/".to_string() };
+            sessions.sftp.lock().await.remove(&addr.connection_key());
+        }
+        "smb" => {
+            let share = share.unwrap_or_default();
+            let addr = RemoteAddr::Smb { host, port, username, share, path: String::new() };
+            sessions.smb.lock().await.remove(&addr.connection_key());
+        }
+        other => return Err(format!("Unknown protocol: {other}")),
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn remote_list_dir(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<Vec<FsEntry>, String> {
+    let addr = parse(&path).ok_or_else(|| format!("Not a remote path: {path}"))?;
+    match &addr {
+        RemoteAddr::Sftp { host, port, username, path: remote_path } => {
+            let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            sftp::list_dir(&conn, host, *port, username, remote_path).await
+        }
+        RemoteAddr::Smb { host, port, username, share, path: remote_path } => {
+            let conn = sessions.smb.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            smb::list_dir(&conn, host, *port, username, share, remote_path).await
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn remote_stat(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<FsEntry, String> {
+    let addr = parse(&path).ok_or_else(|| format!("Not a remote path: {path}"))?;
+    match &addr {
+        RemoteAddr::Sftp { path: remote_path, .. } => {
+            let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            sftp::stat(&conn, &path, remote_path).await
+        }
+        RemoteAddr::Smb { share, path: remote_path, .. } => {
+            let conn = sessions.smb.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            smb::stat(&conn, &path, share, remote_path).await
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn remote_create_folder(parent: String, name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    let addr = parse(&parent).ok_or_else(|| format!("Not a remote path: {parent}"))?;
+    match &addr {
+        RemoteAddr::Sftp { host, port, username, path: remote_path } => {
+            let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            sftp::create_folder(&conn, remote_path, &name).await?;
+            Ok(sftp_child_uri(host, *port, username, remote_path, &name))
+        }
+        RemoteAddr::Smb { host, port, username, share, path: remote_path } => {
+            let conn = sessions.smb.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            smb::create_folder(&conn, remote_path, &name).await?;
+            Ok(smb_child_uri(host, *port, username, share, remote_path, &name))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn remote_create_file(parent: String, name: String, contents: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    let addr = parse(&parent).ok_or_else(|| format!("Not a remote path: {parent}"))?;
+    match &addr {
+        RemoteAddr::Sftp { host, port, username, path: remote_path } => {
+            let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            sftp::write_file(&conn, remote_path, &name, contents.into_bytes()).await?;
+            Ok(sftp_child_uri(host, *port, username, remote_path, &name))
+        }
+        RemoteAddr::Smb { host, port, username, share, path: remote_path } => {
+            let conn = sessions.smb.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            smb::write_file(&conn, remote_path, &name, contents.into_bytes()).await?;
+            Ok(smb_child_uri(host, *port, username, share, remote_path, &name))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn remote_rename_path(from: String, to_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    let addr = parse(&from).ok_or_else(|| format!("Not a remote path: {from}"))?;
+    match &addr {
+        RemoteAddr::Sftp { host, port, username, path: remote_path } => {
+            let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            let parent = remote_path.rsplit_once('/').map(|(p, _)| if p.is_empty() { "/" } else { p }).unwrap_or("/");
+            sftp::rename(&conn, remote_path, parent, &to_name).await?;
+            Ok(sftp_child_uri(host, *port, username, parent, &to_name))
+        }
+        RemoteAddr::Smb { host, port, username, share, path: remote_path } => {
+            let conn = sessions.smb.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            let parent = remote_path.rsplit_once('/').map(|(p, _)| p).unwrap_or("");
+            smb::rename(&conn, remote_path, parent, &to_name).await?;
+            Ok(smb_child_uri(host, *port, username, share, parent, &to_name))
+        }
+    }
+}
+
+/// Moves an entry to a different directory on the SAME connection (a rename with a new
+/// parent, same as `remote_rename_path` but the caller supplies the destination directory
+/// instead of just a new name in place). Moving between two different connections, or
+/// between local disk and a remote one, goes through copy+delete instead — see
+/// `remote_copy_path`/`upload_to_remote`/`download_from_remote`.
+#[tauri::command]
+pub async fn remote_move_path(from: String, to_dir: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    let from_addr = parse(&from).ok_or_else(|| format!("Not a remote path: {from}"))?;
+    let to_addr = parse(&to_dir).ok_or_else(|| format!("Not a remote path: {to_dir}"))?;
+    if from_addr.connection_key() != to_addr.connection_key() {
+        return Err("Source and destination are on different connections".to_string());
+    }
+    match (&from_addr, &to_addr) {
+        (RemoteAddr::Sftp { host, port, username, path: from_path, .. }, RemoteAddr::Sftp { path: to_parent, .. }) => {
+            let conn = sessions.sftp.lock().await.get(&from_addr.connection_key()).cloned().ok_or_else(|| not_connected(&from_addr))?;
+            let name = from_path.rsplit('/').next().filter(|s| !s.is_empty()).ok_or_else(|| format!("Bad source path: {from}"))?;
+            sftp::rename(&conn, from_path, to_parent, name).await?;
+            Ok(sftp_child_uri(host, *port, username, to_parent, name))
+        }
+        (RemoteAddr::Smb { host, port, username, share, path: from_path, .. }, RemoteAddr::Smb { path: to_parent, .. }) => {
+            let conn = sessions.smb.lock().await.get(&from_addr.connection_key()).cloned().ok_or_else(|| not_connected(&from_addr))?;
+            let name = from_path.rsplit('/').next().filter(|s| !s.is_empty()).ok_or_else(|| format!("Bad source path: {from}"))?;
+            smb::rename(&conn, from_path, to_parent, name).await?;
+            Ok(smb_child_uri(host, *port, username, share, to_parent, name))
+        }
+        _ => Err("Source and destination use different protocols".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn remote_delete_permanently(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<(), String> {
+    let addr = parse(&path).ok_or_else(|| format!("Not a remote path: {path}"))?;
+    match &addr {
+        RemoteAddr::Sftp { path: remote_path, .. } => {
+            let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            sftp::delete(&conn, remote_path).await
+        }
+        RemoteAddr::Smb { share, path: remote_path, .. } => {
+            let conn = sessions.smb.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            smb::delete(&conn, share, remote_path).await
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn remote_read_text_file(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    let bytes = read_remote_bytes(&path, &sessions).await?;
+    String::from_utf8(bytes).map_err(|error| error.to_string())
+}
+
+async fn read_remote_bytes(path: &str, sessions: &tauri::State<'_, RemoteSessions>) -> Result<Vec<u8>, String> {
+    let addr = parse(path).ok_or_else(|| format!("Not a remote path: {path}"))?;
+    match &addr {
+        RemoteAddr::Sftp { path: remote_path, .. } => {
+            let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            sftp::read_file(&conn, remote_path).await
+        }
+        RemoteAddr::Smb { share, path: remote_path, .. } => {
+            let conn = sessions.smb.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            smb::read_file(&conn, share, remote_path).await
+        }
+    }
+}
+
+/// Copies a file from local disk to a remote directory (used for uploads and for the
+/// "copy into a remote folder" side of drag-and-drop / paste).
+#[tauri::command]
+pub async fn upload_to_remote(local_path: String, remote_dest_dir: String, remote_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    let bytes = tokio::fs::read(&local_path).await.map_err(|error| format!("Could not read local file: {error}"))?;
+    let addr = parse(&remote_dest_dir).ok_or_else(|| format!("Not a remote path: {remote_dest_dir}"))?;
+    match &addr {
+        RemoteAddr::Sftp { host, port, username, path: remote_path } => {
+            let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            sftp::write_file(&conn, remote_path, &remote_name, bytes).await?;
+            Ok(sftp_child_uri(host, *port, username, remote_path, &remote_name))
+        }
+        RemoteAddr::Smb { host, port, username, share, path: remote_path } => {
+            let conn = sessions.smb.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            smb::write_file(&conn, remote_path, &remote_name, bytes).await?;
+            Ok(smb_child_uri(host, *port, username, share, remote_path, &remote_name))
+        }
+    }
+}
+
+/// Copies a file from a remote server to local disk (downloads, and the "copy out of a
+/// remote folder" side of drag-and-drop / paste).
+#[tauri::command]
+pub async fn download_from_remote(remote_path: String, local_dest_dir: String, local_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    let bytes = read_remote_bytes(&remote_path, &sessions).await?;
+    let target = std::path::PathBuf::from(&local_dest_dir).join(&local_name);
+    tokio::fs::write(&target, bytes).await.map_err(|error| format!("Could not write local file: {error}"))?;
+    Ok(target.to_string_lossy().to_string())
+}
+
+/// Copies a file between two remote locations. If they're on the same connection this
+/// still round-trips through memory rather than asking the server to copy server-side
+/// (SFTP has no portable server-side copy; keeping one code path for both protocols
+/// keeps this simple) — fine for the file sizes a file manager's copy/paste deals with.
+#[tauri::command]
+pub async fn remote_copy_path(from: String, to_dir: String, to_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    let bytes = read_remote_bytes(&from, &sessions).await?;
+    let addr = parse(&to_dir).ok_or_else(|| format!("Not a remote path: {to_dir}"))?;
+    match &addr {
+        RemoteAddr::Sftp { host, port, username, path: remote_path } => {
+            let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            sftp::write_file(&conn, remote_path, &to_name, bytes).await?;
+            Ok(sftp_child_uri(host, *port, username, remote_path, &to_name))
+        }
+        RemoteAddr::Smb { host, port, username, share, path: remote_path } => {
+            let conn = sessions.smb.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
+            smb::write_file(&conn, remote_path, &to_name, bytes).await?;
+            Ok(smb_child_uri(host, *port, username, share, remote_path, &to_name))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_sftp_uris() {
+        let addr = parse("sftp://alice@nas.local:2222/home/alice/docs").unwrap();
+        assert_eq!(
+            addr,
+            RemoteAddr::Sftp { host: "nas.local".into(), port: 2222, username: "alice".into(), path: "/home/alice/docs".into() }
+        );
+    }
+
+    #[test]
+    fn defaults_sftp_port_to_22() {
+        let addr = parse("sftp://alice@nas.local/").unwrap();
+        assert_eq!(addr, RemoteAddr::Sftp { host: "nas.local".into(), port: 22, username: "alice".into(), path: "/".into() });
+    }
+
+    #[test]
+    fn parses_smb_uris_with_share_and_subpath() {
+        let addr = parse("smb://bob@nas.local:445/Media/Movies/2020").unwrap();
+        assert_eq!(
+            addr,
+            RemoteAddr::Smb { host: "nas.local".into(), port: 445, username: "bob".into(), share: "Media".into(), path: "Movies/2020".into() }
+        );
+    }
+
+    #[test]
+    fn parses_smb_share_root() {
+        let addr = parse("smb://bob@nas.local/Media").unwrap();
+        assert_eq!(
+            addr,
+            RemoteAddr::Smb { host: "nas.local".into(), port: 445, username: "bob".into(), share: "Media".into(), path: "".into() }
+        );
+    }
+
+    #[test]
+    fn rejects_uris_without_a_username() {
+        assert!(parse("sftp://nas.local/path").is_none());
+        assert!(parse("smb://nas.local/Share").is_none());
+    }
+
+    #[test]
+    fn rejects_non_remote_schemes_and_plain_paths() {
+        assert!(parse("/home/user/docs").is_none());
+        assert!(parse("file:///home/user").is_none());
+        assert!(parse("sftp://a@b/c").is_some());
+        assert!(parse("smb://a@b/c").is_some());
+    }
+
+    #[test]
+    fn connection_key_ignores_the_path_within_connection() {
+        let a = parse("sftp://alice@nas.local:22/dir/a").unwrap();
+        let b = parse("sftp://alice@nas.local:22/dir/b/c").unwrap();
+        assert_eq!(a.connection_key(), b.connection_key());
+    }
+}
+

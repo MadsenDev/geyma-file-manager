@@ -7,6 +7,7 @@ import { ICONS } from "../icons/paths";
 import { extOf, formatSize, formatWhen, isExtractableArchive, kindOf } from "../lib/format";
 import type { FsEntry } from "../fs/types";
 import { getFsBackend } from "../fs";
+import { isRemotePath } from "../fs/remotePath";
 import type { Ghost } from "../state/types";
 import { joinPosix } from "../fs/pathUtil";
 import { openWithDefaultApp } from "../lib/openDefault";
@@ -128,6 +129,7 @@ export function Files() {
     const targets = wasSelected ? selected : [entry.path];
     const multi = targets.length > 1;
     const isStarred = starred.has(entry.path);
+    const remote = isRemotePath(entry.path);
     if (trashView) {
       openMenu({
         x: e.clientX,
@@ -160,19 +162,21 @@ export function Files() {
               },
             }
           : undefined,
-        !multi && isExtractableArchive(entry.name)
+        !multi && !remote && isExtractableArchive(entry.name)
           ? { label: "Extract Here", onClick: () => void extractHere(entry.path) }
           : undefined,
-        !multi ? { label: "Create Symlink Here", onClick: () => void createSymlinkFor(entry.path) } : undefined,
+        !multi && !remote ? { label: "Create Symlink Here", onClick: () => void createSymlinkFor(entry.path) } : undefined,
         { divider: true },
         { label: "Cut", onClick: () => setClip("cut", targets) },
         { label: "Copy", onClick: () => setClip("copy", targets) },
         { label: multi ? `Duplicate ${targets.length} items` : "Duplicate", onClick: () => duplicateEntries(targets) },
         multi ? { label: `Batch rename ${targets.length} items…`, onClick: () => setBatchTargets(targets) } : undefined,
-        {
-          label: multi ? `Compress ${targets.length} items to ZIP` : `Compress "${entry.name}" to ZIP`,
-          onClick: () => void compressEntries(targets, multi ? "Archive" : `${entry.name}.zip`),
-        },
+        remote
+          ? undefined
+          : {
+              label: multi ? `Compress ${targets.length} items to ZIP` : `Compress "${entry.name}" to ZIP`,
+              onClick: () => void compressEntries(targets, multi ? "Archive" : `${entry.name}.zip`),
+            },
         {
           label: multi ? "Copy paths" : "Copy path",
           onClick: () => {
@@ -191,7 +195,9 @@ export function Files() {
         { divider: true },
         !multi ? { label: "Rename", onClick: () => startRename(entry.path) } : undefined,
         !multi ? { label: "Properties", onClick: () => setPropertiesTarget(entry) } : undefined,
-        { label: multi ? `Trash ${targets.length} items` : "Trash", danger: true, onClick: () => trashEntries(targets) },
+        remote
+          ? { label: multi ? `Delete ${targets.length} items permanently` : "Delete permanently", danger: true, onClick: () => requestPermanentDelete(targets) }
+          : { label: multi ? `Trash ${targets.length} items` : "Trash", danger: true, onClick: () => trashEntries(targets) },
       ].filter(Boolean) as { label: string; onClick?: () => void; danger?: boolean; divider?: boolean }[],
     });
   }

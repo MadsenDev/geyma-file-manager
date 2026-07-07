@@ -11,6 +11,7 @@ export type ModuleId =
   | "appearance"
   | "places"
   | "devices"
+  | "network"
   | "sets"
   | "disk"
   | "recent"
@@ -29,7 +30,7 @@ export const ZONE_IDS: ZoneId[] = ["top", "left", "center", "center2", "right", 
 
 export const ALL_MODULES: ModuleId[] = [
   "tabs", "nav", "location", "search", "viewswitch", "title", "files", "files2", "details",
-  "appearance", "places", "devices", "sets", "disk", "recent", "timeline", "dupes",
+  "appearance", "places", "devices", "network", "sets", "disk", "recent", "timeline", "dupes",
   "clock", "visualizer", "mood", "status",
 ];
 
@@ -46,6 +47,7 @@ export const MODULE_NAMES: Record<ModuleId, string> = {
   appearance: "Appearance",
   places: "Places",
   devices: "Devices",
+  network: "Network",
   sets: "Working Sets",
   disk: "Disk usage",
   recent: "Recent activity",
@@ -60,7 +62,7 @@ export const MODULE_NAMES: Record<ModuleId, string> = {
 export function defaultLayout(): Layout {
   return {
     top: ["tabs", "nav", "location", "search", "viewswitch"],
-    left: ["places", "devices", "sets", "disk"],
+    left: ["places", "devices", "network", "sets", "disk"],
     center: ["title", "files"],
     center2: [],
     right: ["details"],
@@ -107,7 +109,7 @@ export function layoutSignature(l: Layout): string {
   return ZONE_IDS.map((z) => (l[z] || []).join(",")).join("|");
 }
 
-const PANEL_MODULES: ModuleId[] = ["places", "devices", "sets", "disk", "recent", "timeline", "dupes", "clock", "visualizer", "mood", "details", "appearance"];
+const PANEL_MODULES: ModuleId[] = ["places", "devices", "network", "sets", "disk", "recent", "timeline", "dupes", "clock", "visualizer", "mood", "details", "appearance"];
 const STRETCH_MODULES: ModuleId[] = ["files", "files2", "details", "appearance"];
 
 export function isPanelModule(id: ModuleId): boolean {
