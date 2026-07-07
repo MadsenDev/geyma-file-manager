@@ -15,6 +15,18 @@ function day(y: number, m: number, d: number, h = 12, min = 0): number {
   return new Date(y, m - 1, d, h, min).getTime();
 }
 
+/** Mirrors src-tauri/src/archives.rs's extension detection, kept local since the mock
+ * backend has no dependency on the Rust side or on lib/format.ts's frontend helpers. */
+function archiveFormatLabel(path: string): string {
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".tar.gz") || lower.endsWith(".tgz")) return "TAR.GZ";
+  if (lower.endsWith(".tar.bz2") || lower.endsWith(".tbz2") || lower.endsWith(".tbz")) return "TAR.BZ2";
+  if (lower.endsWith(".tar.xz") || lower.endsWith(".txz")) return "TAR.XZ";
+  if (lower.endsWith(".tar")) return "TAR";
+  if (lower.endsWith(".7z")) return "7Z";
+  return "ZIP";
+}
+
 function file(name: string, size: number, modified: number, created?: number): MockNode {
   return { name, isDir: false, size, modifiedMs: modified, createdMs: created ?? modified };
 }
@@ -66,6 +78,7 @@ const TREE: Record<string, MockNode[]> = {
     folder("photo-batch", day(2026, 6, 22)),
     file("geyma-0.4.0.tar.gz", 1427005, day(2026, 6, 26)),
     file("project-assets.zip", 8421376, day(2026, 6, 25)),
+    file("backup-snapshot.7z", 3145728, day(2026, 6, 24, 9)),
     file("Ferdium.AppImage", 96468992, day(2026, 6, 24)),
     file("invoice-scan.pdf", 3774873, day(2026, 6, 23, 18)),
     file("kernel-6.9.patch", 90112, day(2026, 6, 20)),
@@ -217,13 +230,15 @@ export const mockBackend: FsBackend = {
       installCommand: null,
     };
   },
-  async previewArchive() {
+  async previewArchive(path: string) {
+    const format = archiveFormatLabel(path);
+    const compressed = format === "ZIP";
     return {
-      format: "ZIP",
+      format,
       entries: [
         { path: "Documents/", isDir: true, size: 0, compressedSize: 0 },
-        { path: "Documents/readme.txt", isDir: false, size: 1840, compressedSize: 792 },
-        { path: "preview.png", isDir: false, size: 245760, compressedSize: 231420 },
+        { path: "Documents/readme.txt", isDir: false, size: 1840, compressedSize: compressed ? 792 : 1840 },
+        { path: "preview.png", isDir: false, size: 245760, compressedSize: compressed ? 231420 : 245760 },
       ],
       totalEntries: 3,
       truncated: false,

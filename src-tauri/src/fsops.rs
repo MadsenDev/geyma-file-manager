@@ -131,9 +131,15 @@ pub fn copy_path(from: String, to_dir: String, to_name: String) -> Result<String
 
 #[tauri::command]
 pub async fn extract_archive(path: String, dest_dir: String, folder_name: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || extract_zip(&path, &dest_dir, &folder_name))
-        .await
-        .map_err(|error| format!("Extraction failed: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(kind) = crate::archives::detect(&path) {
+            crate::archives::extract(kind, &path, &dest_dir, &folder_name)
+        } else {
+            extract_zip(&path, &dest_dir, &folder_name)
+        }
+    })
+    .await
+    .map_err(|error| format!("Extraction failed: {error}"))?
 }
 
 fn extract_zip(path: &str, dest_dir: &str, folder_name: &str) -> Result<String, String> {
@@ -144,7 +150,7 @@ fn extract_zip(path: &str, dest_dir: &str, folder_name: &str) -> Result<String, 
         .to_ascii_lowercase();
     if extension != "zip" {
         return Err(format!(
-            "{extension} archives are not supported yet; only ZIP can be extracted."
+            "{extension} archives are not supported yet; ZIP, TAR (plain/.gz/.bz2/.xz), and 7z can be extracted."
         ));
     }
 

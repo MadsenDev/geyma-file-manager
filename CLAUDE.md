@@ -118,5 +118,14 @@ copy/trash/restore/delete-permanently/extract-archive/disk-usage/list-devices) i
 `tauriBackend.ts`. Extraction guards against zip-slip (paths escaping the destination directory
 during archive extraction) — preserve that check if you touch `extract_archive`. `media.rs`
 handles native audio/video playback capability checks and a local media server; `preview.rs`
-handles archive listing and text file preview parsing. All Tauri commands are registered once in
-`lib.rs`'s `invoke_handler!` list — a new command needs an entry there too.
+handles archive listing and text file preview parsing.
+
+`src-tauri/src/archives.rs` holds the non-ZIP read path: tar (plain, or gzip/bzip2/xz
+compressed) and 7z, listed and extracted via pure-Rust crates (`tar`, `flate2`, `bzip2-rs`,
+`lzma-rs`, `sevenz-rust`) with no system/native dependency. `fsops::extract_archive` and
+`preview::preview_archive` both call `archives::detect()` first and only fall back to the
+ZIP-specific path when it returns `None` — a new archive format should plug in there, not as a
+parallel command. RAR is deliberately unsupported: there's no mature pure-Rust reader for it
+(see the archives.rs module doc for the tradeoffs considered). Compression (`create_archive`)
+stays ZIP-only; only extraction/preview cover the wider format set. All Tauri commands are
+registered once in `lib.rs`'s `invoke_handler!` list — a new command needs an entry there too.

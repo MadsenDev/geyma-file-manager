@@ -84,6 +84,10 @@ pub async fn preview_archive(path: String) -> Result<ArchivePreview, String> {
 }
 
 fn inspect_archive(path: &str) -> Result<ArchivePreview, String> {
+    if let Some(kind) = crate::archives::detect(path) {
+        return preview_other(kind, path);
+    }
+
     let extension = Path::new(path)
         .extension()
         .and_then(|value| value.to_str())
@@ -93,9 +97,32 @@ fn inspect_archive(path: &str) -> Result<ArchivePreview, String> {
     match extension.as_str() {
         "zip" => preview_zip(path),
         _ => Err(format!(
-            "{extension} archive previews are not supported yet; ZIP archives are supported."
+            "{extension} archive previews are not supported yet; ZIP, TAR (plain/.gz/.bz2/.xz), and 7z are supported."
         )),
     }
+}
+
+fn preview_other(kind: crate::archives::ArchiveKind, path: &str) -> Result<ArchivePreview, String> {
+    let (listed, total_entries) = crate::archives::list(kind, path, MAX_ARCHIVE_ENTRIES)?;
+    let entries = listed
+        .into_iter()
+        .map(|entry| ArchiveEntry {
+            // TAR has no per-entry compressed size (compression, if any, applies to the
+            // whole stream) and 7z's block-level compression doesn't map cleanly to one
+            // entry either, so compressed_size mirrors size for both — the frontend only
+            // renders that column for ZIP, where it's meaningful.
+            compressed_size: entry.size,
+            path: entry.name,
+            is_dir: entry.is_dir,
+            size: entry.size,
+        })
+        .collect();
+    Ok(ArchivePreview {
+        format: crate::archives::format_label(kind).to_string(),
+        entries,
+        total_entries,
+        truncated: total_entries > MAX_ARCHIVE_ENTRIES,
+    })
 }
 
 fn preview_zip(path: &str) -> Result<ArchivePreview, String> {

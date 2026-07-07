@@ -1,3 +1,4 @@
+mod archives;
 mod fsops;
 mod media;
 mod preview;

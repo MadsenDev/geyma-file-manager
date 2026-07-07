@@ -31,6 +31,16 @@ dirs = "5"
 fs4 = "0.9"
 getrandom = "0.2"
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
+tar = "0.4"
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
+bzip2-rs = "0.1"
+lzma-rs = "0.3"
+sevenz-rust = { version = "0.6", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libloading = "0.8"
+
+[dev-dependencies]
+# Only the test suite needs to write .7z fixtures; the app itself only reads them, so
+# the "compress" encoder is kept off the default (non-dev) sevenz-rust dependency above.
+sevenz-rust = { version = "0.6", features = ["compress"] }

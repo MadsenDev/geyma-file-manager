@@ -26,7 +26,7 @@ import type {
   WorkingSet,
 } from "./types";
 import type { SkinOverrides } from "../theme/skins";
-import { extOf, kindOf } from "../lib/format";
+import { archiveStem, extOf, kindOf } from "../lib/format";
 import { computeBatchNames } from "../lib/batchRename";
 
 const STORAGE_KEY = "geyma-v1";
@@ -962,7 +962,7 @@ export const useStore = create<AppState>()((set, get) => ({
     const { backend } = get();
     if (!backend) return;
     const dir = backend.dirname(archivePath);
-    const stem = backend.basename(archivePath).replace(/\.[^./]+$/, "");
+    const stem = archiveStem(backend.basename(archivePath));
     const existing = new Set(get().entriesFor(dir).map((e) => e.name));
     const folderName = uniqueNameFor(existing, stem || "archive");
     try {

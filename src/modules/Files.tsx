@@ -4,7 +4,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { hexA, itemColors } from "../theme/skins";
 import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
-import { extOf, formatSize, formatWhen, kindOf } from "../lib/format";
+import { extOf, formatSize, formatWhen, isExtractableArchive, kindOf } from "../lib/format";
 import type { FsEntry } from "../fs/types";
 import { getFsBackend } from "../fs";
 import type { Ghost } from "../state/types";
@@ -160,7 +160,7 @@ export function Files() {
               },
             }
           : undefined,
-        !multi && extOf(entry.name) === "ZIP"
+        !multi && isExtractableArchive(entry.name)
           ? { label: "Extract Here", onClick: () => void extractHere(entry.path) }
           : undefined,
         !multi ? { label: "Create Symlink Here", onClick: () => void createSymlinkFor(entry.path) } : undefined,

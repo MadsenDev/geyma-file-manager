@@ -197,7 +197,7 @@ export function QuickLook() {
               entries={inspectionState.preview.entries.map((item) => ({ ...item, name: item.path }))}
               totalEntries={inspectionState.preview.totalEntries}
               truncated={inspectionState.preview.truncated}
-              showCompressed
+              showCompressed={inspectionState.preview.format === "ZIP"}
             />
           ) : inspectionState.status === "directory" ? (
             <EntryListing
