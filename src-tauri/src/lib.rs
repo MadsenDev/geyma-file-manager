@@ -1,3 +1,4 @@
+mod ai;
 mod archives;
 mod fsops;
 mod media;
@@ -10,6 +11,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(media_server)
         .manage(remote::RemoteSessions::default())
+        .manage(ai::AiState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
@@ -64,6 +66,14 @@ pub fn run() {
             remote::keyring_save_password,
             remote::keyring_load_password,
             remote::keyring_delete_password,
+            ai::ai_status,
+            ai::ai_install,
+            ai::ai_start_server,
+            ai::ai_stop_server,
+            ai::ai_list_models,
+            ai::ai_pull_model,
+            ai::ai_delete_model,
+            ai::ai_generate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

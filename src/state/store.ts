@@ -32,6 +32,7 @@ import type { SkinOverrides } from "../theme/skins";
 import { archiveStem, extOf, kindOf } from "../lib/format";
 import { computeBatchNames } from "../lib/batchRename";
 import { explainError } from "../lib/explainError";
+import { aiDeleteModel, aiListModels, aiStartServer, aiStatus, aiStopServer, type AiModel } from "../ai/ollama";
 
 const STORAGE_KEY = "geyma-v1";
 
@@ -62,6 +63,10 @@ interface PersistedShape {
   tabs?: TabState[];
   activeTabId?: string;
   remoteConnections?: RemoteConnection[];
+  aiSelectedModel?: string;
+  aiSearchEnabled?: boolean;
+  aiRenameEnabled?: boolean;
+  aiSummaryEnabled?: boolean;
   showHidden?: boolean;
   sortKey?: SortKey;
   sortDir?: SortDir;
@@ -171,7 +176,7 @@ interface AppState {
 
   // settings
   settingsOpen: boolean;
-  settingsTab: "appearance" | "confirmations" | "general";
+  settingsTab: "appearance" | "confirmations" | "general" | "ai";
   confirmPermanentDelete: boolean;
   confirmTrash: boolean;
   confirmWindowMs: number;
@@ -189,6 +194,16 @@ interface AppState {
   remoteConnections: RemoteConnection[];
   remoteStatus: Record<string, RemoteStatus>;
   pendingRemotePasswordPromptId: string | null;
+
+  // local AI (Ollama) — status/models reflect the real daemon, refreshed on demand;
+  // the three "enabled" flags are the per-capability opt-ins each feature checks
+  aiInstalled: boolean;
+  aiRunning: boolean;
+  aiModels: AiModel[];
+  aiSelectedModel: string;
+  aiSearchEnabled: boolean;
+  aiRenameEnabled: boolean;
+  aiSummaryEnabled: boolean;
 
   // actions
   init(): Promise<void>;
@@ -224,6 +239,15 @@ interface AppState {
   disconnectRemoteConnection(id: string): Promise<void>;
   dismissRemotePasswordPrompt(): void;
 
+  refreshAiStatus(): Promise<void>;
+  startAiServer(): Promise<void>;
+  stopAiServer(): Promise<void>;
+  deleteAiModel(name: string): Promise<void>;
+  setAiSelectedModel(name: string): void;
+  toggleAiSearchEnabled(): void;
+  toggleAiRenameEnabled(): void;
+  toggleAiSummaryEnabled(): void;
+
   select(path: string, opts?: { ctrl?: boolean; shift?: boolean }): void;
   selectAll(): void;
   clearSelection(): void;
@@ -234,6 +258,7 @@ interface AppState {
   toggleColumn(key: string): void;
 
   setQuery(q: string): void;
+  applyAiSearch(result: { query: string; kind: Filters["kind"]; starred: boolean }): void;
   setSearchScope(s: SearchScope): void;
   toggleKindFilter(k: Filters["kind"]): void;
   toggleStarredFilter(): void;
@@ -407,6 +432,14 @@ export const useStore = create<AppState>()((set, get) => ({
   remoteStatus: {},
   pendingRemotePasswordPromptId: null,
 
+  aiInstalled: false,
+  aiRunning: false,
+  aiModels: [],
+  aiSelectedModel: "",
+  aiSearchEnabled: false,
+  aiRenameEnabled: false,
+  aiSummaryEnabled: false,
+
   async init() {
     const backend = await getFsBackend();
     const persisted = loadPersisted();
@@ -458,9 +491,14 @@ export const useStore = create<AppState>()((set, get) => ({
       trashOrigins: persisted.trashOrigins || {},
       trashOriginNames: persisted.trashOriginNames || {},
       remoteConnections: persisted.remoteConnections || [],
+      aiSelectedModel: persisted.aiSelectedModel || "",
+      aiSearchEnabled: persisted.aiSearchEnabled ?? false,
+      aiRenameEnabled: persisted.aiRenameEnabled ?? false,
+      aiSummaryEnabled: persisted.aiSummaryEnabled ?? false,
     });
     await get().loadDir(get().path);
     await get().loadDir(get().path2);
+    void get().refreshAiStatus();
   },
 
   async loadDir(path: string, force = false) {
@@ -810,6 +848,58 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ pendingRemotePasswordPromptId: null });
   },
 
+  async refreshAiStatus() {
+    const status = await aiStatus();
+    const models = status.running ? await aiListModels().catch(() => []) : [];
+    const { aiSelectedModel } = get();
+    set({
+      aiInstalled: status.installed,
+      aiRunning: status.running,
+      aiModels: models,
+      aiSelectedModel: aiSelectedModel || models[0]?.name || "",
+    });
+  },
+  async startAiServer() {
+    try {
+      await aiStartServer();
+      await get().refreshAiStatus();
+    } catch (e) {
+      get().showToast(`Could not start Ollama: ${explainError(e)}`);
+    }
+  },
+  async stopAiServer() {
+    try {
+      await aiStopServer();
+    } catch (e) {
+      get().showToast(`Could not stop Ollama: ${explainError(e)}`);
+    }
+    await get().refreshAiStatus();
+  },
+  async deleteAiModel(name) {
+    try {
+      await aiDeleteModel(name);
+      await get().refreshAiStatus();
+    } catch (e) {
+      get().showToast(`Could not delete model: ${explainError(e)}`);
+    }
+  },
+  setAiSelectedModel(name) {
+    set({ aiSelectedModel: name });
+    get().persist();
+  },
+  toggleAiSearchEnabled() {
+    set({ aiSearchEnabled: !get().aiSearchEnabled });
+    get().persist();
+  },
+  toggleAiRenameEnabled() {
+    set({ aiRenameEnabled: !get().aiRenameEnabled });
+    get().persist();
+  },
+  toggleAiSummaryEnabled() {
+    set({ aiSummaryEnabled: !get().aiSummaryEnabled });
+    get().persist();
+  },
+
   select(path: string, opts) {
     const { selected, anchor } = get();
     const entries = get().visibleEntries().map((e) => e.path);
@@ -861,6 +951,9 @@ export const useStore = create<AppState>()((set, get) => ({
 
   setQuery(q) {
     set({ query: q });
+  },
+  applyAiSearch(result) {
+    set({ query: result.query, filters: { kind: result.kind, starred: result.starred } });
   },
   setSearchScope(s) {
     set({ searchScope: s });
@@ -1674,6 +1767,10 @@ export const useStore = create<AppState>()((set, get) => ({
       tabs: st.tabs,
       activeTabId: st.activeTabId,
       remoteConnections: st.remoteConnections,
+      aiSelectedModel: st.aiSelectedModel,
+      aiSearchEnabled: st.aiSearchEnabled,
+      aiRenameEnabled: st.aiRenameEnabled,
+      aiSummaryEnabled: st.aiSummaryEnabled,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
