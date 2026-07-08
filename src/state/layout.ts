@@ -1,3 +1,5 @@
+import { tr } from "@/i18n";
+
 export type ModuleId =
   | "tabs"
   | "nav"
@@ -35,28 +37,28 @@ export const ALL_MODULES: ModuleId[] = [
 ];
 
 export const MODULE_NAMES: Record<ModuleId, string> = {
-  tabs: "Tabs",
-  nav: "Navigation",
-  location: "Location bar",
-  search: "Search",
-  viewswitch: "View & sort",
-  title: "Folder title",
-  files: "Files",
-  files2: "Second pane",
-  details: "Details",
-  settings: "Settings",
-  places: "Places",
-  devices: "Devices",
-  network: "Network",
-  sets: "Working Sets",
-  disk: "Disk usage",
-  recent: "Recent activity",
-  timeline: "Timeline",
-  dupes: "Duplicates",
-  clock: "Clock",
-  visualizer: "Visualizer",
-  mood: "Folder mood",
-  status: "Status bar",
+  tabs: tr("modules.tabs"),
+  nav: tr("modules.nav"),
+  location: tr("modules.location"),
+  search: tr("modules.search"),
+  viewswitch: tr("modules.viewswitch"),
+  title: tr("modules.title"),
+  files: tr("modules.files"),
+  files2: tr("modules.files2"),
+  details: tr("modules.details"),
+  settings: tr("modules.settings"),
+  places: tr("modules.places"),
+  devices: tr("modules.devices"),
+  network: tr("modules.network"),
+  sets: tr("modules.sets"),
+  disk: tr("modules.disk"),
+  recent: tr("modules.recent"),
+  timeline: tr("modules.timeline"),
+  dupes: tr("modules.dupes"),
+  clock: tr("modules.clock"),
+  visualizer: tr("modules.visualizer"),
+  mood: tr("modules.mood"),
+  status: tr("modules.status"),
 };
 
 export function defaultLayout(): Layout {
@@ -77,14 +79,14 @@ export interface LayoutPreset {
 }
 
 export const LAYOUT_PRESETS: LayoutPreset[] = [
-  { id: "classic", name: "Classic", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: ["places", "devices", "sets", "disk"], center: ["title", "files"], right: ["details"], bottom: ["status"] } },
-  { id: "focus", name: "Focus", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: [], center: ["title", "files"], right: [], bottom: ["status"] } },
-  { id: "minimal", name: "Minimal", layout: { top: ["location", "search"], left: [], center: ["files"], right: [], bottom: [] } },
-  { id: "commander", name: "Commander", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: ["places", "devices", "sets"], center: ["files"], right: ["details"], bottom: ["status"] } },
-  { id: "righthand", name: "Right rail", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: [], center: ["title", "files"], right: ["places", "devices", "details"], bottom: ["status"] } },
-  { id: "dashboard", name: "Dashboard", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: ["places", "clock", "recent", "visualizer"], center: ["title", "files"], right: ["details", "disk"], bottom: ["status"] } },
-  { id: "bottombar", name: "Bottom dock", layout: { top: ["title"], left: ["places", "devices", "sets"], center: ["files"], right: ["details"], bottom: ["tabs", "nav", "location", "search", "viewswitch"] } },
-  { id: "stack", name: "Stacked", layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: [], center: ["title", "files", "details"], right: [], bottom: ["status"] } },
+  { id: "classic", name: tr("presets.classic"), layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: ["places", "devices", "sets", "disk"], center: ["title", "files"], right: ["details"], bottom: ["status"] } },
+  { id: "focus", name: tr("presets.focus"), layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: [], center: ["title", "files"], right: [], bottom: ["status"] } },
+  { id: "minimal", name: tr("presets.minimal"), layout: { top: ["location", "search"], left: [], center: ["files"], right: [], bottom: [] } },
+  { id: "commander", name: tr("presets.commander"), layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: ["places", "devices", "sets"], center: ["files"], right: ["details"], bottom: ["status"] } },
+  { id: "righthand", name: tr("presets.righthand"), layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: [], center: ["title", "files"], right: ["places", "devices", "details"], bottom: ["status"] } },
+  { id: "dashboard", name: tr("presets.dashboard"), layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: ["places", "clock", "recent", "visualizer"], center: ["title", "files"], right: ["details", "disk"], bottom: ["status"] } },
+  { id: "bottombar", name: tr("presets.bottombar"), layout: { top: ["title"], left: ["places", "devices", "sets"], center: ["files"], right: ["details"], bottom: ["tabs", "nav", "location", "search", "viewswitch"] } },
+  { id: "stack", name: tr("presets.stack"), layout: { top: ["tabs", "nav", "location", "search", "viewswitch"], left: [], center: ["title", "files", "details"], right: [], bottom: ["status"] } },
 ];
 
 export function mergeLayout(saved: Partial<Layout> | undefined | null): Layout {

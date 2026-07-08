@@ -1,10 +1,17 @@
+import { tr } from "@/i18n";
 import { useEffect, useState } from "react";
 import { compareEntries, useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA, itemColors } from "../theme/skins";
 import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
-import { extOf, formatSize, formatWhen, isExtractableArchive, kindOf } from "../lib/format";
+import {
+  extOf,
+  formatSize,
+  formatWhen,
+  isExtractableArchive,
+  kindOf } from
+"../lib/format";
 import type { FsEntry } from "../fs/types";
 import { getFsBackend } from "../fs";
 import { isRemotePath, remoteBasename } from "../fs/remotePath";
@@ -13,8 +20,11 @@ import { basenamePosix, joinPosix } from "../fs/pathUtil";
 import { openWithDefaultApp } from "../lib/openDefault";
 import { BatchRenameModal } from "../overlays/BatchRenameModal";
 import { PropertiesModal } from "../overlays/PropertiesModal";
-
-async function searchAll(root: string, query: string, cap = 1500): Promise<FsEntry[]> {
+async function searchAll(
+root: string,
+query: string,
+cap = 1500)
+: Promise<FsEntry[]> {
   const backend = await getFsBackend();
   const out: FsEntry[] = [];
   const q = query.toLowerCase();
@@ -36,17 +46,22 @@ async function searchAll(root: string, query: string, cap = 1500): Promise<FsEnt
   await walk(root, 0);
   return out;
 }
-
 function fileOrigin(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return undefined;
   const rect = target.getBoundingClientRect();
-  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height
+  };
 }
-
 export function Files() {
   const t = useTheme();
   const toolbarView = useStore((s) => s.view);
-  const configuredView = useStore((s) => s.mcfg<"follow" | "grid" | "list">("files", "view", "follow"));
+  const configuredView = useStore((s) =>
+  s.mcfg<"follow" | "grid" | "list">("files", "view", "follow")
+  );
   const view = configuredView === "follow" ? toolbarView : configuredView;
   const path = useStore((s) => s.path);
   const home = useStore((s) => s.home);
@@ -73,7 +88,9 @@ export function Files() {
   const createSymlinkFor = useStore((s) => s.createSymlinkFor);
   const batchRename = useStore((s) => s.batchRename);
   const [batchTargets, setBatchTargets] = useState<string[] | null>(null);
-  const [propertiesTarget, setPropertiesTarget] = useState<FsEntry | null>(null);
+  const [propertiesTarget, setPropertiesTarget] = useState<FsEntry | null>(
+    null
+  );
   const showToast = useStore((s) => s.showToast);
   const trashEntries = useStore((s) => s.trashEntries);
   const restoreEntries = useStore((s) => s.restoreEntries);
@@ -89,9 +106,7 @@ export function Files() {
   const goPath2 = useStore((s) => s.goPath2);
   const backend = useStore((s) => s.backend);
   const newTab = useStore((s) => s.newTab);
-
   const setSearchAllResults = useStore((s) => s.setSearchAllResults);
-
   useEffect(() => {
     if (searchScope !== "all" || !query.trim()) {
       setSearchAllResults(null);
@@ -105,25 +120,31 @@ export function Files() {
       cancelled = true;
     };
   }, [searchScope, query, home, setSearchAllResults]);
-
-  const activeSet = activeSetId ? setDefs.find((s) => s.id === activeSetId) : null;
+  const activeSet = activeSetId ?
+  setDefs.find((s) => s.id === activeSetId) :
+  null;
 
   // Kept in sync with the store's visibleEntries() — same filter/sort logic drives
   // the grid here, the Title item count, keyboard nav, select-all, and Quick Look.
   const sorted = useStore((s) => s.visibleEntries());
   const sortKey = useStore((s) => s.sortKey);
   const sortDir = useStore((s) => s.sortDir);
-
   const showGhosts = !trashView && !activeSet && !query.trim();
 
   // Ghosts sit exactly where the departed file used to sort. Both inputs are already
   // ordered by compareEntries and Array#sort is stable, so real entries keep the
   // visibleEntries() order that keyboard nav and item counts rely on.
   const displayRows: DisplayRow[] = [
-    ...sorted.map((entry) => ({ kind: "entry" as const, entry })),
-    ...(showGhosts ? ghostsForDir : []).map((ghost) => ({ kind: "ghost" as const, ghost, entry: ghostSortEntry(ghost) })),
-  ].sort((a, b) => compareEntries(a.entry, b.entry, sortKey, sortDir));
-
+  ...sorted.map((entry) => ({
+    kind: "entry" as const,
+    entry
+  })),
+  ...(showGhosts ? ghostsForDir : []).map((ghost) => ({
+    kind: "ghost" as const,
+    ghost,
+    entry: ghostSortEntry(ghost)
+  }))].
+  sort((a, b) => compareEntries(a.entry, b.entry, sortKey, sortDir));
   function onDragStartItem(e: React.DragEvent, entryPath: string) {
     const paths = selected.includes(entryPath) ? selected : [entryPath];
     if (!selected.includes(entryPath)) select(entryPath);
@@ -131,12 +152,10 @@ export function Files() {
     e.dataTransfer.setData("application/x-geyma-paths", JSON.stringify(paths));
     e.dataTransfer.setData("text/plain", paths.join("\n"));
   }
-
   function onOpen(entry: FsEntry) {
-    if (entry.isDir) goPath(entry.path);
-    else void openWithDefaultApp(entry.path);
+    if (entry.isDir) goPath(entry.path);else
+    void openWithDefaultApp(entry.path);
   }
-
   function itemMenu(entry: FsEntry, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -151,10 +170,27 @@ export function Files() {
         x: e.clientX,
         y: e.clientY,
         items: [
-          { label: multi ? `Restore ${targets.length} items` : "Restore", onClick: () => restoreEntries(targets) },
-          { divider: true },
-          { label: multi ? `Delete ${targets.length} items permanently` : "Delete permanently", danger: true, onClick: () => requestPermanentDelete(targets) },
-        ],
+        {
+          label: multi ?
+          tr("ui.files.restore_length_items", {
+            length: targets.length
+          }) :
+          tr("ui.files.restore"),
+          onClick: () => restoreEntries(targets)
+        },
+        {
+          divider: true
+        },
+        {
+          label: multi ?
+          tr("ui.files.delete_length_items_permanently", {
+            length: targets.length
+          }) :
+          tr("ui.files.delete_permanently"),
+          danger: true,
+          onClick: () => requestPermanentDelete(targets)
+        }]
+
       });
       return;
     }
@@ -163,61 +199,161 @@ export function Files() {
       x: e.clientX,
       y: e.clientY,
       items: [
-        !multi ? { label: "Open", onClick: () => onOpen(entry) } : undefined,
-        !multi ? { label: "Quick Look", onClick: () => openPreview(entry.path, fileOrigin(e.currentTarget)) } : undefined,
-        { label: isStarred ? "Remove star" : "Star", onClick: () => toggleStar(targets) },
-        !multi && entry.isDir
-          ? { label: "Open in New Tab", onClick: () => newTab(entry.path) }
-          : undefined,
-        !multi && entry.isDir
-          ? {
-              label: "Open in lower pane",
-              onClick: () => {
-                showModule("files2", "center2");
-                goPath2(entry.path);
-              },
-            }
-          : undefined,
-        !multi && !remote && isExtractableArchive(entry.name)
-          ? { label: "Extract Here", onClick: () => void extractHere(entry.path) }
-          : undefined,
-        !multi && !remote ? { label: "Create Symlink Here", onClick: () => void createSymlinkFor(entry.path) } : undefined,
-        { divider: true },
-        { label: "Cut", onClick: () => setClip("cut", targets) },
-        { label: "Copy", onClick: () => setClip("copy", targets) },
-        { label: multi ? `Duplicate ${targets.length} items` : "Duplicate", onClick: () => duplicateEntries(targets) },
-        multi ? { label: `Batch rename ${targets.length} items…`, onClick: () => setBatchTargets(targets) } : undefined,
-        remote
-          ? undefined
-          : {
-              label: multi ? `Compress ${targets.length} items to ZIP` : `Compress "${entry.name}" to ZIP`,
-              onClick: () => void compressEntries(targets, multi ? "Archive" : `${entry.name}.zip`),
-            },
-        {
-          label: multi ? "Copy paths" : "Copy path",
-          onClick: () => {
-            void navigator.clipboard.writeText(targets.join("\n"));
-            showToast(multi ? "Paths copied" : "Path copied");
-          },
-        },
-        ...manualSets.map((s) => ({
-          label: `Add to "${s.name}"`,
-          onClick: () =>
-            addToSet(
-              s.id,
-              targets.map((p) => ({ dir: backend?.dirname(p) || path, name: backend?.basename(p) || p })),
-            ),
-        })),
-        { divider: true },
-        !multi ? { label: "Rename", onClick: () => startRename(entry.path) } : undefined,
-        !multi ? { label: "Properties", onClick: () => setPropertiesTarget(entry) } : undefined,
-        remote
-          ? { label: multi ? `Delete ${targets.length} items permanently` : "Delete permanently", danger: true, onClick: () => requestPermanentDelete(targets) }
-          : { label: multi ? `Trash ${targets.length} items` : "Trash", danger: true, onClick: () => trashEntries(targets) },
-      ].filter(Boolean) as { label: string; onClick?: () => void; danger?: boolean; divider?: boolean }[],
+      !multi ?
+      {
+        label: tr("ui.files.open"),
+        onClick: () => onOpen(entry)
+      } :
+      undefined,
+      !multi ?
+      {
+        label: tr("ui.files.quick_look"),
+        onClick: () =>
+        openPreview(entry.path, fileOrigin(e.currentTarget))
+      } :
+      undefined,
+      {
+        label: isStarred ? tr("ui.files.remove_star") : tr("ui.files.star"),
+        onClick: () => toggleStar(targets)
+      },
+      !multi && entry.isDir ?
+      {
+        label: tr("ui.files.open_in_new_tab"),
+        onClick: () => newTab(entry.path)
+      } :
+      undefined,
+      !multi && entry.isDir ?
+      {
+        label: tr("ui.files.open_in_lower_pane"),
+        onClick: () => {
+          showModule("files2", "center2");
+          goPath2(entry.path);
+        }
+      } :
+      undefined,
+      !multi && !remote && isExtractableArchive(entry.name) ?
+      {
+        label: tr("ui.files.extract_here"),
+        onClick: () => void extractHere(entry.path)
+      } :
+      undefined,
+      !multi && !remote ?
+      {
+        label: tr("ui.files.create_symlink_here"),
+        onClick: () => void createSymlinkFor(entry.path)
+      } :
+      undefined,
+      {
+        divider: true
+      },
+      {
+        label: tr("ui.files.cut"),
+        onClick: () => setClip("cut", targets)
+      },
+      {
+        label: tr("ui.files.copy"),
+        onClick: () => setClip("copy", targets)
+      },
+      {
+        label: multi ?
+        tr("ui.files.duplicate_length_items", {
+          length: targets.length
+        }) :
+        tr("ui.files.duplicate"),
+        onClick: () => duplicateEntries(targets)
+      },
+      multi ?
+      {
+        label: tr("ui.files.batch_rename_length_items", {
+          length: targets.length
+        }),
+        onClick: () => setBatchTargets(targets)
+      } :
+      undefined,
+      remote ?
+      undefined :
+      {
+        label: multi ?
+        tr("ui.files.compress_length_items_to_zip", {
+          length: targets.length
+        }) :
+        tr("ui.files.compress_name_to_zip", {
+          name: entry.name
+        }),
+        onClick: () =>
+        void compressEntries(
+          targets,
+          multi ?
+          tr("ui.files.archive") : `${
+
+          entry.name}.zip`
+
+        )
+      },
+      {
+        label: multi ? tr("ui.files.copy_paths") : tr("ui.files.copy_path"),
+        onClick: () => {
+          void navigator.clipboard.writeText(targets.join("\n"));
+          showToast(
+            multi ? tr("ui.files.paths_copied") : tr("ui.files.path_copied")
+          );
+        }
+      },
+      ...manualSets.map((s) => ({
+        label: tr("ui.files.add_to_name", {
+          name: s.name
+        }),
+        onClick: () =>
+        addToSet(
+          s.id,
+          targets.map((p) => ({
+            dir: backend?.dirname(p) || path,
+            name: backend?.basename(p) || p
+          }))
+        )
+      })),
+      {
+        divider: true
+      },
+      !multi ?
+      {
+        label: tr("ui.files.rename"),
+        onClick: () => startRename(entry.path)
+      } :
+      undefined,
+      !multi ?
+      {
+        label: tr("ui.files.properties"),
+        onClick: () => setPropertiesTarget(entry)
+      } :
+      undefined,
+      remote ?
+      {
+        label: multi ?
+        tr("ui.files.delete_length_items_permanently", {
+          length: targets.length
+        }) :
+        tr("ui.files.delete_permanently"),
+        danger: true,
+        onClick: () => requestPermanentDelete(targets)
+      } :
+      {
+        label: multi ?
+        tr("ui.files.trash_length_items", {
+          length: targets.length
+        }) :
+        tr("ui.files.trash"),
+        danger: true,
+        onClick: () => trashEntries(targets)
+      }].
+      filter(Boolean) as {
+        label: string;
+        onClick?: () => void;
+        danger?: boolean;
+        divider?: boolean;
+      }[]
     });
   }
-
   function onBlankMenu(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -226,98 +362,173 @@ export function Files() {
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: "New Folder", onClick: () => void createFolder() },
-        { label: "New Text File", onClick: () => void createTextFile("text") },
-        { label: "New Markdown Note", onClick: () => void createTextFile("markdown") },
-        { divider: true },
-        clip ? { label: "Paste", onClick: () => void pasteClip() } : undefined,
-        { label: "Select all", onClick: () => useStore.getState().selectAll() },
-      ].filter(Boolean) as { label: string; onClick?: () => void; divider?: boolean }[],
+      {
+        label: tr("ui.files.new_folder"),
+        onClick: () => void createFolder()
+      },
+      {
+        label: tr("ui.files.new_text_file"),
+        onClick: () => void createTextFile("text")
+      },
+      {
+        label: tr("ui.files.new_markdown_note"),
+        onClick: () => void createTextFile("markdown")
+      },
+      {
+        divider: true
+      },
+      clip ?
+      {
+        label: tr("ui.files.paste"),
+        onClick: () => void pasteClip()
+      } :
+      undefined,
+      {
+        label: tr("ui.files.select_all"),
+        onClick: () => useStore.getState().selectAll()
+      }].
+      filter(Boolean) as {
+        label: string;
+        onClick?: () => void;
+        divider?: boolean;
+      }[]
     });
   }
+  const batchModal = batchTargets &&
+  <BatchRenameModal
+    entries={sorted.filter((e) => batchTargets.includes(e.path))}
+    onClose={() => setBatchTargets(null)}
+    onConfirm={(template, startAt) => {
+      void batchRename(batchTargets, template, startAt);
+      setBatchTargets(null);
+    }} />;
 
-  const batchModal = batchTargets && (
-    <BatchRenameModal
-      entries={sorted.filter((e) => batchTargets.includes(e.path))}
-      onClose={() => setBatchTargets(null)}
-      onConfirm={(template, startAt) => {
-        void batchRename(batchTargets, template, startAt);
-        setBatchTargets(null);
-      }}
-    />
-  );
 
-  const propertiesModal = propertiesTarget && (
-    <PropertiesModal entry={propertiesTarget} onClose={() => setPropertiesTarget(null)} />
-  );
+  const propertiesModal = propertiesTarget &&
+  <PropertiesModal
+    entry={propertiesTarget}
+    onClose={() => setPropertiesTarget(null)} />;
+
 
   if (sorted.length === 0 && showGhosts && ghostsForDir.length === 0) {
     return (
-      <div onContextMenu={onBlankMenu} style={{ flex: 1, display: "grid", placeItems: "center", padding: 40 }}>
-        <span style={{ fontSize: 12.5, color: t.inkFaint }}>
-          {query.trim() ? "No matches" : trashView ? "Trash is empty" : "Empty folder"}
+      <div
+        onContextMenu={onBlankMenu}
+        style={{
+          flex: 1,
+          display: "grid",
+          placeItems: "center",
+          padding: 40
+        }}>
+        
+        <span
+          style={{
+            fontSize: 12.5,
+            color: t.inkFaint
+          }}>
+          
+          {query.trim() ?
+          tr("ui.files.no_matches") :
+          trashView ?
+          tr("ui.files.trash_is_empty") :
+          tr("ui.files.empty_folder")}
         </span>
         {batchModal}
         {propertiesModal}
-      </div>
-    );
-  }
+      </div>);
 
+  }
   return (
-    <div onContextMenu={onBlankMenu} style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 10 }} className="gy-list">
-      {view === "grid" ? (
-        <div
-          data-files-grid
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}
-        >
+    <div
+      onContextMenu={onBlankMenu}
+      style={{
+        flex: 1,
+        minHeight: 0,
+        overflow: "auto",
+        padding: 10
+      }}
+      className="gy-list">
+      
+      {view === "grid" ?
+      <div
+        data-files-grid
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+          gap: 10
+        }}>
+        
           {displayRows.map((row) =>
-            row.kind === "ghost" ? (
-              <GhostTile key={row.ghost.name + row.ghost.atMs} ghost={row.ghost} />
-            ) : (
-              <FileTile
-                key={row.entry.path}
-                entry={row.entry}
-                selected={selected.includes(row.entry.path)}
-                starred={starred.has(row.entry.path)}
-                renaming={renaming === row.entry.path}
-                renameVal={renameVal}
-                onRenameChange={(v) => useStore.setState({ renameVal: v })}
-                onRenameCommit={commitRename}
-                onRenameCancel={cancelRename}
-                onSelect={(e) => select(row.entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
-                onOpen={() => onOpen(row.entry)}
-                onOpenInNewTab={() => (row.entry.isDir ? newTab(row.entry.path) : undefined)}
-                onContextMenu={(e) => itemMenu(row.entry, e)}
-                onDragStart={(e) => onDragStartItem(e, row.entry.path)}
-                onDropFiles={(paths) => (row.entry.isDir ? void moveEntries(paths, row.entry.path) : undefined)}
-              />
-            ),
-          )}
-        </div>
-      ) : (
-        <ListView
-          rows={displayRows}
-          selected={selected}
-          starred={starred}
-          renaming={renaming}
+        row.kind === "ghost" ?
+        <GhostTile
+          key={row.ghost.name + row.ghost.atMs}
+          ghost={row.ghost} /> :
+
+
+        <FileTile
+          key={row.entry.path}
+          entry={row.entry}
+          selected={selected.includes(row.entry.path)}
+          starred={starred.has(row.entry.path)}
+          renaming={renaming === row.entry.path}
           renameVal={renameVal}
-          onRenameChange={(v) => useStore.setState({ renameVal: v })}
+          onRenameChange={(v) =>
+          useStore.setState({
+            renameVal: v
+          })
+          }
           onRenameCommit={commitRename}
           onRenameCancel={cancelRename}
-          onSelect={select}
-          onOpen={onOpen}
-          onOpenInNewTab={(entry) => (entry.isDir ? newTab(entry.path) : undefined)}
-          onContextMenu={itemMenu}
-          onDragStart={onDragStartItem}
-          onDropFiles={(dir, paths) => void moveEntries(paths, dir)}
-        />
-      )}
+          onSelect={(e) =>
+          select(row.entry.path, {
+            ctrl: e.metaKey || e.ctrlKey,
+            shift: e.shiftKey
+          })
+          }
+          onOpen={() => onOpen(row.entry)}
+          onOpenInNewTab={() =>
+          row.entry.isDir ? newTab(row.entry.path) : undefined
+          }
+          onContextMenu={(e) => itemMenu(row.entry, e)}
+          onDragStart={(e) => onDragStartItem(e, row.entry.path)}
+          onDropFiles={(paths) =>
+          row.entry.isDir ?
+          void moveEntries(paths, row.entry.path) :
+          undefined
+          } />
+
+
+        )}
+        </div> :
+
+      <ListView
+        rows={displayRows}
+        selected={selected}
+        starred={starred}
+        renaming={renaming}
+        renameVal={renameVal}
+        onRenameChange={(v) =>
+        useStore.setState({
+          renameVal: v
+        })
+        }
+        onRenameCommit={commitRename}
+        onRenameCancel={cancelRename}
+        onSelect={select}
+        onOpen={onOpen}
+        onOpenInNewTab={(entry) =>
+        entry.isDir ? newTab(entry.path) : undefined
+        }
+        onContextMenu={itemMenu}
+        onDragStart={onDragStartItem}
+        onDropFiles={(dir, paths) => void moveEntries(paths, dir)} />
+
+      }
       {batchModal}
       {propertiesModal}
-    </div>
-  );
-}
+    </div>);
 
+}
 interface TileProps {
   entry: FsEntry;
   selected: boolean;
@@ -334,14 +545,27 @@ interface TileProps {
   onDragStart: (e: React.DragEvent) => void;
   onDropFiles: (paths: string[]) => void;
 }
-
-function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: TileProps) {
+function FileTile({
+  entry,
+  selected,
+  starred,
+  renaming,
+  renameVal,
+  onRenameChange,
+  onRenameCommit,
+  onRenameCancel,
+  onSelect,
+  onOpen,
+  onOpenInNewTab,
+  onContextMenu,
+  onDragStart,
+  onDropFiles
+}: TileProps) {
   const t = useTheme();
   const [dragOver, setDragOver] = useState(false);
   const kind = kindOf(entry.name, entry.isDir);
   const colors = itemColors(kind, t);
   const ext = extOf(entry.name);
-
   return (
     <div
       data-file={entry.path}
@@ -377,13 +601,29 @@ function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChang
         borderRadius: t.radius > 10 ? 12 : t.radius,
         cursor: "default",
         userSelect: "none",
-        boxShadow: selected ? `0 0 0 1.5px ${t.accent}` : "none",
-        background: selected ? hexA(t.accent, t.isDark ? 0.14 : 0.08) : dragOver ? hexA(t.accent, 0.1) : "transparent",
-        outline: dragOver ? `2px solid ${t.accent}` : "none",
-        outlineOffset: -2,
-      }}
-    >
-      <div style={{ position: "relative" }}>
+        boxShadow: selected ? `0 0 0 1.5px ${
+
+        t.accent}` :
+
+        "none",
+        background: selected ?
+        hexA(t.accent, t.isDark ? 0.14 : 0.08) :
+        dragOver ?
+        hexA(t.accent, 0.1) :
+        "transparent",
+        outline: dragOver ? `2px solid ${
+
+        t.accent}` :
+
+        "none",
+        outlineOffset: -2
+      }}>
+      
+      <div
+        style={{
+          position: "relative"
+        }}>
+        
         <div
           style={{
             width: 46,
@@ -392,43 +632,97 @@ function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChang
             background: colors.bg,
             color: colors.tint,
             display: "grid",
-            placeItems: "center",
-          }}
-        >
-          {entry.isDir ? <Icon d={ICONS.folder} size={22} color={colors.tint} /> : (
-            <span style={{ fontFamily: t.mono, fontSize: 8, fontWeight: 700, letterSpacing: ".02em" }}>{ext || "•"}</span>
-          )}
-        </div>
-        {starred && (
-          <span style={{ position: "absolute", top: -4, right: -4, color: "#D89B2B", fontSize: 12 }}>★</span>
-        )}
-      </div>
-      {renaming ? (
-        <input
-          autoFocus
-          value={renameVal}
-          onChange={(e) => onRenameChange(e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onRenameCommit();
-            if (e.key === "Escape") onRenameCancel();
-          }}
-          onBlur={onRenameCommit}
-          style={{ width: "100%", fontSize: 12.5, textAlign: "center", border: `1px solid ${t.accent}`, borderRadius: 6, padding: "1px 4px" }}
-        />
-      ) : (
-        <span style={{ fontSize: 13, fontWeight: 600, textAlign: "center", wordBreak: "break-word", lineHeight: 1.25 }}>{entry.name}</span>
-      )}
-      <span style={{ fontFamily: t.mono, fontSize: 9.5, color: t.inkFaint }}>
-        {entry.isDir ? formatWhen(entry.modifiedMs) : `${formatSize(entry.size)}`}
-      </span>
-    </div>
-  );
-}
+            placeItems: "center"
+          }}>
+          
+          {entry.isDir ?
+          <Icon d={ICONS.folder} size={22} color={colors.tint} /> :
 
+          <span
+            style={{
+              fontFamily: t.mono,
+              fontSize: 8,
+              fontWeight: 700,
+              letterSpacing: ".02em"
+            }}>
+            
+              {ext || "•"}
+            </span>
+          }
+        </div>
+        {starred &&
+        <span
+          style={{
+            position: "absolute",
+            top: -4,
+            right: -4,
+            color: "#D89B2B",
+            fontSize: 12
+          }}>
+          
+            ★
+          </span>
+        }
+      </div>
+      {renaming ?
+      <input
+        autoFocus
+        value={renameVal}
+        onChange={(e) => onRenameChange(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onRenameCommit();
+          if (e.key === "Escape") onRenameCancel();
+        }}
+        onBlur={onRenameCommit}
+        style={{
+          width: "100%",
+          fontSize: 12.5,
+          textAlign: "center",
+          border: `1px solid ${
+          t.accent}`,
+
+          borderRadius: 6,
+          padding: "1px 4px"
+        }} /> :
+
+
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          textAlign: "center",
+          wordBreak: "break-word",
+          lineHeight: 1.25
+        }}>
+        
+          {entry.name}
+        </span>
+      }
+      <span
+        style={{
+          fontFamily: t.mono,
+          fontSize: 9.5,
+          color: t.inkFaint
+        }}>
+        
+        {entry.isDir ?
+        formatWhen(entry.modifiedMs) :
+        `${formatSize(entry.size)}`}
+      </span>
+    </div>);
+
+}
 type DisplayRow =
-  | { kind: "entry"; entry: FsEntry }
-  | { kind: "ghost"; ghost: Ghost; entry: FsEntry };
+{
+  kind: "entry";
+  entry: FsEntry;
+} |
+{
+  kind: "ghost";
+  ghost: Ghost;
+  entry: FsEntry;
+};
 
 /** Stand-in FsEntry used only to sort a ghost into the spot its file occupied. */
 function ghostSortEntry(g: Ghost): FsEntry {
@@ -439,24 +733,30 @@ function ghostSortEntry(g: Ghost): FsEntry {
     size: g.size ?? 0,
     modifiedMs: g.modifiedMs ?? g.atMs,
     createdMs: g.modifiedMs ?? g.atMs,
-    isHidden: false,
+    isHidden: false
   };
 }
-
 function ghostDestName(toDir: string): string {
-  const name = isRemotePath(toDir) ? remoteBasename(toDir) : basenamePosix(toDir);
+  const name = isRemotePath(toDir) ?
+  remoteBasename(toDir) :
+  basenamePosix(toDir);
   return name || toDir;
 }
-
 function ghostAgo(atMs: number): string {
   const s = Math.max(0, Math.round((Date.now() - atMs) / 1000));
-  if (s < 45) return "just now";
+  if (s < 45) return tr("time.just_now");
   const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60)
+  return tr("ui.files.m_m_ago", {
+    m
+  });
   const h = Math.round(m / 60);
-  return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+  return h < 24 ?
+  tr("ui.files.h_h_ago", {
+    h
+  }) :
+  tr("ui.files.d_d_ago", { d: Math.round(h / 24) });
 }
-
 function useFollowGhost(ghost: Ghost) {
   const goPath = useStore((s) => s.goPath);
   const select = useStore((s) => s.select);
@@ -465,8 +765,15 @@ function useFollowGhost(ghost: Ghost) {
     setTimeout(() => select(joinPosix(ghost.toDir, ghost.toName)), 0);
   };
 }
+function GhostDismiss({
+  ghost,
+  visible,
+  style
 
-function GhostDismiss({ ghost, visible, style }: { ghost: Ghost; visible: boolean; style?: React.CSSProperties }) {
+
+
+
+}: {ghost: Ghost;visible: boolean;style?: React.CSSProperties;}) {
   const t = useTheme();
   const dismissGhost = useStore((s) => s.dismissGhost);
   return (
@@ -475,7 +782,7 @@ function GhostDismiss({ ghost, visible, style }: { ghost: Ghost; visible: boolea
         e.stopPropagation();
         dismissGhost(ghost);
       }}
-      title="Dismiss"
+      title={tr("ui.files.dismiss")}
       className="gy-soft"
       style={{
         display: "grid",
@@ -491,15 +798,14 @@ function GhostDismiss({ ghost, visible, style }: { ghost: Ghost; visible: boolea
         opacity: visible ? 1 : 0,
         pointerEvents: visible ? "auto" : "none",
         transition: "opacity .15s ease",
-        ...style,
-      }}
-    >
+        ...style
+      }}>
+      
       <Icon d={ICONS.close} size={9} strokeWidth={2.4} />
-    </button>
-  );
-}
+    </button>);
 
-function GhostDestChip({ ghost, hover }: { ghost: Ghost; hover: boolean }) {
+}
+function GhostDestChip({ ghost, hover }: {ghost: Ghost;hover: boolean;}) {
   const t = useTheme();
   return (
     <span
@@ -514,16 +820,23 @@ function GhostDestChip({ ghost, hover }: { ghost: Ghost; hover: boolean }) {
         color: t.accent,
         fontSize: 10,
         fontWeight: 650,
-        transition: "background .15s ease",
-      }}
-    >
+        transition: "background .15s ease"
+      }}>
+      
       <Icon d={ICONS.chevronRight} size={9} strokeWidth={2.4} />
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ghostDestName(ghost.toDir)}</span>
-    </span>
-  );
-}
+      <span
+        style={{
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap"
+        }}>
+        
+        {ghostDestName(ghost.toDir)}
+      </span>
+    </span>);
 
-function GhostTile({ ghost }: { ghost: Ghost }) {
+}
+function GhostTile({ ghost }: {ghost: Ghost;}) {
   const t = useTheme();
   const follow = useFollowGhost(ghost);
   const [hover, setHover] = useState(false);
@@ -532,7 +845,10 @@ function GhostTile({ ghost }: { ghost: Ghost }) {
       onClick={follow}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      title={`${ghost.name} moved to ${ghost.toDir} — click to follow`}
+      title={tr("ui.files.name_moved_to_to_dir_click_to_follow", {
+        name: ghost.name,
+        toDir: ghost.toDir
+      })}
       style={{
         position: "relative",
         display: "flex",
@@ -546,34 +862,79 @@ function GhostTile({ ghost }: { ghost: Ghost }) {
         opacity: hover ? 1 : 0.65,
         cursor: "pointer",
         userSelect: "none",
-        transition: "opacity .15s ease, border-color .15s ease, background .15s ease",
-      }}
-    >
-      <GhostDismiss ghost={ghost} visible={hover} style={{ position: "absolute", top: 5, right: 5 }} />
-      <div style={{ position: "relative", width: 46, height: 46, display: "grid", placeItems: "center" }}>
+        transition:
+        "opacity .15s ease, border-color .15s ease, background .15s ease"
+      }}>
+      
+      <GhostDismiss
+        ghost={ghost}
+        visible={hover}
+        style={{
+          position: "absolute",
+          top: 5,
+          right: 5
+        }} />
+      
+      <div
+        style={{
+          position: "relative",
+          width: 46,
+          height: 46,
+          display: "grid",
+          placeItems: "center"
+        }}>
+        
         <span
           className="gy-ghost-bob"
-          style={{ display: "grid", placeItems: "center", color: hover ? t.accent : hexA(t.ink, 0.5), transition: "color .15s ease" }}
-        >
+          style={{
+            display: "grid",
+            placeItems: "center",
+            color: hover ? t.accent : hexA(t.ink, 0.5),
+            transition: "color .15s ease"
+          }}>
+          
           <Icon d={ICONS.ghost} size={30} strokeWidth={1.6} />
         </span>
         <span
           className="gy-ghost-shadow"
-          style={{ position: "absolute", bottom: 2, width: 18, height: 4, borderRadius: 99, background: hexA(t.ink, 0.35), opacity: 0.5 }}
-        />
+          style={{
+            position: "absolute",
+            bottom: 2,
+            width: 18,
+            height: 4,
+            borderRadius: 99,
+            background: hexA(t.ink, 0.35),
+            opacity: 0.5
+          }} />
+        
       </div>
-      <span style={{ fontSize: 12.5, fontStyle: "italic", textAlign: "center", wordBreak: "break-word", lineHeight: 1.25, color: t.inkSoft }}>
+      <span
+        style={{
+          fontSize: 12.5,
+          fontStyle: "italic",
+          textAlign: "center",
+          wordBreak: "break-word",
+          lineHeight: 1.25,
+          color: t.inkSoft
+        }}>
+        
         {ghost.name}
       </span>
       <GhostDestChip ghost={ghost} hover={hover} />
-      <span style={{ fontFamily: t.mono, fontSize: 9, color: hover ? t.accent : t.inkFaint, transition: "color .15s ease" }}>
-        {hover ? "click to follow" : `moved ${ghostAgo(ghost.atMs)}`}
+      <span
+        style={{
+          fontFamily: t.mono,
+          fontSize: 9,
+          color: hover ? t.accent : t.inkFaint,
+          transition: "color .15s ease"
+        }}>
+        
+        {hover ? tr("ui.files.click_to_follow") : tr("ui.files.moved_ago", { ago: ghostAgo(ghost.atMs) })}
       </span>
-    </div>
-  );
-}
+    </div>);
 
-function GhostRow({ ghost }: { ghost: Ghost }) {
+}
+function GhostRow({ ghost }: {ghost: Ghost;}) {
   const t = useTheme();
   const follow = useFollowGhost(ghost);
   const [hover, setHover] = useState(false);
@@ -582,35 +943,72 @@ function GhostRow({ ghost }: { ghost: Ghost }) {
       onClick={follow}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      title={`${ghost.name} moved to ${ghost.toDir} — click to follow`}
+      title={tr("ui.files.name_moved_to_to_dir_click_to_follow", {
+        name: ghost.name,
+        toDir: ghost.toDir
+      })}
       style={{
         display: "flex",
         alignItems: "center",
         gap: 8,
         padding: "5px 8px",
-        borderBottom: `1px solid ${t.border}`,
+        borderBottom: `1px solid ${
+        t.border}`,
+
         cursor: "pointer",
         userSelect: "none",
         opacity: hover ? 1 : 0.62,
         background: hover ? hexA(t.accent, 0.06) : "transparent",
-        transition: "opacity .15s ease, background .15s ease",
-      }}
-    >
-      <span className="gy-ghost-bob" style={{ display: "grid", placeItems: "center", color: hover ? t.accent : hexA(t.ink, 0.45), transition: "color .15s ease" }}>
+        transition: "opacity .15s ease, background .15s ease"
+      }}>
+      
+      <span
+        className="gy-ghost-bob"
+        style={{
+          display: "grid",
+          placeItems: "center",
+          color: hover ? t.accent : hexA(t.ink, 0.45),
+          transition: "color .15s ease"
+        }}>
+        
         <Icon d={ICONS.ghost} size={15} strokeWidth={1.6} />
       </span>
-      <span style={{ flex: 1, minWidth: 0, fontStyle: "italic", fontSize: 12.5, color: t.inkSoft, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontStyle: "italic",
+          fontSize: 12.5,
+          color: t.inkSoft,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap"
+        }}>
+        
         {ghost.name}
       </span>
       <GhostDestChip ghost={ghost} hover={hover} />
-      <span style={{ flex: "none", fontFamily: t.mono, fontSize: 9.5, color: hover ? t.accent : t.inkFaint, transition: "color .15s ease" }}>
+      <span
+        style={{
+          flex: "none",
+          fontFamily: t.mono,
+          fontSize: 9.5,
+          color: hover ? t.accent : t.inkFaint,
+          transition: "color .15s ease"
+        }}>
+        
         {hover ? "follow" : ghostAgo(ghost.atMs)}
       </span>
-      <GhostDismiss ghost={ghost} visible={hover} style={{ flex: "none" }} />
-    </div>
-  );
-}
+      <GhostDismiss
+        ghost={ghost}
+        visible={hover}
+        style={{
+          flex: "none"
+        }} />
+      
+    </div>);
 
+}
 interface ListProps {
   rows: DisplayRow[];
   selected: string[];
@@ -620,80 +1018,199 @@ interface ListProps {
   onRenameChange: (v: string) => void;
   onRenameCommit: () => void;
   onRenameCancel: () => void;
-  onSelect: (path: string, opts?: { ctrl?: boolean; shift?: boolean }) => void;
+  onSelect: (
+  path: string,
+  opts?: {
+    ctrl?: boolean;
+    shift?: boolean;
+  })
+  => void;
   onOpen: (entry: FsEntry) => void;
   onOpenInNewTab: (entry: FsEntry) => void;
   onContextMenu: (entry: FsEntry, e: React.MouseEvent) => void;
   onDragStart: (e: React.DragEvent, path: string) => void;
   onDropFiles: (dir: string, paths: string[]) => void;
 }
-
-function ListView({ rows, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: ListProps) {
+function ListView({
+  rows,
+  selected,
+  starred,
+  renaming,
+  renameVal,
+  onRenameChange,
+  onRenameCommit,
+  onRenameCancel,
+  onSelect,
+  onOpen,
+  onOpenInNewTab,
+  onContextMenu,
+  onDragStart,
+  onDropFiles
+}: ListProps) {
   const t = useTheme();
   const columns = useStore((s) => s.columns);
   const sortKey = useStore((s) => s.sortKey);
   const sortDir = useStore((s) => s.sortDir);
   const setSort = useStore((s) => s.setSort);
-
   return (
     <div>
-      <div style={{ display: "flex", padding: "4px 8px", fontFamily: t.mono, fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".1em", color: t.inkFaint, borderBottom: `1px solid ${t.border}` }}>
-        <HeaderCell grow active={sortKey === "name"} dir={sortDir} onClick={() => setSort("name")}>Name</HeaderCell>
-        {columns.includes("kind") && (
-          <HeaderCell className="gy-c-kind" width={100} active={sortKey === "kind"} dir={sortDir} onClick={() => setSort("kind")}>Kind</HeaderCell>
-        )}
-        {columns.includes("size") && (
-          <HeaderCell className="gy-c-size" width={90} active={sortKey === "size"} dir={sortDir} onClick={() => setSort("size")}>Size</HeaderCell>
-        )}
-        {columns.includes("modified") && (
-          <HeaderCell className="gy-c-modified" width={138} active={sortKey === "modified"} dir={sortDir} onClick={() => setSort("modified")}>Modified</HeaderCell>
-        )}
+      <div
+        style={{
+          display: "flex",
+          padding: "4px 8px",
+          fontFamily: t.mono,
+          fontSize: 10.5,
+          textTransform: "uppercase",
+          letterSpacing: ".1em",
+          color: t.inkFaint,
+          borderBottom: `1px solid ${
+          t.border}`
+
+        }}>
+        
+        <HeaderCell
+          grow
+          active={sortKey === "name"}
+          dir={sortDir}
+          onClick={() => setSort("name")}>
+          
+          {tr("ui.files.name")}
+        </HeaderCell>
+        {columns.includes("kind") &&
+        <HeaderCell
+          className="gy-c-kind"
+          width={100}
+          active={sortKey === "kind"}
+          dir={sortDir}
+          onClick={() => setSort("kind")}>
+          
+            {tr("ui.files.kind")}
+          </HeaderCell>
+        }
+        {columns.includes("size") &&
+        <HeaderCell
+          className="gy-c-size"
+          width={90}
+          active={sortKey === "size"}
+          dir={sortDir}
+          onClick={() => setSort("size")}>
+          
+            {tr("ui.files.size")}
+          </HeaderCell>
+        }
+        {columns.includes("modified") &&
+        <HeaderCell
+          className="gy-c-modified"
+          width={138}
+          active={sortKey === "modified"}
+          dir={sortDir}
+          onClick={() => setSort("modified")}>
+          
+            {tr("ui.files.modified")}
+          </HeaderCell>
+        }
       </div>
       {rows.map((row) =>
-        row.kind === "ghost" ? (
-          <GhostRow key={row.ghost.name + row.ghost.atMs} ghost={row.ghost} />
-        ) : (
-          <FileRow
-            key={row.entry.path}
-            entry={row.entry}
-            columns={columns}
-            selected={selected.includes(row.entry.path)}
-            starred={starred.has(row.entry.path)}
-            renaming={renaming === row.entry.path}
-            renameVal={renameVal}
-            onRenameChange={onRenameChange}
-            onRenameCommit={onRenameCommit}
-            onRenameCancel={onRenameCancel}
-            onSelect={(e) => onSelect(row.entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
-            onOpen={() => onOpen(row.entry)}
-            onOpenInNewTab={() => onOpenInNewTab(row.entry)}
-            onContextMenu={(e) => onContextMenu(row.entry, e)}
-            onDragStart={(e) => onDragStart(e, row.entry.path)}
-            onDropFiles={(paths) => (row.entry.isDir ? onDropFiles(row.entry.path, paths) : undefined)}
-          />
-        ),
-      )}
-    </div>
-  );
-}
+      row.kind === "ghost" ?
+      <GhostRow key={row.ghost.name + row.ghost.atMs} ghost={row.ghost} /> :
 
-function HeaderCell({ width, grow, active, dir, onClick, children, className }: { width?: number; grow?: boolean; active: boolean; dir: "asc" | "desc"; onClick: () => void; children: React.ReactNode; className?: string }) {
+      <FileRow
+        key={row.entry.path}
+        entry={row.entry}
+        columns={columns}
+        selected={selected.includes(row.entry.path)}
+        starred={starred.has(row.entry.path)}
+        renaming={renaming === row.entry.path}
+        renameVal={renameVal}
+        onRenameChange={onRenameChange}
+        onRenameCommit={onRenameCommit}
+        onRenameCancel={onRenameCancel}
+        onSelect={(e) =>
+        onSelect(row.entry.path, {
+          ctrl: e.metaKey || e.ctrlKey,
+          shift: e.shiftKey
+        })
+        }
+        onOpen={() => onOpen(row.entry)}
+        onOpenInNewTab={() => onOpenInNewTab(row.entry)}
+        onContextMenu={(e) => onContextMenu(row.entry, e)}
+        onDragStart={(e) => onDragStart(e, row.entry.path)}
+        onDropFiles={(paths) =>
+        row.entry.isDir ? onDropFiles(row.entry.path, paths) : undefined
+        } />
+
+
+      )}
+    </div>);
+
+}
+function HeaderCell({
+  width,
+  grow,
+  active,
+  dir,
+  onClick,
+  children,
+  className
+
+
+
+
+
+
+
+
+}: {width?: number;grow?: boolean;active: boolean;dir: "asc" | "desc";onClick: () => void;children: React.ReactNode;className?: string;}) {
   const t = useTheme();
   return (
-    <button onClick={onClick} className={className} style={{ width, flex: grow ? 1 : undefined, padding: grow ? 0 : undefined, textAlign: grow ? "left" : "right", border: 0, background: "transparent", cursor: "pointer", fontFamily: "inherit", color: active ? t.accent : t.inkFaint, fontWeight: active ? 700 : 500, fontSize: "inherit", textTransform: "inherit", letterSpacing: "inherit" }}>
+    <button
+      onClick={onClick}
+      className={className}
+      style={{
+        width,
+        flex: grow ? 1 : undefined,
+        padding: grow ? 0 : undefined,
+        textAlign: grow ? "left" : "right",
+        border: 0,
+        background: "transparent",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        color: active ? t.accent : t.inkFaint,
+        fontWeight: active ? 700 : 500,
+        fontSize: "inherit",
+        textTransform: "inherit",
+        letterSpacing: "inherit"
+      }}>
+      
       {children}
-      {active ? (dir === "asc" ? " ↑" : " ↓") : ""}
-    </button>
-  );
-}
+      {active ? dir === "asc" ? " ↑" : " ↓" : ""}
+    </button>);
 
-function FileRow({ entry, columns, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: TileProps & { columns: string[] }) {
+}
+function FileRow({
+  entry,
+  columns,
+  selected,
+  starred,
+  renaming,
+  renameVal,
+  onRenameChange,
+  onRenameCommit,
+  onRenameCancel,
+  onSelect,
+  onOpen,
+  onOpenInNewTab,
+  onContextMenu,
+  onDragStart,
+  onDropFiles
+
+
+}: TileProps & {columns: string[];}) {
   const t = useTheme();
   const [dragOver, setDragOver] = useState(false);
   const kind = kindOf(entry.name, entry.isDir);
   const colors = itemColors(kind, t);
   const ext = extOf(entry.name);
-
   return (
     <div
       data-file={entry.path}
@@ -726,51 +1243,144 @@ function FileRow({ entry, columns, selected, starred, renaming, renameVal, onRen
         alignItems: "center",
         padding: "6px 8px",
         fontSize: 13,
-        borderBottom: `1px solid ${t.border}`,
-        background: selected ? hexA(t.accent, t.isDark ? 0.16 : 0.09) : dragOver ? hexA(t.accent, 0.1) : "transparent",
-        outline: dragOver ? `2px solid ${t.accent}` : "none",
+        borderBottom: `1px solid ${
+        t.border}`,
+
+        background: selected ?
+        hexA(t.accent, t.isDark ? 0.16 : 0.09) :
+        dragOver ?
+        hexA(t.accent, 0.1) :
+        "transparent",
+        outline: dragOver ? `2px solid ${
+
+        t.accent}` :
+
+        "none",
         outlineOffset: -2,
         cursor: "default",
-        userSelect: "none",
-      }}
-    >
-      <span style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-        <span style={{ width: 22, height: 22, borderRadius: 6, background: colors.bg, color: colors.tint, display: "grid", placeItems: "center", flex: "none" }}>
-          {entry.isDir ? <Icon d={ICONS.folder} size={13} color={colors.tint} /> : <span style={{ fontFamily: t.mono, fontSize: 7, fontWeight: 700 }}>{ext.slice(0, 3) || "•"}</span>}
+        userSelect: "none"
+      }}>
+      
+      <span
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          minWidth: 0
+        }}>
+        
+        <span
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 6,
+            background: colors.bg,
+            color: colors.tint,
+            display: "grid",
+            placeItems: "center",
+            flex: "none"
+          }}>
+          
+          {entry.isDir ?
+          <Icon d={ICONS.folder} size={13} color={colors.tint} /> :
+
+          <span
+            style={{
+              fontFamily: t.mono,
+              fontSize: 7,
+              fontWeight: 700
+            }}>
+            
+              {ext.slice(0, 3) || "•"}
+            </span>
+          }
         </span>
-        {renaming ? (
-          <input
-            autoFocus
-            value={renameVal}
-            onChange={(e) => onRenameChange(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onRenameCommit();
-              if (e.key === "Escape") onRenameCancel();
-            }}
-            onBlur={onRenameCommit}
-            style={{ fontSize: 13, border: `1px solid ${t.accent}`, borderRadius: 6, padding: "1px 4px", minWidth: 0 }}
-          />
-        ) : (
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</span>
-        )}
-        {starred && <span style={{ color: "#D89B2B", fontSize: 11 }}>★</span>}
+        {renaming ?
+        <input
+          autoFocus
+          value={renameVal}
+          onChange={(e) => onRenameChange(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onRenameCommit();
+            if (e.key === "Escape") onRenameCancel();
+          }}
+          onBlur={onRenameCommit}
+          style={{
+            fontSize: 13,
+            border: `1px solid ${
+            t.accent}`,
+
+            borderRadius: 6,
+            padding: "1px 4px",
+            minWidth: 0
+          }} /> :
+
+
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap"
+          }}>
+          
+            {entry.name}
+          </span>
+        }
+        {starred &&
+        <span
+          style={{
+            color: "#D89B2B",
+            fontSize: 11
+          }}>
+          
+            ★
+          </span>
+        }
       </span>
-      {columns.includes("kind") && (
-        <span className="gy-c-kind" style={{ width: 100, textAlign: "right", fontFamily: t.mono, fontSize: 10.5, color: t.inkFaint }}>
-          {entry.isDir ? "Folder" : kind}
+      {columns.includes("kind") &&
+      <span
+        className="gy-c-kind"
+        style={{
+          width: 100,
+          textAlign: "right",
+          fontFamily: t.mono,
+          fontSize: 10.5,
+          color: t.inkFaint
+        }}>
+        
+          {entry.isDir ? tr("ui.files.folder") : tr(`kind.${kind}`)}
         </span>
-      )}
-      {columns.includes("size") && (
-        <span className="gy-c-size" style={{ width: 90, textAlign: "right", fontFamily: t.mono, fontSize: 10.5, color: t.inkFaint }}>
+      }
+      {columns.includes("size") &&
+      <span
+        className="gy-c-size"
+        style={{
+          width: 90,
+          textAlign: "right",
+          fontFamily: t.mono,
+          fontSize: 10.5,
+          color: t.inkFaint
+        }}>
+        
           {entry.isDir ? "—" : formatSize(entry.size)}
         </span>
-      )}
-      {columns.includes("modified") && (
-        <span className="gy-c-modified" style={{ width: 138, textAlign: "right", fontFamily: t.mono, fontSize: 10.5, color: t.inkFaint }}>
+      }
+      {columns.includes("modified") &&
+      <span
+        className="gy-c-modified"
+        style={{
+          width: 138,
+          textAlign: "right",
+          fontFamily: t.mono,
+          fontSize: 10.5,
+          color: t.inkFaint
+        }}>
+        
           {formatWhen(entry.modifiedMs)}
         </span>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 }

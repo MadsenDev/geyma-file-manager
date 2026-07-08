@@ -1,3 +1,5 @@
+import { tr } from "@/i18n";
+
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB", "TB"];
@@ -18,8 +20,8 @@ export function formatWhen(ms: number): string {
   yest.setDate(now.getDate() - 1);
   const isYesterday = d.toDateString() === yest.toDateString();
   const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  if (sameDay) return `Today, ${time}`;
-  if (isYesterday) return `Yesterday, ${time}`;
+  if (sameDay) return tr("time.today", { time });
+  if (isYesterday) return tr("time.yesterday", { time });
   const daysAgo = Math.round((now.getTime() - d.getTime()) / 86400000);
   if (daysAgo >= 0 && daysAgo < 7) return d.toLocaleDateString([], { weekday: "long" });
   return d.toLocaleDateString([], { month: "short", day: "numeric", year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined });
@@ -28,13 +30,13 @@ export function formatWhen(ms: number): string {
 export function formatAgo(ms: number): string {
   const diff = Date.now() - ms;
   const min = Math.floor(diff / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min} min ago`;
+  if (min < 1) return tr("time.just_now");
+  if (min < 60) return tr("time.min_ago", { count: min });
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
+  if (hr < 24) return tr("time.hours_ago", { count: hr });
   const days = Math.floor(hr / 24);
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days} days ago`;
+  if (days === 1) return tr("time.yesterday_bare");
+  if (days < 7) return tr("time.days_ago", { count: days });
   return formatWhen(ms);
 }
 

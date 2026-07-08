@@ -1,20 +1,23 @@
+import { tr } from "@/i18n";
 import { Fragment, useRef, useState } from "react";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA } from "../theme/skins";
-import { isPanelModule, moduleMinWidth, type ModuleId, type ZoneId } from "../state/layout";
+import {
+  isPanelModule,
+  moduleMinWidth,
+  type ModuleId,
+  type ZoneId,
+} from "../state/layout";
 import { ModuleShell } from "./ModuleShell";
 import { MODULE_COMPONENTS } from "../modules/registry";
-
 const MODULE_DRAG_TYPE = "application/x-geyma-module";
-
 interface ZoneProps {
   zoneId: ZoneId;
   orientation: "h" | "v";
   emptyHint: string;
   style?: React.CSSProperties;
 }
-
 export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
   const t = useTheme();
   const modules = useStore((s) => s.layout[zoneId]);
@@ -25,7 +28,6 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const draggingRef = useRef<ModuleId | null>(null);
-
   function computeIndex(e: React.DragEvent<HTMLDivElement>): number {
     const el = containerRef.current;
     if (!el) return modules.length;
@@ -34,7 +36,9 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
     const pos = isHoriz ? e.clientX : e.clientY;
     for (let i = 0; i < children.length; i++) {
       const rect = children[i].getBoundingClientRect();
-      const mid = isHoriz ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
+      const mid = isHoriz
+        ? rect.left + rect.width / 2
+        : rect.top + rect.height / 2;
       if (pos < mid) return i;
     }
     return children.length;
@@ -42,13 +46,25 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
 
   // Drag between two horizontally adjacent modules: both get pinned to pixel widths so
   // the pair trades space while the rest of the row stays put.
-  function startModuleResize(e: React.MouseEvent, leftId: ModuleId, rightId: ModuleId) {
+  function startModuleResize(
+    e: React.MouseEvent,
+    leftId: ModuleId,
+    rightId: ModuleId,
+  ) {
     e.preventDefault();
     e.stopPropagation();
     const el = containerRef.current;
     if (!el) return;
-    const leftEl = el.querySelector<HTMLElement>(`[data-mod="${leftId}"]`);
-    const rightEl = el.querySelector<HTMLElement>(`[data-mod="${rightId}"]`);
+    const leftEl = el.querySelector<HTMLElement>(
+      tr("ui.zone.data_mod_left_id", {
+        leftId,
+      }),
+    );
+    const rightEl = el.querySelector<HTMLElement>(
+      tr("ui.zone.data_mod_right_id", {
+        rightId,
+      }),
+    );
     if (!leftEl || !rightEl) return;
     const lr = leftEl.getBoundingClientRect();
     const rr = rightEl.getBoundingClientRect();
@@ -59,8 +75,14 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
     const minL = moduleMinWidth(leftId);
     const minR = moduleMinWidth(rightId);
     function onMove(ev: MouseEvent) {
-      const delta = Math.max(minL - startL, Math.min(startR - minR, ev.clientX - startX));
-      setModuleWidths({ [leftId]: startL + delta, [rightId]: startR - delta });
+      const delta = Math.max(
+        minL - startL,
+        Math.min(startR - minR, ev.clientX - startX),
+      );
+      setModuleWidths({
+        [leftId]: startL + delta,
+        [rightId]: startR - delta,
+      });
     }
     function onUp() {
       window.removeEventListener("mousemove", onMove);
@@ -69,13 +91,16 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   }
-
   return (
     <div
       ref={containerRef}
       data-zone={zoneId}
       onDragOver={(e) => {
-        if (!draggingRef.current && !e.dataTransfer.types.includes(MODULE_DRAG_TYPE)) return;
+        if (
+          !draggingRef.current &&
+          !e.dataTransfer.types.includes(MODULE_DRAG_TYPE)
+        )
+          return;
         e.preventDefault();
         setDragOverIndex(computeIndex(e));
       }}
@@ -106,7 +131,7 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
             <div
               onMouseDown={(e) => startModuleResize(e, modules[i - 1], id)}
               onDoubleClick={() => resetModuleWidths([modules[i - 1], id])}
-              title="Drag to resize · double-click to reset"
+              title={tr("ui.zone.drag_to_resize_double_click_to_reset")}
               style={{
                 width: 10,
                 flex: "none",
@@ -117,16 +142,35 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
                 justifyContent: "center",
               }}
             >
-              <span style={{ width: 3, height: 14, borderRadius: 3, background: hexA(t.inkFaint, 0.35) }} />
+              <span
+                style={{
+                  width: 3,
+                  height: 14,
+                  borderRadius: 3,
+                  background: hexA(t.inkFaint, 0.35),
+                }}
+              />
             </div>
           )}
           {dragOverIndex === i && (
             <div
-              key={`drop-${i}`}
+              key={tr("ui.zone.drop_i", {
+                i,
+              })}
               style={
                 orientation === "h"
-                  ? { width: 2, margin: "0 2px", alignSelf: "stretch", background: t.accent, borderRadius: 2 }
-                  : { height: 2, background: t.accent, borderRadius: 2 }
+                  ? {
+                      width: 2,
+                      margin: "0 2px",
+                      alignSelf: "stretch",
+                      background: t.accent,
+                      borderRadius: 2,
+                    }
+                  : {
+                      height: 2,
+                      background: t.accent,
+                      borderRadius: 2,
+                    }
               }
             />
           )}
@@ -148,8 +192,18 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
         <div
           style={
             orientation === "h"
-              ? { width: 2, margin: "0 2px", alignSelf: "stretch", background: t.accent, borderRadius: 2 }
-              : { height: 2, background: t.accent, borderRadius: 2 }
+              ? {
+                  width: 2,
+                  margin: "0 2px",
+                  alignSelf: "stretch",
+                  background: t.accent,
+                  borderRadius: 2,
+                }
+              : {
+                  height: 2,
+                  background: t.accent,
+                  borderRadius: 2,
+                }
           }
         />
       )}
@@ -172,9 +226,7 @@ export function Zone({ zoneId, orientation, emptyHint, style }: ZoneProps) {
     </div>
   );
 }
-
 export { MODULE_DRAG_TYPE };
-
 function ModuleShellFor({
   id,
   zone,
@@ -190,7 +242,14 @@ function ModuleShellFor({
 }) {
   const Comp = MODULE_COMPONENTS[id];
   return (
-    <ModuleShell id={id} zone={zone} index={index} isPanel={isPanelModule(id)} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+    <ModuleShell
+      id={id}
+      zone={zone}
+      index={index}
+      isPanel={isPanelModule(id)}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
       <Comp />
     </ModuleShell>
   );

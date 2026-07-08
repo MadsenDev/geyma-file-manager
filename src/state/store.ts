@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { tr, trEventAction } from "@/i18n";
 import type { FsBackend, FsEntry } from "../fs/types";
 import { getFsBackend } from "../fs";
 import {
@@ -91,8 +92,8 @@ function loadPersisted(): PersistedShape {
 
 function seedSets(): WorkingSet[] {
   return [
-    { id: "smart-week", name: "Fresh this week", smart: true, rule: { minMt: Date.now() - 7 * 86400000 }, items: [] },
-    { id: "smart-starred", name: "Starred", smart: true, rule: { starred: true }, items: [] },
+    { id: "smart-week", name: tr("names.smart_week"), smart: true, rule: { minMt: Date.now() - 7 * 86400000 }, items: [] },
+    { id: "smart-starred", name: tr("names.smart_starred"), smart: true, rule: { starred: true }, items: [] },
   ];
 }
 
@@ -843,7 +844,7 @@ export const useStore = create<AppState>()((set, get) => ({
       get().newTab(root);
     } catch (e) {
       set({ remoteStatus: { ...get().remoteStatus, [id]: "error" }, pendingRemotePasswordPromptId: id });
-      get().showToast(`Connection failed: ${explainError(e)}`);
+      get().showToast(tr("toast.connection_failed", { error: explainError(e) }));
     }
   },
   async disconnectRemoteConnection(id) {
@@ -853,7 +854,7 @@ export const useStore = create<AppState>()((set, get) => ({
     try {
       await backend.disconnectRemote({ protocol: conn.protocol, host: conn.host, port: conn.port, username: conn.username, share: conn.share });
     } catch (e) {
-      get().showToast(`Disconnect failed: ${explainError(e)}`);
+      get().showToast(tr("toast.disconnect_failed", { error: explainError(e) }));
     }
     set({ remoteStatus: { ...get().remoteStatus, [id]: "disconnected" } });
   },
@@ -877,14 +878,14 @@ export const useStore = create<AppState>()((set, get) => ({
       await aiStartServer();
       await get().refreshAiStatus();
     } catch (e) {
-      get().showToast(`Could not start Ollama: ${explainError(e)}`);
+      get().showToast(tr("toast.ollama_start_failed", { error: explainError(e) }));
     }
   },
   async stopAiServer() {
     try {
       await aiStopServer();
     } catch (e) {
-      get().showToast(`Could not stop Ollama: ${explainError(e)}`);
+      get().showToast(tr("toast.ollama_stop_failed", { error: explainError(e) }));
     }
     await get().refreshAiStatus();
   },
@@ -893,7 +894,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await aiDeleteModel(name);
       await get().refreshAiStatus();
     } catch (e) {
-      get().showToast(`Could not delete model: ${explainError(e)}`);
+      get().showToast(tr("toast.ollama_delete_model_failed", { error: explainError(e) }));
     }
   },
   setAiSelectedModel(name) {
@@ -1036,7 +1037,7 @@ export const useStore = create<AppState>()((set, get) => ({
       updateSetRefs(get, set, dir, oldName, dir, newName);
       migrateFileEvents(get, set, renaming, newPath);
       get().pushUndo({
-        label: `Rename ${oldName}`,
+        label: tr("undo.rename", { name: oldName }),
         undo: async () => {
           await backend.renamePath(newPath, oldName);
           updateSetRefs(get, set, dir, newName, dir, oldName);
@@ -1048,7 +1049,7 @@ export const useStore = create<AppState>()((set, get) => ({
       set({ renaming: null, selected: [newPath] });
       await get().loadDir(path, true);
     } catch (e) {
-      get().showToast(`Rename failed: ${explainError(e)}`);
+      get().showToast(tr("toast.rename_failed", { error: explainError(e) }));
       set({ renaming: null });
     }
   },
@@ -1059,11 +1060,12 @@ export const useStore = create<AppState>()((set, get) => ({
   async createFolder() {
     const { backend, path } = get();
     if (!backend) return;
-    let name = "New Folder";
+    const folderBase = tr("names.new_folder");
+    let name = folderBase;
     const existing = new Set(get().entriesFor(path).map((e) => e.name));
     let i = 2;
     while (existing.has(name)) {
-      name = `New Folder ${i++}`;
+      name = `${folderBase} ${i++}`;
     }
     const newPath = await backend.createFolder(path, name);
     await get().loadDir(path, true);
@@ -1074,11 +1076,12 @@ export const useStore = create<AppState>()((set, get) => ({
     const { backend, path } = get();
     if (!backend) return;
     const ext = kind === "markdown" ? "md" : "txt";
-    let name = `New Note.${ext}`;
+    const noteBase = tr("names.new_note");
+    let name = `${noteBase}.${ext}`;
     const existing = new Set(get().entriesFor(path).map((e) => e.name));
     let i = 2;
     while (existing.has(name)) {
-      name = `New Note ${i++}.${ext}`;
+      name = `${noteBase} ${i++}.${ext}`;
     }
     const newPath = await backend.createFile(path, name, "");
     await get().loadDir(path, true);
@@ -1110,18 +1113,18 @@ export const useStore = create<AppState>()((set, get) => ({
         logEvent(get, set, newPath, "Copied here", origDir !== destDir ? `from ${origDir}` : undefined, "video");
         await get().loadDir(destDir, true);
       } catch (e) {
-        get().showToast(`Copy failed: ${explainError(e)}`);
+        get().showToast(tr("toast.copy_failed", { error: explainError(e) }));
       }
     }
     if (copied.length) {
       get().pushUndo({
-        label: `Paste ${copied.length} item${copied.length > 1 ? "s" : ""}`,
+        label: tr("undo.paste", { count: copied.length }),
         undo: async () => {
           for (const c of copied) {
             try {
               await backend.trashPath(c);
             } catch (e) {
-              get().showToast(`Undo failed: ${explainError(e)}`);
+              get().showToast(tr("toast.undo_failed", { error: explainError(e) }));
             }
           }
           await get().loadDir(destDir, true);
@@ -1149,12 +1152,12 @@ export const useStore = create<AppState>()((set, get) => ({
         updateSetRefs(get, set, srcDir, name, destDir);
         migrateFileEvents(get, set, p, to);
       } catch (e) {
-        get().showToast(`Move failed: ${explainError(e)}`);
+        get().showToast(tr("toast.move_failed", { error: explainError(e) }));
       }
     }
     if (moved.length) {
       get().pushUndo({
-        label: `Move ${moved.length} item${moved.length > 1 ? "s" : ""}`,
+        label: tr("undo.move", { count: moved.length }),
         undo: async () => {
           for (const m of moved) {
             await backend.movePath(m.to, m.srcDir);
@@ -1186,19 +1189,19 @@ export const useStore = create<AppState>()((set, get) => ({
         logEvent(get, set, newPath, "Duplicated", `from "${origName}"`, "video");
         await get().loadDir(dir, true);
       } catch (e) {
-        get().showToast(`Duplicate failed: ${explainError(e)}`);
+        get().showToast(tr("toast.duplicate_failed", { error: explainError(e) }));
       }
     }
     if (copied.length) {
       get().pushUndo({
-        label: `Duplicate ${copied.length} item${copied.length > 1 ? "s" : ""}`,
+        label: tr("undo.duplicate", { count: copied.length }),
         undo: async () => {
           const dirs = new Set(copied.map((c) => backend.dirname(c)));
           for (const c of copied) {
             try {
               await backend.trashPath(c);
             } catch (e) {
-              get().showToast(`Undo failed: ${explainError(e)}`);
+              get().showToast(tr("toast.undo_failed", { error: explainError(e) }));
             }
           }
           for (const d of dirs) await get().loadDir(d, true);
@@ -1219,7 +1222,7 @@ export const useStore = create<AppState>()((set, get) => ({
       const newPath = await backend.extractArchive(archivePath, dir, folderName);
       logEvent(get, set, newPath, "Extracted", `from "${backend.basename(archivePath)}"`, "archive");
       get().pushUndo({
-        label: `Extract ${folderName}`,
+        label: tr("undo.extract", { name: folderName }),
         undo: async () => {
           await backend.trashPath(newPath);
           await get().loadDir(dir, true);
@@ -1228,7 +1231,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await get().loadDir(dir, true);
       set({ selected: [newPath] });
     } catch (e) {
-      get().showToast(`Extract failed: ${explainError(e)}`);
+      get().showToast(tr("toast.extract_failed", { error: explainError(e) }));
     }
   },
 
@@ -1243,7 +1246,7 @@ export const useStore = create<AppState>()((set, get) => ({
       const newPath = await backend.createArchive(paths, dir, finalName);
       logEvent(get, set, newPath, "Compressed", `${paths.length} item${paths.length > 1 ? "s" : ""}`, "archive");
       get().pushUndo({
-        label: `Compress to ${finalName}`,
+        label: tr("undo.compress", { name: finalName }),
         undo: async () => {
           await backend.trashPath(newPath);
           await get().loadDir(dir, true);
@@ -1252,7 +1255,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await get().loadDir(dir, true);
       set({ selected: [newPath] });
     } catch (e) {
-      get().showToast(`Compress failed: ${explainError(e)}`);
+      get().showToast(tr("toast.compress_failed", { error: explainError(e) }));
     }
   },
 
@@ -1267,7 +1270,7 @@ export const useStore = create<AppState>()((set, get) => ({
       const newPath = await backend.createSymlink(path, dir, linkName);
       logEvent(get, set, newPath, "Linked", `to "${origName}"`, "archive");
       get().pushUndo({
-        label: `Create symlink to ${origName}`,
+        label: tr("undo.create_symlink", { name: origName }),
         undo: async () => {
           await backend.trashPath(newPath);
           await get().loadDir(dir, true);
@@ -1276,7 +1279,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await get().loadDir(dir, true);
       set({ selected: [newPath] });
     } catch (e) {
-      get().showToast(`Create symlink failed: ${explainError(e)}`);
+      get().showToast(tr("toast.symlink_failed", { error: explainError(e) }));
     }
   },
 
@@ -1288,13 +1291,13 @@ export const useStore = create<AppState>()((set, get) => ({
       await backend.setPathMode(path, mode);
       logEvent(get, set, path, "Permissions changed", `${before.mode.toString(8)} → ${mode.toString(8)}`, "muted");
       get().pushUndo({
-        label: `Change permissions of ${backend.basename(path)}`,
+        label: tr("undo.change_permissions", { name: backend.basename(path) }),
         undo: async () => {
           await backend.setPathMode(path, before.mode);
         },
       });
     } catch (e) {
-      get().showToast(`Permission change failed: ${explainError(e)}`);
+      get().showToast(tr("toast.permission_change_failed", { error: explainError(e) }));
     }
   },
 
@@ -1307,7 +1310,7 @@ export const useStore = create<AppState>()((set, get) => ({
       .map((p) => dirEntries.find((e) => e.path === p))
       .filter((e): e is FsEntry => !!e);
     if (targets.length !== paths.length) {
-      get().showToast("Batch rename failed: selection changed, try again");
+      get().showToast(tr("toast.batch_rename_selection_changed"));
       return;
     }
 
@@ -1317,7 +1320,7 @@ export const useStore = create<AppState>()((set, get) => ({
     const seen = new Set<string>();
     for (const name of newNames) {
       if (!name.trim() || staticNames.has(name) || seen.has(name)) {
-        get().showToast(`Batch rename failed: name collision on "${name || "(empty)"}"`);
+        get().showToast(tr("toast.batch_rename_collision", { name: name || tr("names.empty_name") }));
         return;
       }
       seen.add(name);
@@ -1335,12 +1338,12 @@ export const useStore = create<AppState>()((set, get) => ({
         logEvent(get, set, newPath, "Renamed", `from "${entry.name}"`, "archive", entry.path);
         renamed.push({ from: entry.path, to: newPath, oldName: entry.name, newName });
       } catch (e) {
-        get().showToast(`Rename failed for "${entry.name}": ${explainError(e)}`);
+        get().showToast(tr("toast.rename_failed_for", { name: entry.name, error: explainError(e) }));
       }
     }
     if (renamed.length) {
       get().pushUndo({
-        label: `Batch rename ${renamed.length} item${renamed.length > 1 ? "s" : ""}`,
+        label: tr("undo.batch_rename", { count: renamed.length }),
         undo: async () => {
           for (const r of renamed) {
             await backend.renamePath(r.to, r.oldName);
@@ -1369,7 +1372,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await doTrash(get, set, paths);
     } else {
       set({ pendingConfirm: { kind: "trash", key, at: now } });
-      get().showToast(`Press again within ${Math.round(confirmWindowMs / 1000)}s to move to Trash.`);
+      get().showToast(tr("toast.confirm_trash", { seconds: Math.round(confirmWindowMs / 1000) }));
     }
   },
 
@@ -1394,12 +1397,12 @@ export const useStore = create<AppState>()((set, get) => ({
         delete originNames[p];
         await get().loadDir(toDir, true);
       } catch (e) {
-        get().showToast(`Restore failed: ${explainError(e)}`);
+        get().showToast(tr("toast.restore_failed", { error: explainError(e) }));
       }
     }
     if (restored.length) {
       get().pushUndo({
-        label: `Restore ${restored.length} item${restored.length > 1 ? "s" : ""}`,
+        label: tr("undo.restore", { count: restored.length }),
         undo: async () => {
           for (const r of restored) {
             const trashedAgain = await backend.trashPath(r.finalPath);
@@ -1437,7 +1440,7 @@ export const useStore = create<AppState>()((set, get) => ({
       void doPermanentDelete(get, set, paths);
     } else {
       set({ pendingConfirm: { kind: "permanent", key, at: now } });
-      get().showToast(`Press Delete again within ${Math.round(confirmWindowMs / 1000)}s to permanently delete — this cannot be undone.`);
+      get().showToast(tr("toast.confirm_permanent_delete", { seconds: Math.round(confirmWindowMs / 1000) }));
     }
   },
 
@@ -1452,9 +1455,9 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ undoStack: stack });
     try {
       await action.undo();
-      get().showToast(`Undid: ${action.label}`);
+      get().showToast(tr("toast.undid", { action: action.label }));
     } catch (e) {
-      get().showToast(`Undo failed: ${explainError(e)}`);
+      get().showToast(tr("toast.undo_failed", { error: explainError(e) }));
     }
   },
   // Undoes a single past Journey entry independent of the global undo stack — resolves
@@ -1466,7 +1469,7 @@ export const useStore = create<AppState>()((set, get) => ({
     if (!backend) return;
     const ev = (fileEvents[path] || []).find((e) => e.id === eventId);
     if (!ev || !ev.prevPath) {
-      get().showToast("This step can't be undone.");
+      get().showToast(tr("toast.step_not_undoable"));
       return;
     }
     try {
@@ -1496,12 +1499,12 @@ export const useStore = create<AppState>()((set, get) => ({
       } else if (ev.action === "Restored") {
         await doTrash(get, set, [path]);
       } else {
-        get().showToast("This step can't be undone.");
+        get().showToast(tr("toast.step_not_undoable"));
         return;
       }
-      get().showToast(`Undid: ${ev.action.toLowerCase()}`);
+      get().showToast(tr("toast.undid", { action: trEventAction(ev.action).toLowerCase() }));
     } catch (e) {
-      get().showToast(`Undo failed: ${explainError(e)}`);
+      get().showToast(tr("toast.undo_failed", { error: explainError(e) }));
     }
   },
 
@@ -1570,7 +1573,7 @@ export const useStore = create<AppState>()((set, get) => ({
       : [];
     const def: WorkingSet = {
       id,
-      name: data.name?.trim() || "Imported set",
+      name: data.name?.trim() || tr("names.imported_set"),
       items,
     };
     if (data.note) def.note = data.note;
@@ -1604,7 +1607,7 @@ export const useStore = create<AppState>()((set, get) => ({
   duplicateSet(setId) {
     const src = get().setDefs.find((s) => s.id === setId);
     if (!src) return;
-    const copy: WorkingSet = { ...src, id: `set-${Date.now()}`, name: `${src.name} copy` };
+    const copy: WorkingSet = { ...src, id: `set-${Date.now()}`, name: tr("names.set_copy", { name: src.name }) };
     set({ setDefs: [...get().setDefs, copy] });
     get().persist();
   },
@@ -1864,12 +1867,12 @@ async function doTrash(get: () => AppState, set: (partial: Partial<AppState>) =>
       });
       get().persist();
     } catch (e) {
-      get().showToast(`Trash failed: ${explainError(e)}`);
+      get().showToast(tr("toast.trash_failed", { error: explainError(e) }));
     }
   }
   if (trashed.length) {
     get().pushUndo({
-      label: `Trash ${trashed.length} item${trashed.length > 1 ? "s" : ""}`,
+      label: tr("undo.trash", { count: trashed.length }),
       undo: async () => {
         for (const t of trashed) {
           const restoredPath = await backend.restorePath(t.trashedPath, t.origin);
@@ -1910,7 +1913,7 @@ async function doPermanentDelete(get: () => AppState, set: (partial: Partial<App
       delete origins[p];
       delete originNames[p];
     } catch (e) {
-      get().showToast(`Delete failed: ${explainError(e)}`);
+      get().showToast(tr("toast.delete_failed", { error: explainError(e) }));
     }
   }
   set({ trashOrigins: origins, trashOriginNames: originNames });

@@ -1,0 +1,31 @@
+{
+  "include": [
+    "src/App.tsx",
+    "src/modules/**/*.tsx",
+    "src/overlays/**/*.tsx",
+    "src/layout/**/*.tsx"
+  ],
+  "ignore": ["node_modules", "dist", "build", "coverage", "**/*.test.*", "**/*.spec.*"],
+  "locale": "src/i18n/en.json",
+  "functionName": "tr",
+  "importSource": "@/i18n",
+  "importKind": "named",
+  "keyStrategy": "path",
+  "namespace": "ui",
+  "scan": {
+    "jsxText": true,
+    "jsxAttributes": true,
+    "stringLiterals": true,
+    "templateLiterals": true,
+    "attributeAllowlist": ["title", "placeholder", "alt", "aria-label", "label"]
+  },
+  "filters": {
+    "minLength": 2,
+    "ignoreRoutes": true,
+    "ignoreClassNames": true,
+    "ignoreNumbers": true,
+    "ignorePunctuationOnly": true,
+    "ignoreCodeLike": true,
+    "ignoreShortLowercase": true
+  }
+}

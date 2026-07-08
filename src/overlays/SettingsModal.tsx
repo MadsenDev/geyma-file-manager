@@ -1,33 +1,54 @@
+import { tr } from "@/i18n";
 import { Appearance } from "../modules/Appearance";
-import { AiSettings, ConfirmationsSettings, GeneralSettings } from "../modules/Settings";
+import {
+  AiSettings,
+  ConfirmationsSettings,
+  GeneralSettings } from
+"../modules/Settings";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA } from "../theme/skins";
 import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
-
 const TABS = [
-  { id: "appearance", label: "Appearance" },
-  { id: "confirmations", label: "Confirmations" },
-  { id: "general", label: "General" },
-  { id: "ai", label: "AI" },
-] as const;
-
+{
+  id: "appearance",
+  label: tr("ui.settings_modal.appearance")
+},
+{
+  id: "confirmations",
+  label: tr("ui.settings_modal.confirmations")
+},
+{
+  id: "general",
+  label: tr("ui.settings_modal.general")
+},
+{
+  id: "ai",
+  label: "AI"
+}] as
+const;
 export function SettingsModal() {
   const t = useTheme();
   const open = useStore((s) => s.settingsOpen);
   const close = useStore((s) => s.closeSettings);
   const tab = useStore((s) => s.settingsTab);
   const setTab = useStore((s) => s.setSettingsTab);
-
   if (!open) return null;
-
   return (
     <>
-      <div onClick={close} style={{ position: "fixed", inset: 0, background: hexA("#000000", t.isDark ? 0.5 : 0.28), zIndex: 300 }} />
+      <div
+        onClick={close}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: hexA("#000000", t.isDark ? 0.5 : 0.28),
+          zIndex: 300
+        }} />
+      
       <div
         role="dialog"
-        aria-label="Settings"
+        aria-label={tr("ui.settings_modal.settings")}
         className="gy-dialog-anim"
         style={{
           position: "fixed",
@@ -39,61 +60,120 @@ export function SettingsModal() {
           display: "flex",
           flexDirection: "column",
           background: t.card,
-          border: `1px solid ${t.border}`,
+          border: `1px solid ${
+          t.border}`,
+
           borderRadius: 14,
           boxShadow: `0 24px 64px ${hexA("#000000", t.isDark ? 0.6 : 0.28)}`,
           zIndex: 301,
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ flex: 1, minWidth: 0, fontFamily: t.mono, fontSize: 10, textTransform: "uppercase", letterSpacing: ".1em", color: t.inkFaint, fontWeight: 700 }}>
-            Settings
+          overflow: "hidden"
+        }}>
+        
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 14px",
+            borderBottom: `1px solid ${
+            t.border}`
+
+          }}>
+          
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              fontFamily: t.mono,
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: ".1em",
+              color: t.inkFaint,
+              fontWeight: 700
+            }}>
+            
+            {tr("ui.settings_modal.settings")}
           </div>
-          <button onClick={close} title="Close" className="gy-soft" style={{ width: 28, height: 28, display: "grid", placeItems: "center", border: 0, borderRadius: 8, background: "transparent", color: t.inkFaint, cursor: "pointer" }}>
+          <button
+            onClick={close}
+            title={tr("ui.settings_modal.close")}
+            className="gy-soft"
+            style={{
+              width: 28,
+              height: 28,
+              display: "grid",
+              placeItems: "center",
+              border: 0,
+              borderRadius: 8,
+              background: "transparent",
+              color: t.inkFaint,
+              cursor: "pointer"
+            }}>
+            
             <Icon d={ICONS.close} size={14} />
           </button>
         </div>
-        <div style={{ display: "flex", padding: "8px 10px 0" }}>
-          {TABS.map((tb) => (
-            <button
-              key={tb.id}
-              onClick={() => setTab(tb.id)}
-              style={{
-                flex: 1,
-                padding: "7px 0",
-                border: 0,
-                borderBottom: `2px solid ${tab === tb.id ? t.accent : "transparent"}`,
-                background: "transparent",
-                color: tab === tb.id ? t.ink : t.inkFaint,
-                fontWeight: tab === tb.id ? 700 : 500,
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
+        <div
+          style={{
+            display: "flex",
+            padding: "8px 10px 0"
+          }}>
+          
+          {TABS.map((tb) =>
+          <button
+            key={tb.id}
+            onClick={() => setTab(tb.id)}
+            style={{
+              flex: 1,
+              padding: "7px 0",
+              border: 0,
+              borderBottom: `2px solid ${tab === tb.id ? t.accent : "transparent"}`,
+              background: "transparent",
+              color: tab === tb.id ? t.ink : t.inkFaint,
+              fontWeight: tab === tb.id ? 700 : 500,
+              fontSize: 12,
+              cursor: "pointer"
+            }}>
+            
               {tb.label}
             </button>
-          ))}
+          )}
         </div>
-        <div style={{ overflow: "auto" }}>
+        <div
+          style={{
+            overflow: "auto"
+          }}>
+          
           {tab === "appearance" && <Appearance />}
-          {tab === "confirmations" && (
-            <div style={{ padding: 12 }}>
+          {tab === "confirmations" &&
+          <div
+            style={{
+              padding: 12
+            }}>
+            
               <ConfirmationsSettings />
             </div>
-          )}
-          {tab === "general" && (
-            <div style={{ padding: 12 }}>
+          }
+          {tab === "general" &&
+          <div
+            style={{
+              padding: 12
+            }}>
+            
               <GeneralSettings />
             </div>
-          )}
-          {tab === "ai" && (
-            <div style={{ padding: 12 }}>
+          }
+          {tab === "ai" &&
+          <div
+            style={{
+              padding: 12
+            }}>
+            
               <AiSettings />
             </div>
-          )}
+          }
         </div>
       </div>
-    </>
-  );
+    </>);
+
 }
