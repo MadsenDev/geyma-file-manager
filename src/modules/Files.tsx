@@ -7,9 +7,9 @@ import { ICONS } from "../icons/paths";
 import { extOf, formatSize, formatWhen, isExtractableArchive, kindOf } from "../lib/format";
 import type { FsEntry } from "../fs/types";
 import { getFsBackend } from "../fs";
-import { isRemotePath } from "../fs/remotePath";
+import { isRemotePath, remoteBasename } from "../fs/remotePath";
 import type { Ghost } from "../state/types";
-import { joinPosix } from "../fs/pathUtil";
+import { basenamePosix, joinPosix } from "../fs/pathUtil";
 import { openWithDefaultApp } from "../lib/openDefault";
 import { BatchRenameModal } from "../overlays/BatchRenameModal";
 import { PropertiesModal } from "../overlays/PropertiesModal";
@@ -415,31 +415,134 @@ function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChang
   );
 }
 
-function GhostTile({ ghost }: { ghost: Ghost }) {
-  const t = useTheme();
+function ghostDestName(toDir: string): string {
+  const name = isRemotePath(toDir) ? remoteBasename(toDir) : basenamePosix(toDir);
+  return name || toDir;
+}
+
+function ghostAgo(atMs: number): string {
+  const s = Math.max(0, Math.round((Date.now() - atMs) / 1000));
+  if (s < 45) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+}
+
+function useFollowGhost(ghost: Ghost) {
   const goPath = useStore((s) => s.goPath);
   const select = useStore((s) => s.select);
+  return () => {
+    goPath(ghost.toDir);
+    setTimeout(() => select(joinPosix(ghost.toDir, ghost.toName)), 0);
+  };
+}
+
+function GhostDestChip({ ghost, hover }: { ghost: Ghost; hover: boolean }) {
+  const t = useTheme();
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 3,
+        maxWidth: "100%",
+        padding: "2px 8px",
+        borderRadius: 99,
+        background: hexA(t.accent, hover ? 0.18 : 0.1),
+        color: t.accent,
+        fontSize: 10,
+        fontWeight: 650,
+        transition: "background .15s ease",
+      }}
+    >
+      <Icon d={ICONS.chevronRight} size={9} strokeWidth={2.4} />
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ghostDestName(ghost.toDir)}</span>
+    </span>
+  );
+}
+
+function GhostTile({ ghost }: { ghost: Ghost }) {
+  const t = useTheme();
+  const follow = useFollowGhost(ghost);
+  const [hover, setHover] = useState(false);
   return (
     <div
-      onClick={() => {
-        goPath(ghost.toDir);
-        setTimeout(() => select(joinPosix(ghost.toDir, ghost.toName)), 0);
-      }}
+      onClick={follow}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={`${ghost.name} moved to ${ghost.toDir} — click to follow`}
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 6,
+        gap: 5,
         padding: "10px 6px",
         borderRadius: 12,
-        border: `1.5px dashed ${hexA(t.ink, 0.28)}`,
-        opacity: 0.55,
+        border: `1.5px dashed ${hover ? hexA(t.accent, 0.55) : hexA(t.ink, 0.22)}`,
+        background: hover ? hexA(t.accent, 0.07) : "transparent",
+        opacity: hover ? 1 : 0.65,
         cursor: "pointer",
+        userSelect: "none",
+        transition: "opacity .15s ease, border-color .15s ease, background .15s ease",
       }}
     >
-      <div style={{ width: 46, height: 46, borderRadius: 10, border: `1.5px dashed ${hexA(t.ink, 0.28)}` }} />
-      <span style={{ fontSize: 12.5, fontStyle: "italic", textAlign: "center" }}>{ghost.name}</span>
-      <span style={{ fontFamily: t.mono, fontSize: 9, color: t.inkFaint }}>→ {ghost.toDir}</span>
+      <div style={{ position: "relative", width: 46, height: 46, display: "grid", placeItems: "center" }}>
+        <span
+          className="gy-ghost-bob"
+          style={{ display: "grid", placeItems: "center", color: hover ? t.accent : hexA(t.ink, 0.5), transition: "color .15s ease" }}
+        >
+          <Icon d={ICONS.ghost} size={30} strokeWidth={1.6} />
+        </span>
+        <span
+          className="gy-ghost-shadow"
+          style={{ position: "absolute", bottom: 2, width: 18, height: 4, borderRadius: 99, background: hexA(t.ink, 0.35), opacity: 0.5 }}
+        />
+      </div>
+      <span style={{ fontSize: 12.5, fontStyle: "italic", textAlign: "center", wordBreak: "break-word", lineHeight: 1.25, color: t.inkSoft }}>
+        {ghost.name}
+      </span>
+      <GhostDestChip ghost={ghost} hover={hover} />
+      <span style={{ fontFamily: t.mono, fontSize: 9, color: hover ? t.accent : t.inkFaint, transition: "color .15s ease" }}>
+        {hover ? "click to follow" : `moved ${ghostAgo(ghost.atMs)}`}
+      </span>
+    </div>
+  );
+}
+
+function GhostRow({ ghost }: { ghost: Ghost }) {
+  const t = useTheme();
+  const follow = useFollowGhost(ghost);
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      onClick={follow}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={`${ghost.name} moved to ${ghost.toDir} — click to follow`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "5px 8px",
+        borderBottom: `1px solid ${t.border}`,
+        cursor: "pointer",
+        userSelect: "none",
+        opacity: hover ? 1 : 0.62,
+        background: hover ? hexA(t.accent, 0.06) : "transparent",
+        transition: "opacity .15s ease, background .15s ease",
+      }}
+    >
+      <span className="gy-ghost-bob" style={{ display: "grid", placeItems: "center", color: hover ? t.accent : hexA(t.ink, 0.45), transition: "color .15s ease" }}>
+        <Icon d={ICONS.ghost} size={15} strokeWidth={1.6} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0, fontStyle: "italic", fontSize: 12.5, color: t.inkSoft, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {ghost.name}
+      </span>
+      <GhostDestChip ghost={ghost} hover={hover} />
+      <span style={{ flex: "none", fontFamily: t.mono, fontSize: 9.5, color: hover ? t.accent : t.inkFaint, transition: "color .15s ease" }}>
+        {hover ? "follow" : ghostAgo(ghost.atMs)}
+      </span>
     </div>
   );
 }
@@ -504,10 +607,7 @@ function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onR
         />
       ))}
       {ghosts.map((g) => (
-        <div key={g.name + g.atMs} style={{ display: "flex", padding: "6px 8px", opacity: 0.55, fontStyle: "italic", fontSize: 12.5, borderBottom: `1px solid ${t.border}` }}>
-          <span style={{ flex: 1 }}>{g.name}</span>
-          <span style={{ fontFamily: t.mono, fontSize: 10, color: t.inkFaint }}>→ {g.toDir}</span>
-        </div>
+        <GhostRow key={g.name + g.atMs} ghost={g} />
       ))}
     </div>
   );

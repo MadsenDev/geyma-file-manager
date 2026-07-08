@@ -55,6 +55,16 @@ button { font-family: inherit; }
 @keyframes gy-dash {
   to { background-position: 14px 0, 14px 0, 0 -14px, 0 -14px; }
 }
+@keyframes gy-ghost-bob {
+  0%, 100% { transform: translateY(1.5px); }
+  50% { transform: translateY(-2.5px); }
+}
+@keyframes gy-ghost-shadow {
+  0%, 100% { transform: scaleX(1); opacity: .5; }
+  50% { transform: scaleX(.62); opacity: .22; }
+}
+.gy-motion-full .gy-ghost-bob { animation: gy-ghost-bob 2.6s ease-in-out infinite; }
+.gy-motion-full .gy-ghost-shadow { animation: gy-ghost-shadow 2.6s ease-in-out infinite; }
 
 .gy-motion-full .gy-anim { animation: gy-in .13s ease; }
 .gy-motion-subtle .gy-anim { animation: gy-in .08s ease; }
