@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useStore } from "../state/store";
+import { compareEntries, useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA, itemColors } from "../theme/skins";
 import { Icon } from "../icons/Icon";
@@ -111,8 +111,18 @@ export function Files() {
   // Kept in sync with the store's visibleEntries() — same filter/sort logic drives
   // the grid here, the Title item count, keyboard nav, select-all, and Quick Look.
   const sorted = useStore((s) => s.visibleEntries());
+  const sortKey = useStore((s) => s.sortKey);
+  const sortDir = useStore((s) => s.sortDir);
 
   const showGhosts = !trashView && !activeSet && !query.trim();
+
+  // Ghosts sit exactly where the departed file used to sort. Both inputs are already
+  // ordered by compareEntries and Array#sort is stable, so real entries keep the
+  // visibleEntries() order that keyboard nav and item counts rely on.
+  const displayRows: DisplayRow[] = [
+    ...sorted.map((entry) => ({ kind: "entry" as const, entry })),
+    ...(showGhosts ? ghostsForDir : []).map((ghost) => ({ kind: "ghost" as const, ghost, entry: ghostSortEntry(ghost) })),
+  ].sort((a, b) => compareEntries(a.entry, b.entry, sortKey, sortDir));
 
   function onDragStartItem(e: React.DragEvent, entryPath: string) {
     const paths = selected.includes(entryPath) ? selected : [entryPath];
@@ -260,32 +270,33 @@ export function Files() {
           data-files-grid
           style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}
         >
-          {sorted.map((entry) => (
-            <FileTile
-              key={entry.path}
-              entry={entry}
-              selected={selected.includes(entry.path)}
-              starred={starred.has(entry.path)}
-              renaming={renaming === entry.path}
-              renameVal={renameVal}
-              onRenameChange={(v) => useStore.setState({ renameVal: v })}
-              onRenameCommit={commitRename}
-              onRenameCancel={cancelRename}
-              onSelect={(e) => select(entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
-              onOpen={() => onOpen(entry)}
-              onOpenInNewTab={() => (entry.isDir ? newTab(entry.path) : undefined)}
-              onContextMenu={(e) => itemMenu(entry, e)}
-              onDragStart={(e) => onDragStartItem(e, entry.path)}
-              onDropFiles={(paths) => (entry.isDir ? void moveEntries(paths, entry.path) : undefined)}
-            />
-          ))}
-          {showGhosts &&
-            ghostsForDir.map((g) => <GhostTile key={g.name + g.atMs} ghost={g} />)}
+          {displayRows.map((row) =>
+            row.kind === "ghost" ? (
+              <GhostTile key={row.ghost.name + row.ghost.atMs} ghost={row.ghost} />
+            ) : (
+              <FileTile
+                key={row.entry.path}
+                entry={row.entry}
+                selected={selected.includes(row.entry.path)}
+                starred={starred.has(row.entry.path)}
+                renaming={renaming === row.entry.path}
+                renameVal={renameVal}
+                onRenameChange={(v) => useStore.setState({ renameVal: v })}
+                onRenameCommit={commitRename}
+                onRenameCancel={cancelRename}
+                onSelect={(e) => select(row.entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
+                onOpen={() => onOpen(row.entry)}
+                onOpenInNewTab={() => (row.entry.isDir ? newTab(row.entry.path) : undefined)}
+                onContextMenu={(e) => itemMenu(row.entry, e)}
+                onDragStart={(e) => onDragStartItem(e, row.entry.path)}
+                onDropFiles={(paths) => (row.entry.isDir ? void moveEntries(paths, row.entry.path) : undefined)}
+              />
+            ),
+          )}
         </div>
       ) : (
         <ListView
-          entries={sorted}
-          ghosts={showGhosts ? ghostsForDir : []}
+          rows={displayRows}
           selected={selected}
           starred={starred}
           renaming={renaming}
@@ -415,6 +426,23 @@ function FileTile({ entry, selected, starred, renaming, renameVal, onRenameChang
   );
 }
 
+type DisplayRow =
+  | { kind: "entry"; entry: FsEntry }
+  | { kind: "ghost"; ghost: Ghost; entry: FsEntry };
+
+/** Stand-in FsEntry used only to sort a ghost into the spot its file occupied. */
+function ghostSortEntry(g: Ghost): FsEntry {
+  return {
+    name: g.name,
+    path: g.fromPath,
+    isDir: g.isDir ?? false,
+    size: g.size ?? 0,
+    modifiedMs: g.modifiedMs ?? g.atMs,
+    createdMs: g.modifiedMs ?? g.atMs,
+    isHidden: false,
+  };
+}
+
 function ghostDestName(toDir: string): string {
   const name = isRemotePath(toDir) ? remoteBasename(toDir) : basenamePosix(toDir);
   return name || toDir;
@@ -436,6 +464,39 @@ function useFollowGhost(ghost: Ghost) {
     goPath(ghost.toDir);
     setTimeout(() => select(joinPosix(ghost.toDir, ghost.toName)), 0);
   };
+}
+
+function GhostDismiss({ ghost, visible, style }: { ghost: Ghost; visible: boolean; style?: React.CSSProperties }) {
+  const t = useTheme();
+  const dismissGhost = useStore((s) => s.dismissGhost);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        dismissGhost(ghost);
+      }}
+      title="Dismiss"
+      className="gy-soft"
+      style={{
+        display: "grid",
+        placeItems: "center",
+        width: 18,
+        height: 18,
+        padding: 0,
+        borderRadius: 99,
+        border: "none",
+        background: hexA(t.ink, 0.1),
+        color: t.inkSoft,
+        cursor: "pointer",
+        opacity: visible ? 1 : 0,
+        pointerEvents: visible ? "auto" : "none",
+        transition: "opacity .15s ease",
+        ...style,
+      }}
+    >
+      <Icon d={ICONS.close} size={9} strokeWidth={2.4} />
+    </button>
+  );
 }
 
 function GhostDestChip({ ghost, hover }: { ghost: Ghost; hover: boolean }) {
@@ -473,6 +534,7 @@ function GhostTile({ ghost }: { ghost: Ghost }) {
       onMouseLeave={() => setHover(false)}
       title={`${ghost.name} moved to ${ghost.toDir} — click to follow`}
       style={{
+        position: "relative",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -487,6 +549,7 @@ function GhostTile({ ghost }: { ghost: Ghost }) {
         transition: "opacity .15s ease, border-color .15s ease, background .15s ease",
       }}
     >
+      <GhostDismiss ghost={ghost} visible={hover} style={{ position: "absolute", top: 5, right: 5 }} />
       <div style={{ position: "relative", width: 46, height: 46, display: "grid", placeItems: "center" }}>
         <span
           className="gy-ghost-bob"
@@ -543,13 +606,13 @@ function GhostRow({ ghost }: { ghost: Ghost }) {
       <span style={{ flex: "none", fontFamily: t.mono, fontSize: 9.5, color: hover ? t.accent : t.inkFaint, transition: "color .15s ease" }}>
         {hover ? "follow" : ghostAgo(ghost.atMs)}
       </span>
+      <GhostDismiss ghost={ghost} visible={hover} style={{ flex: "none" }} />
     </div>
   );
 }
 
 interface ListProps {
-  entries: FsEntry[];
-  ghosts: Ghost[];
+  rows: DisplayRow[];
   selected: string[];
   starred: Set<string>;
   renaming: string | null;
@@ -565,7 +628,7 @@ interface ListProps {
   onDropFiles: (dir: string, paths: string[]) => void;
 }
 
-function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: ListProps) {
+function ListView({ rows, selected, starred, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onOpen, onOpenInNewTab, onContextMenu, onDragStart, onDropFiles }: ListProps) {
   const t = useTheme();
   const columns = useStore((s) => s.columns);
   const sortKey = useStore((s) => s.sortKey);
@@ -586,29 +649,30 @@ function ListView({ entries, ghosts, selected, starred, renaming, renameVal, onR
           <HeaderCell className="gy-c-modified" width={138} active={sortKey === "modified"} dir={sortDir} onClick={() => setSort("modified")}>Modified</HeaderCell>
         )}
       </div>
-      {entries.map((entry) => (
-        <FileRow
-          key={entry.path}
-          entry={entry}
-          columns={columns}
-          selected={selected.includes(entry.path)}
-          starred={starred.has(entry.path)}
-          renaming={renaming === entry.path}
-          renameVal={renameVal}
-          onRenameChange={onRenameChange}
-          onRenameCommit={onRenameCommit}
-          onRenameCancel={onRenameCancel}
-          onSelect={(e) => onSelect(entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
-          onOpen={() => onOpen(entry)}
-          onOpenInNewTab={() => onOpenInNewTab(entry)}
-          onContextMenu={(e) => onContextMenu(entry, e)}
-          onDragStart={(e) => onDragStart(e, entry.path)}
-          onDropFiles={(paths) => (entry.isDir ? onDropFiles(entry.path, paths) : undefined)}
-        />
-      ))}
-      {ghosts.map((g) => (
-        <GhostRow key={g.name + g.atMs} ghost={g} />
-      ))}
+      {rows.map((row) =>
+        row.kind === "ghost" ? (
+          <GhostRow key={row.ghost.name + row.ghost.atMs} ghost={row.ghost} />
+        ) : (
+          <FileRow
+            key={row.entry.path}
+            entry={row.entry}
+            columns={columns}
+            selected={selected.includes(row.entry.path)}
+            starred={starred.has(row.entry.path)}
+            renaming={renaming === row.entry.path}
+            renameVal={renameVal}
+            onRenameChange={onRenameChange}
+            onRenameCommit={onRenameCommit}
+            onRenameCancel={onRenameCancel}
+            onSelect={(e) => onSelect(row.entry.path, { ctrl: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
+            onOpen={() => onOpen(row.entry)}
+            onOpenInNewTab={() => onOpenInNewTab(row.entry)}
+            onContextMenu={(e) => onContextMenu(row.entry, e)}
+            onDragStart={(e) => onDragStart(e, row.entry.path)}
+            onDropFiles={(paths) => (row.entry.isDir ? onDropFiles(row.entry.path, paths) : undefined)}
+          />
+        ),
+      )}
     </div>
   );
 }
