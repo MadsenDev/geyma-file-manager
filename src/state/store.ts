@@ -6,6 +6,7 @@ import {
   defaultLayout,
   isPanelModule,
   mergeLayout,
+  moduleMinWidth,
   type Layout,
   type ModuleId,
   type ZoneId,
@@ -50,6 +51,7 @@ interface PersistedShape {
   showStatus?: boolean;
   layout?: Layout;
   railW?: { left: number; right: number };
+  moduleWidths?: Partial<Record<ModuleId, number>>;
   centerSplit?: boolean;
   centerRatio?: number;
   path2?: string;
@@ -169,6 +171,7 @@ interface AppState {
   layout: Layout;
   editMode: boolean;
   railW: { left: number; right: number };
+  moduleWidths: Partial<Record<ModuleId, number>>;
   centerSplit: boolean;
   centerRatio: number;
   modCfg: Record<string, ModOptionValue>;
@@ -333,6 +336,8 @@ interface AppState {
   hideModule(id: ModuleId): void;
   showModule(id: ModuleId, zone: ZoneId): void;
   setRailWidth(side: "left" | "right", w: number): void;
+  setModuleWidths(patch: Partial<Record<ModuleId, number>>): void;
+  resetModuleWidths(ids: ModuleId[]): void;
   setCenterRatio(r: number): void;
   toggleCenterSplit(): void;
   applyPreset(layout: Partial<Layout>): void;
@@ -409,6 +414,7 @@ export const useStore = create<AppState>()((set, get) => ({
   layout: defaultLayout(),
   editMode: false,
   railW: { left: 270, right: 340 },
+  moduleWidths: {},
   centerSplit: false,
   centerRatio: 0.6,
   modCfg: {},
@@ -481,6 +487,7 @@ export const useStore = create<AppState>()((set, get) => ({
       searchScope: persisted.searchScope || "folder",
       layout: persisted.layout ? mergeLayout(persisted.layout) : defaultLayout(),
       railW: persisted.railW || { left: 270, right: 340 },
+      moduleWidths: persisted.moduleWidths || {},
       centerSplit: !!persisted.centerSplit,
       centerRatio: persisted.centerRatio ?? 0.6,
       modCfg: persisted.modCfg || {},
@@ -1688,6 +1695,20 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ railW: { ...get().railW, [side]: Math.max(200, Math.min(520, w)) } });
     get().persist();
   },
+  setModuleWidths(patch) {
+    const next = { ...get().moduleWidths };
+    (Object.entries(patch) as [ModuleId, number][]).forEach(([id, w]) => {
+      next[id] = Math.max(moduleMinWidth(id), Math.round(w));
+    });
+    set({ moduleWidths: next });
+    get().persist();
+  },
+  resetModuleWidths(ids) {
+    const next = { ...get().moduleWidths };
+    ids.forEach((id) => delete next[id]);
+    set({ moduleWidths: next });
+    get().persist();
+  },
   setCenterRatio(r) {
     set({ centerRatio: Math.max(0.2, Math.min(0.8, r)) });
     get().persist();
@@ -1713,7 +1734,7 @@ export const useStore = create<AppState>()((set, get) => ({
     get().persist();
   },
   resetLayout() {
-    set({ layout: defaultLayout(), centerSplit: false });
+    set({ layout: defaultLayout(), centerSplit: false, moduleWidths: {} });
     get().persist();
   },
   setModCfg(id, key, val) {
@@ -1757,6 +1778,7 @@ export const useStore = create<AppState>()((set, get) => ({
       searchScope: st.searchScope,
       layout: st.layout,
       railW: st.railW,
+      moduleWidths: st.moduleWidths,
       centerSplit: st.centerSplit,
       centerRatio: st.centerRatio,
       path2: st.path2,

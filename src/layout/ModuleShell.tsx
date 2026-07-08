@@ -5,7 +5,7 @@ import { hexA } from "../theme/skins";
 import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
 import { MODULE_NAMES, type ModuleId, type ZoneId } from "../state/layout";
-import { isStretchModule } from "../state/layout";
+import { isStretchModule, moduleMinWidth } from "../state/layout";
 
 const MODULE_DRAG_TYPE = "application/x-geyma-module";
 
@@ -32,8 +32,9 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
   const resetLayout = useStore((s) => s.resetLayout);
   const showModule = useStore((s) => s.showModule);
   const ref = useRef<HTMLDivElement>(null);
+  const customWidth = useStore((s) => s.moduleWidths[id]);
   const stretch = isStretchModule(id);
-  const sizing = moduleSizing(id, zone, stretch);
+  const sizing = moduleSizing(id, zone, stretch, customWidth);
 
   const openModuleMenu = (x: number, y: number) => {
     const destinations: { zone: ZoneId; label: string }[] = [
@@ -142,7 +143,10 @@ export function ModuleShell({ id, zone, index, isPanel, onDragStart, onDragEnd, 
   );
 }
 
-function moduleSizing(id: ModuleId, zone: ZoneId, stretch: boolean): Pick<React.CSSProperties, "flex" | "minWidth" | "width" | "maxWidth"> {
+function moduleSizing(id: ModuleId, zone: ZoneId, stretch: boolean, customWidth?: number): Pick<React.CSSProperties, "flex" | "minWidth" | "width" | "maxWidth"> {
+  if ((zone === "top" || zone === "bottom") && customWidth != null) {
+    return { flex: "0 0 auto", width: customWidth, minWidth: moduleMinWidth(id) };
+  }
   if (stretch) return { flex: "1 1 0", minWidth: 0 };
   if (zone === "top" || zone === "bottom") {
     if (id === "location") return { flex: "1 1 280px", minWidth: 180, maxWidth: 520 };

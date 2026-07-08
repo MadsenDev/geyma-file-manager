@@ -119,3 +119,17 @@ export function isPanelModule(id: ModuleId): boolean {
 export function isStretchModule(id: ModuleId): boolean {
   return STRETCH_MODULES.includes(id);
 }
+
+// Floor for user-dragged module widths in horizontal zones (top/bottom). Matches the
+// minWidth each module's default sizing in ModuleShell already assumes it needs.
+const MODULE_MIN_WIDTHS: Partial<Record<ModuleId, number>> = {
+  nav: 112,
+  location: 180,
+  search: 220,
+  viewswitch: 160,
+  tabs: 180,
+};
+
+export function moduleMinWidth(id: ModuleId): number {
+  return MODULE_MIN_WIDTHS[id] ?? 64;
+}
