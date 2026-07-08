@@ -1,47 +1,54 @@
 <p align="center">
-  <img src="docs/banner.png" alt="Geyma — Old Norse: to keep, to guard. The file manager that remembers where your files have been — ghost trails, working sets, and a chrome you can reshape." width="100%">
+  <img src="docs/readme/hero-banner.png" alt="Geyma — Old Norse: to keep, to guard. The file manager that remembers where your files have been." width="100%">
 </p>
 
-# Geyma
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-211D17" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/status-v0.7%20in%20progress-2A6FDB" alt="Status">
+  <img src="https://img.shields.io/badge/stack-React%20%2B%20Tauri%202-7C5CD6" alt="Stack">
+</p>
 
-**A desktop file manager that remembers where your files have been, keeps living playlists
-of them, and reshapes itself to however you want to work.**
-
-[![License: MIT](https://img.shields.io/badge/license-MIT-2C6E49)](LICENSE)
-![Status](https://img.shields.io/badge/status-v0.6%20in%20progress-2C7DD6)
-![Stack](https://img.shields.io/badge/stack-React%20%2B%20Tauri%202-7A4B8C)
-
-Geyma (Old Norse: *to keep, to guard*) is a from-scratch rewrite of a PySide6 file manager,
-now built as a React + TypeScript app inside a Tauri 2 shell with real filesystem access —
-list, rename, move, copy, a recoverable Trash, and disk usage, all backed by Rust.
+<p align="center">
+  <strong>Most file managers show you where your files are.<br>
+  Geyma also knows where they've been, keeps living collections of them,<br>
+  and reshapes its entire chrome to how you work.</strong>
+</p>
 
 <p align="center">
   <img src="docs/screenshots/hero.png" alt="Geyma's main window: file grid, working sets, and details panel" width="100%">
 </p>
 
-## Why Geyma is different
+<br>
 
-### 🕰️ Files remember
+<img src="docs/readme/feature-memory.png" alt="01 · Memory — Files remember. Every move leaves a ghost trail behind." width="100%">
 
-Every move, rename, star, and restore is logged. That memory surfaces everywhere: a
-per-file activity timeline in the Details panel, a disk-wide Timeline module, and **ghost
-trails** — faint, dashed markers left behind in a folder showing where a file that just
-left actually went. Click one and it takes you straight there.
+Every move, rename, star, and restore is logged — and that memory surfaces everywhere.
+A per-file activity timeline in the Details panel. A disk-wide Timeline module. And
+**ghost trails**: faint, dashed markers left behind in a folder showing where a file that
+just left actually went. Click one and Geyma takes you straight there.
 
-### 📎 Working Sets
+No more *"it was right here yesterday."* It was — and Geyma will show you where it went.
 
-Playlist-like collections of file *references*, never copies. Files stay exactly where they
-live on disk; a set just follows them through moves, renames, trashing, and restoring. Sets
-can carry a note, or be **smart** — a rule (`starred`, `kind`, `modified since…`) that fills
-the set live from the whole disk instead of a fixed list. Share a set with anyone as a
-`GYSET.` code.
+<br>
 
-### 🎨 Deep customizability
+<img src="docs/readme/feature-sets.png" alt="02 · Working Sets — Playlists for files. References, never copies." width="100%">
 
-The entire chrome is modular. Every piece of UI — nav, search, sidebar panels, even the
-file grid itself — is a module you can drag between six layout zones, hide, or bring back
-from the edit bar's chip strip. Eight full color skins, each overridable token-by-token
-(accent, font, radius, density, glow, background pattern).
+A **Working Set** is a playlist-like collection of file *references* — never copies. Files
+stay exactly where they live on disk; the set just follows them through moves, renames,
+trashing, and restoring. Attach a note, or make a set **smart** — a rule like `starred`,
+`kind: image`, or `modified since…` that fills itself live from the whole disk.
+
+Share any set with anyone as a single `GYSET.` code. Items, rule, note — the whole thing
+round-trips.
+
+<br>
+
+<img src="docs/readme/feature-chrome.png" alt="03 · Your chrome — Reshape everything. Modules, zones, eight skins." width="100%">
+
+There is no fixed layout. Every piece of UI — nav, search, sidebar panels, even the file
+grid itself — is a **module** you can drag between six layout zones, hide, or bring back
+from the edit bar. Eight full color skins, each overridable **token by token**: accent,
+font, radius, density, glow, background pattern.
 
 <p align="center">
   <img src="docs/screenshots/skins.png" alt="Edit mode showing the modular layout and all eight color skins" width="100%">
@@ -68,25 +75,32 @@ from the edit bar's chip strip. Eight full color skins, each overridable token-b
 </tr>
 </table>
 
+## Everything you'd expect, too
+
+Real file management, backed by Rust: cut / copy / paste, duplicate, recursive copy,
+a recoverable Trash, ZIP extraction *and* compression, batch rename (pattern + numbering,
+undoable), symlinks, a full Properties dialog with editable unix permissions, disk usage,
+Quick Look previews, and duplicate detection. Working-set references stay correct across
+every one of these operations.
+
 ## Under the hood
 
-- **React 18 + TypeScript + Vite** for the UI
-- **Zustand** for application state
-- **Tauri 2** as the desktop shell — real filesystem access (list/rename/move/recursive copy,
-  a recoverable app-level Trash, disk usage) via Rust commands in `src-tauri/src/fsops.rs`
-- A **mock in-memory filesystem** (`src/fs/mockBackend.ts`) kicks in automatically when the
-  app runs in a plain browser (`npm run dev` without the Tauri shell), so the UI can be
-  developed and demoed without the native shell — it's what the screenshots above are running.
+- **React 18 + TypeScript + Vite** for the UI, **Zustand** for state
+- **Tauri 2** as the desktop shell — filesystem operations are Rust commands in
+  `src-tauri/src/fsops.rs`, with unit test coverage (including a zip-slip guard)
+- A **mock in-memory filesystem** kicks in automatically in a plain browser
+  (`npm run dev` without the Tauri shell), so the UI can be developed and demoed
+  with no Rust toolchain — it's what the screenshots above are running
 
 ## Getting started
 
 ```bash
 npm install
 
-# Frontend only, in a browser, backed by the mock filesystem — no Rust toolchain needed
+# Frontend only, in a browser, backed by the mock filesystem — no Rust needed
 npm run dev
 
-# Full desktop app with real filesystem access (requires Rust + platform WebView deps)
+# Full desktop app with real filesystem access (requires Rust + WebView deps)
 npm run tauri dev
 ```
 
@@ -95,14 +109,13 @@ for your OS (on Linux: `webkit2gtk`, `libayatana-appindicator3`, `librsvg2` deve
 packages, on top of a Rust toolchain).
 
 ```bash
-npm run build          # typecheck + build the frontend bundle
+npm run build           # typecheck + build the frontend bundle
 npm run typecheck       # TypeScript only
 npm run tauri build     # .deb and .rpm bundles (needs native deps above)
 ```
 
-Arch Linux is packaged separately via [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD)
-(a `-git` VCS package, since no tagged releases exist yet) — build it with `makepkg -si`.
-AppImage isn't part of the default build; it's still buildable on demand with
+Arch Linux is packaged via [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD) — build it
+with `makepkg -si`. AppImage is buildable on demand with
 `npm run tauri build -- --bundles appimage`.
 
 ## Project layout
@@ -117,25 +130,14 @@ src/
   overlays/    Quick Look, context menu, toast, modals
   icons/       inline stroke-SVG icon set
 src-tauri/     Rust shell: window config + filesystem commands
-archive/       the previous PySide6 implementation (reference only, not built)
 design/        the v3.2 design handoff this rewrite implements
 ```
 
-## Status
+## Roadmap
 
-The zone/module layout engine, skin/token system, and core modules (files grid/list, nav,
-location, search, view switch, title, places, devices, status, details, appearance, sets,
-disk, recent, timeline, duplicates, clock, visualizer, folder mood, second pane, Quick Look,
-ghost trails) are implemented against real filesystem data. Cut, copy/paste, duplicate, ZIP
-extraction, ZIP compression, batch rename (pattern + numbering, undoable), symlink creation,
-and a Properties dialog (owner/group, unix permission bits, editable read/write/execute per
-owner/group/other) are all wired to the real FS (copy, extraction, and compression are
-recursive Rust commands), working-set references stay correct across every operation
-(move/rename/trash/restore/permanent delete), and set share codes round-trip full set data
-(items, rule, smart, note). `src-tauri` has unit test coverage for the filesystem commands
-(move/copy/rename/trash/restore/delete/extract/compress/symlink/chmod, including a zip-slip
-guard) and archive/text preview parsing; the frontend has none yet. `npm run tauri build`
-produces working `.deb` and `.rpm` bundles; AppImage bundling depends on a GitHub release
-download that may be blocked in restricted network environments. Still open, per the design
-spec: workspace (full environment) snapshots, binding a look/layout snapshot to a working
-set, non-ZIP archive formats (tar/rar/7z), tabs, and network protocol (smb/sftp) support.
+Still open, per the design spec: workspace snapshots, binding a look/layout snapshot to a
+working set, non-ZIP archive formats (tar/rar/7z), tabs, and network protocols (smb/sftp).
+
+<p align="center">
+  <img src="docs/readme/footer.png" alt="Geyma — to keep, to guard, to remember" width="100%">
+</p>
