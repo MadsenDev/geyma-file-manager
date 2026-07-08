@@ -1672,7 +1672,8 @@ export const useStore = create<AppState>()((set, get) => ({
     const arr = next[toZone].slice();
     arr.splice(Math.max(0, Math.min(index, arr.length)), 0, id);
     next[toZone] = arr;
-    set({ layout: next });
+    // center2 only renders while centerSplit is on, so placing a module there implies the split
+    set(toZone === "center2" && !get().centerSplit ? { layout: next, centerSplit: true } : { layout: next });
     get().persist();
   },
   hideModule(id) {
