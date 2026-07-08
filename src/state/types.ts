@@ -29,6 +29,11 @@ export interface Ghost {
   toDir: string;
   toName: string;
   atMs: number;
+  /** Snapshot of the departed entry, taken from the cached dir listing when the ghost is
+   *  created, so the ghost can keep sorting exactly where the file used to sit. */
+  isDir?: boolean;
+  size?: number;
+  modifiedMs?: number;
 }
 
 export interface SetRule {

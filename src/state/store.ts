@@ -153,6 +153,7 @@ interface AppState {
   fileEvents: Record<string, FileEvent[]>;
   globalFeed: FileEvent[];
   ghosts: Record<string, Ghost[]>;
+  dismissGhost(ghost: Ghost): void;
   trashOrigins: Record<string, string>;
   trashOriginNames: Record<string, string>;
   undoStack: UndoAction[];
@@ -559,16 +560,21 @@ export const useStore = create<AppState>()((set, get) => ({
       return true;
     });
 
-    const sorted = filtered.slice().sort((a, b) => {
-      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-      let cmp = 0;
-      if (st.sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else if (st.sortKey === "kind") cmp = kindOf(a.name, a.isDir).localeCompare(kindOf(b.name, b.isDir));
-      else if (st.sortKey === "size") cmp = a.size - b.size;
-      else if (st.sortKey === "modified") cmp = a.modifiedMs - b.modifiedMs;
-      return st.sortDir === "asc" ? cmp : -cmp;
-    });
+    const sorted = filtered.slice().sort((a, b) => compareEntries(a, b, st.sortKey, st.sortDir));
     return sorted;
+  },
+
+  dismissGhost(ghost) {
+    const ghosts = { ...get().ghosts };
+    let changed = false;
+    for (const dir of Object.keys(ghosts)) {
+      const next = ghosts[dir].filter((g) => !(g.fromPath === ghost.fromPath && g.atMs === ghost.atMs));
+      if (next.length !== ghosts[dir].length) {
+        ghosts[dir] = next;
+        changed = true;
+      }
+    }
+    if (changed) set({ ghosts });
   },
 
   goPath(path: string) {
@@ -1917,14 +1923,32 @@ async function doPermanentDelete(get: () => AppState, set: (partial: Partial<App
   set({ selected: [], pendingConfirm: null });
 }
 
+/** The one sort order for file listings — visibleEntries() and the ghost tiles that
+ *  interleave with it in Files must agree, so both go through this comparator. */
+export function compareEntries(a: FsEntry, b: FsEntry, sortKey: SortKey, sortDir: "asc" | "desc"): number {
+  if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+  let cmp = 0;
+  if (sortKey === "name") cmp = a.name.localeCompare(b.name);
+  else if (sortKey === "kind") cmp = kindOf(a.name, a.isDir).localeCompare(kindOf(b.name, b.isDir));
+  else if (sortKey === "size") cmp = a.size - b.size;
+  else if (sortKey === "modified") cmp = a.modifiedMs - b.modifiedMs;
+  return sortDir === "asc" ? cmp : -cmp;
+}
+
 function addGhost(
   get: () => AppState,
   set: (partial: Partial<AppState>) => void,
   dir: string,
   ghost: Ghost,
 ) {
+  // The cached listing still holds the departed entry at this point (reloads happen
+  // after the op loop), so snapshot what the ghost needs to sort in the file's place.
+  const orig = get().entriesFor(dir).find((e) => e.path === ghost.fromPath);
+  const enriched: Ghost = orig
+    ? { ...ghost, isDir: orig.isDir, size: orig.size, modifiedMs: orig.modifiedMs }
+    : ghost;
   const ghosts = { ...get().ghosts };
-  ghosts[dir] = [ghost, ...(ghosts[dir] || [])].slice(0, 3);
+  ghosts[dir] = [enriched, ...(ghosts[dir] || [])].slice(0, 3);
   set({ ghosts });
   removeGhostOnReturn(get, set, ghost.toDir, ghost.name);
 }

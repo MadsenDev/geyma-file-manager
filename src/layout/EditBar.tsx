@@ -1,9 +1,17 @@
+import { useRef, useState } from "react";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA } from "../theme/skins";
 import { ALL_MODULES, MODULE_NAMES, type ModuleId } from "../state/layout";
+import { Icon } from "../icons/Icon";
+import { ICONS } from "../icons/paths";
+import { ModulePreview } from "./ModulePreview";
 
 const MODULE_DRAG_TYPE = "application/x-geyma-module";
+
+// Remembered across mount/unmount so the palette stays where the user dragged it
+// for the whole app session (toggling edit mode doesn't reset it). Not persisted.
+let sessionPos: { x: number; y: number } | null = null;
 
 function hiddenModules(layout: Record<string, ModuleId[]>): ModuleId[] {
   const placed = new Set<ModuleId>();
@@ -19,73 +27,130 @@ export function EditBar() {
   const toggleEditMode = useStore((s) => s.toggleEditMode);
   const hidden = hiddenModules(layout);
 
+  const [pos, setPos] = useState(sessionPos);
+  const [collapsed, setCollapsed] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const grab = useRef<{ dx: number; dy: number } | null>(null);
+
+  function startDrag(e: React.PointerEvent) {
+    if ((e.target as HTMLElement).closest("button")) return;
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    grab.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+  function moveDrag(e: React.PointerEvent) {
+    if (!grab.current || !panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    const next = {
+      x: Math.min(Math.max(8, e.clientX - grab.current.dx), Math.max(8, window.innerWidth - rect.width - 8)),
+      y: Math.min(Math.max(8, e.clientY - grab.current.dy), Math.max(8, window.innerHeight - rect.height - 8)),
+    };
+    sessionPos = next;
+    setPos(next);
+  }
+  function endDrag() {
+    grab.current = null;
+  }
+
   return (
     <div
+      ref={panelRef}
       style={{
         position: "fixed",
-        left: 12,
-        right: 12,
-        bottom: 12,
+        ...(pos ? { left: pos.x, top: pos.y } : { left: "50%", bottom: 12, transform: "translateX(-50%)" }),
         zIndex: 120,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "8px 12px",
+        width: "min(680px, calc(100vw - 24px))",
         borderRadius: 14,
         background: t.card,
         border: `1px solid ${t.border}`,
         boxShadow: `0 16px 44px ${hexA("#000000", t.isDark ? 0.5 : 0.2)}`,
+        overflow: "hidden",
       }}
       className="gy-anim"
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 9, flex: "none" }}>
-        <span style={{ width: 8, height: 8, borderRadius: 99, background: t.accent, animation: "gy-pulse 1.4s ease-in-out infinite" }} />
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: t.ink }}>Editing layout</span>
-      </div>
-      <div style={{ width: 1, height: 22, background: t.border, flex: "none" }} />
-      <span style={{ fontFamily: t.mono, fontSize: 10, textTransform: "uppercase", letterSpacing: ".1em", color: t.inkFaint, flex: "none" }}>
-        Hidden
-      </span>
-      <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", flex: 1, minWidth: 0, overflowX: "auto", paddingBottom: 2 }}>
-        {hidden.map((id) => (
-          <button
-            key={id}
-            draggable
-            onDragStart={(e) => e.dataTransfer.setData(MODULE_DRAG_TYPE, id)}
-            onClick={() => showModule(id, "left")}
-            title="Drag into a zone, or click to add"
-            style={{
-              flex: "none",
-              padding: "4px 10px",
-              borderRadius: 99,
-              border: `1px solid ${t.border}`,
-              background: "transparent",
-              color: t.inkSoft,
-              fontFamily: t.mono,
-              fontSize: 11,
-              cursor: "grab",
-              whiteSpace: "nowrap",
-            }}
-          >
-            + {MODULE_NAMES[id]}
-          </button>
-        ))}
-        {hidden.length === 0 && <span style={{ fontSize: 11.5, color: t.inkFaint }}>All modules placed</span>}
-      </div>
-      <button
-        onClick={resetLayout}
-        className="gy-soft"
-        style={{ flex: "none", padding: "6px 12px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.inkSoft, fontSize: 12, cursor: "pointer" }}
+      <div
+        onPointerDown={startDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "grab", touchAction: "none", userSelect: "none" }}
+        title="Drag to move this panel"
       >
-        Reset
-      </button>
-      <button
-        onClick={toggleEditMode}
-        className="gy-prim"
-        style={{ flex: "none", padding: "6px 14px", borderRadius: 8, border: "none", background: t.accent, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-      >
-        Done
-      </button>
+        <svg width="10" height="14" viewBox="0 0 10 14" fill={t.inkFaint} aria-hidden="true" style={{ flex: "none" }}>
+          {[2, 7, 12].map((y) => [2.5, 7.5].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.2" />))}
+        </svg>
+        <span style={{ width: 8, height: 8, borderRadius: 99, background: t.accent, animation: "gy-pulse 1.4s ease-in-out infinite", flex: "none" }} />
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, flex: "none" }}>Editing layout</span>
+        <span style={{ flex: 1, minWidth: 0, textAlign: "right", fontFamily: t.mono, fontSize: 9.5, textTransform: "uppercase", letterSpacing: ".08em", color: t.inkFaint, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {hidden.length > 0 ? `${hidden.length} hidden` : "all placed"}
+        </span>
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          className="gy-soft"
+          title={collapsed ? "Show hidden modules" : "Collapse panel"}
+          style={{ flex: "none", display: "grid", placeItems: "center", width: 26, height: 26, borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.inkSoft, cursor: "pointer" }}
+        >
+          <Icon d={ICONS.chevronRight} size={12} style={{ transform: collapsed ? "rotate(0deg)" : "rotate(90deg)", transition: "transform .15s ease" }} />
+        </button>
+        <button
+          onClick={resetLayout}
+          className="gy-soft"
+          style={{ flex: "none", padding: "5px 12px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.inkSoft, fontSize: 12, cursor: "pointer" }}
+        >
+          Reset
+        </button>
+        <button
+          onClick={toggleEditMode}
+          className="gy-prim"
+          style={{ flex: "none", padding: "5px 14px", borderRadius: 8, border: "none", background: t.accent, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+        >
+          Done
+        </button>
+      </div>
+      {!collapsed && (
+        <div style={{ borderTop: `1px solid ${t.border}`, padding: "8px 12px 10px" }}>
+          <div style={{ fontFamily: t.mono, fontSize: 9.5, textTransform: "uppercase", letterSpacing: ".1em", color: t.inkFaint, marginBottom: 7 }}>
+            Hidden modules — drag into a zone, or click to add
+          </div>
+          {hidden.length > 0 ? (
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+              {hidden.map((id) => (
+                <button
+                  key={id}
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData(MODULE_DRAG_TYPE, id)}
+                  onClick={() => showModule(id, "left")}
+                  title={`${MODULE_NAMES[id]} — drag into a zone, or click to add`}
+                  className="gy-soft"
+                  style={{
+                    flex: "none",
+                    width: 92,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 5,
+                    padding: 6,
+                    borderRadius: 10,
+                    border: `1px solid ${t.border}`,
+                    background: "transparent",
+                    cursor: "grab",
+                  }}
+                >
+                  <span style={{ display: "block", borderRadius: 7, background: hexA(t.ink, t.isDark ? 0.07 : 0.045), overflow: "hidden" }}>
+                    <ModulePreview id={id} />
+                  </span>
+                  <span style={{ fontFamily: t.mono, fontSize: 9.5, color: t.inkSoft, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {MODULE_NAMES[id]}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span style={{ fontSize: 11.5, color: t.inkFaint }}>All modules placed</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
