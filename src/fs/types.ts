@@ -81,7 +81,6 @@ export interface FsBackend {
   homeDir(): Promise<string>;
   listDir(path: string): Promise<FsEntry[]>;
   stat(path: string): Promise<FsEntry>;
-  readTextFile(path: string): Promise<string>;
   /** URL the webview can load for images/audio/video, or null if unavailable. */
   fileUrl(path: string): Promise<string | null>;
   /** Checks native audio/video prerequisites before WebKit creates a media element. */

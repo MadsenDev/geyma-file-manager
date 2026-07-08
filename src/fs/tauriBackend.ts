@@ -80,10 +80,6 @@ export const tauriBackend: FsBackend = {
     const raw = await invoke<RawFsEntry>("stat_path", { path });
     return fromRaw(raw);
   },
-  async readTextFile(path: string) {
-    if (isRemotePath(path)) return invoke<string>("remote_read_text_file", { path });
-    return invoke<string>("read_text_file", { path });
-  },
   async fileUrl(path: string) {
     // The local media server only ever reads from local disk, so a network place's
     // path string would just 404 there — same "not available yet" outcome as the

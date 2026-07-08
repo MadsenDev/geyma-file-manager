@@ -160,8 +160,8 @@ const modeOverrides: Map<string, number> = new Map();
 // Demo network places, purely for dev-mode (browser) testing of the Network module —
 // the real protocol work only exists in src-tauri/src/remote.rs, so this is just enough
 // simulated state to click through connect/browse/copy/disconnect without a real server.
-export const MOCK_SFTP_ROOT = "sftp://demo@filepile.local:22/";
-export const MOCK_SMB_ROOT = "smb://demo@office-nas:445/Shared";
+const MOCK_SFTP_ROOT = "sftp://demo@filepile.local:22/";
+const MOCK_SMB_ROOT = "smb://demo@office-nas:445/Shared";
 const MOCK_REMOTE_PASSWORD = "demo";
 const connectedKeys = new Set<string>();
 
@@ -263,14 +263,6 @@ export const mockBackend: FsBackend = {
     const found = findNode(path);
     if (!found) throw new Error(`not found: ${path}`);
     return delay(toEntry(found.dir, found.node));
-  },
-  async readTextFile(path: string) {
-    requireConnected(path);
-    const found = findNode(path);
-    const name = found?.node.name ?? baseOf(path);
-    return delay(
-      `# ${name}\n\nThis is placeholder content shown by Geyma's mock filesystem (used when running outside the Tauri shell).\n`,
-    );
   },
   async fileUrl() {
     return null;
