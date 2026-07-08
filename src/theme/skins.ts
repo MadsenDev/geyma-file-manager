@@ -1,3 +1,5 @@
+import { tr } from "@/i18n";
+
 export type SkinMode = "light" | "dark";
 export type TileStyle = "flat" | "card";
 export type BackgroundPattern = "none" | "dots" | "grid";
@@ -70,14 +72,14 @@ export const FONT_LABELS: { v: FontKey; l: string }[] = [
 ];
 
 export const SKINS: Record<string, Skin> = {
-  parchment: { name: "Parchment", mode: "light", tag: "THE KEEPER", bg: "#EFE9DE", surface: "#E7E0D2", main: "#F3EEE4", card: "#FBF8F2", ink: "#211D17", inkSoft: "#5F5849", inkFaint: "#7E7359", border: "rgba(33,29,23,.10)", accent: "#2C6E49", font: "grotesk", radius: 14, tile: "flat", iconMono: false, pattern: "none" },
-  obsidian: { name: "Obsidian", mode: "dark", tag: "MIDNIGHT", bg: "#0B0D10", surface: "#101318", main: "#0E1114", card: "#171B21", ink: "#E8ECF1", inkSoft: "#9AA4B0", inkFaint: "#5C6672", border: "rgba(255,255,255,.09)", accent: "#35D0C0", font: "grotesk", radius: 14, tile: "card", iconMono: false, pattern: "none" },
-  phosphor: { name: "Phosphor", mode: "dark", tag: "TERMINAL", bg: "#050A06", surface: "#08110A", main: "#060D08", card: "#0C160E", ink: "#8CF5A6", inkSoft: "#4A9E63", inkFaint: "#2E6440", border: "rgba(56,229,106,.16)", accent: "#38E56A", font: "mono", radius: 2, tile: "flat", iconMono: true, pattern: "grid" },
-  nord: { name: "Nord", mode: "dark", tag: "FROST", bg: "#2E3440", surface: "#2B303B", main: "#333A47", card: "#3B4252", ink: "#ECEFF4", inkSoft: "#AEB6C6", inkFaint: "#6D7488", border: "rgba(236,239,244,.10)", accent: "#88C0D0", font: "grotesk", radius: 10, tile: "card", iconMono: false, pattern: "none" },
-  amber: { name: "Amber CRT", mode: "dark", tag: "PHOSPHOR", bg: "#140F08", surface: "#1A130A", main: "#120D06", card: "#20180F", ink: "#F5C877", inkSoft: "#B0812F", inkFaint: "#9A7B36", border: "rgba(255,178,62,.16)", accent: "#FFB23E", font: "mono", radius: 4, tile: "flat", iconMono: true, pattern: "grid" },
-  plasma: { name: "Plasma", mode: "light", tag: "BREEZE", bg: "#EEF1F6", surface: "#E5EAF3", main: "#F5F7FB", card: "#FFFFFF", ink: "#1D2733", inkSoft: "#566072", inkFaint: "#98A2B3", border: "rgba(29,39,51,.11)", accent: "#2C7DD6", font: "system", radius: 8, tile: "card", iconMono: false, pattern: "none" },
-  synthwave: { name: "Synthwave", mode: "dark", tag: "OUTRUN", bg: "#17091F", surface: "#1F0C2B", main: "#1A0A23", card: "#2A1139", ink: "#F6E7FF", inkSoft: "#BC93D8", inkFaint: "#7C5C97", border: "rgba(255,79,163,.18)", accent: "#FF4FA3", font: "grotesk", radius: 12, tile: "card", iconMono: false, pattern: "dots" },
-  paper: { name: "Paper", mode: "light", tag: "MINIMAL", bg: "#FFFFFF", surface: "#FAFAF9", main: "#FFFFFF", card: "#FFFFFF", ink: "#141414", inkSoft: "#5F5F5F", inkFaint: "#ADADAD", border: "rgba(0,0,0,.11)", accent: "#141414", font: "serif", radius: 5, tile: "flat", iconMono: true, pattern: "none" },
+  parchment: { name: tr("skins.parchment.name"), mode: "light", tag: tr("skins.parchment.tag"), bg: "#EFE9DE", surface: "#E7E0D2", main: "#F3EEE4", card: "#FBF8F2", ink: "#211D17", inkSoft: "#5F5849", inkFaint: "#7E7359", border: "rgba(33,29,23,.10)", accent: "#2C6E49", font: "grotesk", radius: 14, tile: "flat", iconMono: false, pattern: "none" },
+  obsidian: { name: tr("skins.obsidian.name"), mode: "dark", tag: tr("skins.obsidian.tag"), bg: "#0B0D10", surface: "#101318", main: "#0E1114", card: "#171B21", ink: "#E8ECF1", inkSoft: "#9AA4B0", inkFaint: "#5C6672", border: "rgba(255,255,255,.09)", accent: "#35D0C0", font: "grotesk", radius: 14, tile: "card", iconMono: false, pattern: "none" },
+  phosphor: { name: tr("skins.phosphor.name"), mode: "dark", tag: tr("skins.phosphor.tag"), bg: "#050A06", surface: "#08110A", main: "#060D08", card: "#0C160E", ink: "#8CF5A6", inkSoft: "#4A9E63", inkFaint: "#2E6440", border: "rgba(56,229,106,.16)", accent: "#38E56A", font: "mono", radius: 2, tile: "flat", iconMono: true, pattern: "grid" },
+  nord: { name: tr("skins.nord.name"), mode: "dark", tag: tr("skins.nord.tag"), bg: "#2E3440", surface: "#2B303B", main: "#333A47", card: "#3B4252", ink: "#ECEFF4", inkSoft: "#AEB6C6", inkFaint: "#6D7488", border: "rgba(236,239,244,.10)", accent: "#88C0D0", font: "grotesk", radius: 10, tile: "card", iconMono: false, pattern: "none" },
+  amber: { name: tr("skins.amber.name"), mode: "dark", tag: tr("skins.amber.tag"), bg: "#140F08", surface: "#1A130A", main: "#120D06", card: "#20180F", ink: "#F5C877", inkSoft: "#B0812F", inkFaint: "#9A7B36", border: "rgba(255,178,62,.16)", accent: "#FFB23E", font: "mono", radius: 4, tile: "flat", iconMono: true, pattern: "grid" },
+  plasma: { name: tr("skins.plasma.name"), mode: "light", tag: tr("skins.plasma.tag"), bg: "#EEF1F6", surface: "#E5EAF3", main: "#F5F7FB", card: "#FFFFFF", ink: "#1D2733", inkSoft: "#566072", inkFaint: "#98A2B3", border: "rgba(29,39,51,.11)", accent: "#2C7DD6", font: "system", radius: 8, tile: "card", iconMono: false, pattern: "none" },
+  synthwave: { name: tr("skins.synthwave.name"), mode: "dark", tag: tr("skins.synthwave.tag"), bg: "#17091F", surface: "#1F0C2B", main: "#1A0A23", card: "#2A1139", ink: "#F6E7FF", inkSoft: "#BC93D8", inkFaint: "#7C5C97", border: "rgba(255,79,163,.18)", accent: "#FF4FA3", font: "grotesk", radius: 12, tile: "card", iconMono: false, pattern: "dots" },
+  paper: { name: tr("skins.paper.name"), mode: "light", tag: tr("skins.paper.tag"), bg: "#FFFFFF", surface: "#FAFAF9", main: "#FFFFFF", card: "#FFFFFF", ink: "#141414", inkSoft: "#5F5F5F", inkFaint: "#ADADAD", border: "rgba(0,0,0,.11)", accent: "#141414", font: "serif", radius: 5, tile: "flat", iconMono: true, pattern: "none" },
 };
 
 export const SKIN_ORDER = ["parchment", "obsidian", "phosphor", "nord", "amber", "plasma", "synthwave", "paper"];

@@ -1,3 +1,4 @@
+import { tr } from "@/i18n";
 // Local AI, via a user-installed Ollama instance — see src-tauri/src/ai.rs for the
 // install/serve/model lifecycle this wraps. Not part of `FsBackend`: it isn't a
 // filesystem backend, and it's only ever available under Tauri (there's nothing
@@ -23,7 +24,7 @@ export interface AiPullProgress {
   total?: number;
 }
 
-const NOT_TAURI = "Local AI is only available in the desktop app";
+const NOT_TAURI = tr("errors.desktop_only");
 
 export async function aiStatus(): Promise<AiStatus> {
   if (!isTauri()) return { installed: false, running: false };

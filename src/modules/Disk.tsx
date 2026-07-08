@@ -63,14 +63,8 @@ export function Disk() {
             fontFamily: t.mono,
           }}
         >
-          <span>
-            {formatSize(used)}
-            {tr("ui.disk.used")}
-          </span>
-          <span>
-            {formatSize(usage.total)}
-            {tr("ui.disk.total")}
-          </span>
+          <span>{tr("ui.disk.used_amount", { size: formatSize(used) })}</span>
+          <span>{tr("ui.disk.total_amount", { size: formatSize(usage.total) })}</span>
         </div>
       </div>
     </div>

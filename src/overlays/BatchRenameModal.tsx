@@ -51,7 +51,7 @@ export function BatchRenameModal({
       throw new Error(tr("ui.batch_rename_modal.empty_suggestion"));
       setTemplate(suggestion);
     } catch (e) {
-      showToast(`AI suggestion failed: ${explainError(e)}`);
+      showToast(tr("toast.ai_suggestion_failed", { error: explainError(e) }));
     } finally {
       setSuggesting(false);
     }
@@ -92,11 +92,7 @@ export function BatchRenameModal({
             color: t.inkSoft
           }}>
           
-          {tr("ui.batch_rename_modal.pattern")}
-          {"{name}"}
-          {tr(
-            "ui.batch_rename_modal.keeps_the_original_name_runs_become_a_zero_padde"
-          )}
+          {tr("ui.batch_rename_modal.pattern_help")}
         </label>
         {aiAvailable &&
         <button

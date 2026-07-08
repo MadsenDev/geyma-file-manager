@@ -1,4 +1,4 @@
-import { tr } from "@/i18n";
+import { tr, trEventAction } from "@/i18n";
 import { useEffect, useState } from "react";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
@@ -83,16 +83,12 @@ export function Details() {
           
           <Row
             label={tr("ui.details.folders")}
-            value={tr("ui.details.folders", {
-              folders
-            })}
+            value={`${folders}`}
             t={t} />
           
           <Row
             label={tr("ui.details.files")}
-            value={tr("ui.details.files", {
-              files
-            })}
+            value={`${files}`}
             t={t} />
           
           <Row
@@ -213,7 +209,7 @@ export function Details() {
               marginTop: 2
             }}>
             
-            {entry.isDir ? "Folder" : kind}
+            {entry.isDir ? tr("ui.details.folder") : tr(`kind.${kind}`)}
           </div>
         </div>
       </div>
@@ -255,7 +251,7 @@ export function Details() {
           
             <Row
             label={tr("ui.details.starred")}
-            value={starred.has(entry.path) ? "Yes" : "No"}
+            value={starred.has(entry.path) ? tr("common.yes") : tr("common.no")}
             t={t} />
           
           </div>
@@ -316,7 +312,7 @@ function AiFolderSummary({
       );
       setSummary(text.trim());
     } catch (e) {
-      showToast(`AI summary failed: ${explainError(e)}`);
+      showToast(tr("toast.ai_summary_failed", { error: explainError(e) }));
     } finally {
       setLoading(false);
     }
@@ -543,7 +539,7 @@ function JourneyRow({
             color: t.ink
           }}>
           
-          {ev.action}
+          {trEventAction(ev.action)}
         </b>{" "}
         {ev.detail &&
         <span
@@ -559,7 +555,7 @@ function JourneyRow({
       <button
         onClick={() => undoFileEvent(path, ev.id)}
         title={tr("ui.details.undo_action", {
-          action: ev.action
+          action: trEventAction(ev.action)
         })}
         className="gy-soft"
         style={{

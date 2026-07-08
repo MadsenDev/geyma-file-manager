@@ -7,7 +7,13 @@
       "cut": "Cut",
       "copy": "Copy",
       "paste": "Paste",
-      "select_all": "Select all"
+      "select_all": "Select all",
+      "zone_hint_top": "Top zone — drop modules here",
+      "zone_hint_left": "Left rail — drop here",
+      "zone_hint_center2": "Lower pane — drop modules here",
+      "zone_hint_right": "Right rail — drop here",
+      "zone_hint_bottom": "Bottom zone — drop here",
+      "clipboard_access_was_denied": "Clipboard access was denied"
     },
     "appearance": {
       "skins": "Skins",
@@ -15,7 +21,6 @@
       "layout": "Layout",
       "accent": "Accent",
       "font": "Font",
-      "radius": "Radius:",
       "icon_monochrome": "Icon monochrome",
       "glow": "Glow",
       "motion": "Motion",
@@ -24,7 +29,8 @@
       "presets": "Presets",
       "split_center_pane": "Split center pane",
       "edit_layout_mode": "Edit layout mode",
-      "reset_layout_to_default": "Reset layout to default"
+      "reset_layout_to_default": "Reset layout to default",
+      "radius_value": "Radius: {{value}}px"
     },
     "details": {
       "details": "Details",
@@ -50,7 +56,8 @@
       "no_inline_preview_available_for_this_format": "No inline preview available for this format.",
       "preparing_preview": "Preparing preview…",
       "undo_action": "Undo: {{action}}",
-      "undo": "Undo"
+      "undo": "Undo",
+      "folder": "Folder"
     },
     "devices": {
       "system": "System",
@@ -61,7 +68,9 @@
       "disk_usage": "Disk usage",
       "pct": "{{pct}}%",
       "used": "used",
-      "total": "total"
+      "total": "total",
+      "used_amount": "{{size}} used",
+      "total_amount": "{{size}} total"
     },
     "dupes": {
       "duplicates": "Duplicates",
@@ -114,14 +123,25 @@
       "kind": "Kind",
       "size": "Size",
       "modified": "Modified",
-      "folder": "Folder"
+      "folder": "Folder",
+      "d_d_ago": "{{d}}d ago",
+      "click_to_follow": "click to follow",
+      "moved_ago": "moved {{ago}}"
     },
     "files2": {
       "up": "Up",
       "length_items_lower_pane": "{{length}} items · lower pane",
       "empty_drop_files_here": "Empty — drop files here",
       "duplicate_length_items": "Duplicate {{length}} items",
-      "trash_length_items": "Trash {{length}} items"
+      "trash_length_items": "Trash {{length}} items",
+      "open": "Open",
+      "show_in_upper_pane": "Show in upper pane",
+      "remove_star": "Remove star",
+      "star": "Star",
+      "cut": "Cut",
+      "copy": "Copy",
+      "duplicate": "Duplicate",
+      "trash": "Trash"
     },
     "location": {
       "home": "Home"
@@ -155,7 +175,8 @@
       "forget_connection": "Forget connection",
       "network": "Network",
       "add_connection": "Add connection",
-      "no_saved_connections": "No saved connections"
+      "no_saved_connections": "No saved connections",
+      "path_copied": "Path copied"
     },
     "places": {
       "home": "Home",
@@ -166,7 +187,9 @@
       "videos": "Videos",
       "music": "Music",
       "places": "Places",
-      "trash": "Trash"
+      "trash": "Trash",
+      "open_trash": "Open Trash",
+      "empty_trash": "Empty Trash…"
     },
     "recent": {
       "recent_activity": "Recent activity",
@@ -183,7 +206,9 @@
       "all": "All",
       "starred": "★ Starred",
       "asking_ai": "Asking AI…",
-      "ask_ai": "Ask AI ↵"
+      "ask_ai": "Ask AI ↵",
+      "placeholder_ai": "Search, or describe what you want…",
+      "placeholder": "Search this folder…"
     },
     "sets": {
       "working_sets": "Working Sets",
@@ -196,7 +221,22 @@
       "note": "Note",
       "rename_set": "Rename set",
       "import_set_code": "Import set code",
-      "paste_a_gyset_code": "Paste a GYSET. code"
+      "paste_a_gyset_code": "Paste a GYSET. code",
+      "menu_new_set": "New working set…",
+      "menu_new_smart_set": "New smart set…",
+      "menu_import_set": "Import set code…",
+      "menu_open": "Open",
+      "menu_edit_note": "Edit note…",
+      "menu_add_note": "Add note…",
+      "menu_rename": "Rename",
+      "menu_duplicate": "Duplicate",
+      "menu_copy_code": "Copy set code",
+      "menu_remove": "Remove",
+      "code_copied": "Set code copied to clipboard",
+      "bad_code": "That doesn't look like a set code",
+      "imported": "Imported \"{{name}}\"",
+      "fallback_name": "set",
+      "smart_badge": "smart · fills itself"
     },
     "settings": {
       "name": "Name",
@@ -225,7 +265,6 @@
       "linux_only_runs_the_official_install_script_from": "Linux only — runs the official install script from ollama.com. It needs admin rights, so your desktop's own authentication dialog will pop up to ask for your password (not a terminal — if that dialog never appears, your system may be missing a PolicyKit agent, and installing manually from",
       "is_the_fallback_on_other_platforms_download_it_m": "is the fallback). On other platforms, download it manually from the same link and reopen this panel.",
       "starting_installer": "Starting installer…",
-      "ollama": "Ollama",
       "stop_server": "Stop server",
       "starting": "Starting…",
       "start_server": "Start server",
@@ -238,13 +277,23 @@
       "natural_language_search": "Natural-language search",
       "rename_suggestions": "Rename suggestions",
       "folder_summaries": "Folder summaries",
-      "each_is_independent_turning_one_off_never_affect": "Each is independent — turning one off never affects the others."
+      "each_is_independent_turning_one_off_never_affect": "Each is independent — turning one off never affects the others.",
+      "startup_resume": "Reopen last session",
+      "startup_home": "Always start at Home",
+      "view_grid": "Grid",
+      "view_list": "List",
+      "scope_folder": "This folder",
+      "scope_all": "Everywhere",
+      "ollama_running": "Ollama is running",
+      "ollama_installed": "Ollama is installed, not running",
+      "no_models_hint": "No models pulled yet — pull one below (try \"llama3.2\" or \"mistral\")."
     },
     "status": {
-      "item": "item",
-      "selected": "selected",
       "cut": "Cut",
-      "copied": "Copied"
+      "copied": "Copied",
+      "items_one": "{{count}} item",
+      "items_other": "{{count}} items",
+      "selected_count": "{{count}} selected"
     },
     "tabs": {
       "trash": "Trash",
@@ -268,8 +317,13 @@
       "smart_set_fills_itself_from_rules": "Smart set · fills itself from rules",
       "working_set_references_not_copies": "Working set · references, not copies",
       "trash_items_awaiting_permanent_removal": "Trash · items awaiting permanent removal",
-      "item": "item",
-      "note": "· \"{{note}}\""
+      "note": "· \"{{note}}\"",
+      "items_one": "{{count}} item",
+      "items_other": "{{count}} items",
+      "folders_count_one": "{{count}} folder",
+      "folders_count_other": "{{count}} folders",
+      "files_count_one": "{{count}} file",
+      "files_count_other": "{{count}} files"
     },
     "view_switch": {
       "name": "Name",
@@ -287,12 +341,12 @@
     "batch_rename_modal": {
       "empty_suggestion": "Empty suggestion",
       "batch_rename_length_items": "Batch rename {{length}} items",
-      "pattern": "Pattern —",
       "asking_ai": "Asking AI…",
       "suggest_ai": "Suggest (AI)",
       "start_number": "Start number",
       "cancel": "Cancel",
-      "rename": "Rename"
+      "rename": "Rename",
+      "pattern_help": "Pattern — {name} keeps the original name, # runs become a zero-padded number"
     },
     "connection_modal": {
       "label_optional": "Label (optional)",
@@ -305,7 +359,13 @@
       "remember_password_stored_in_your_os_keyring": "Remember password (stored in your OS keyring)",
       "cancel": "Cancel",
       "save_connect": "Save & connect",
-      "add_connect": "Add & connect"
+      "add_connect": "Add & connect",
+      "edit_title": "Edit connection",
+      "new_title": "New network connection",
+      "fill_in": "Fill in host, username",
+      "fill_in_smb": "Fill in host, username, and share",
+      "password_keep": "Password (leave blank to keep using the saved one)",
+      "password": "Password"
     },
     "modal": {
       "save": "Save",
@@ -313,7 +373,9 @@
     },
     "module_options": {
       "options": "Options",
-      "reset_to_defaults": "Reset to defaults"
+      "reset_to_defaults": "Reset to defaults",
+      "options_for": "{{name}} options",
+      "no_options_hint": "This module has no options yet. You can still move, hide, or resize it in edit mode."
     },
     "properties_modal": {
       "read": "Read",
@@ -331,9 +393,9 @@
       "group": "Group",
       "group_gid": "{{group}} ({{gid}})",
       "links_to": "Links to",
-      "permissions": "Permissions —",
       "other": "Other",
-      "close": "Close"
+      "close": "Close",
+      "permissions_mode": "Permissions — {{mode}}"
     },
     "quick_look": {
       "quick_look": "Quick Look",
@@ -342,25 +404,19 @@
       "close_space": "Close (Space)",
       "folder": "Folder",
       "preparing_preview": "Preparing preview…",
-      "showing_the_first": "Showing the first",
-      "of_this_file": "of this file.",
-      "of": "of",
-      "space_to_close": "· SPACE to close",
       "kind": "Kind",
       "unknown_file": "Unknown file",
       "size": "Size",
       "modified": "Modified",
       "created": "Created",
       "location": "Location",
-      "preview_unavailable": "Preview unavailable",
+      "preview_unavailable": "This file cannot be previewed in the current environment.",
       "filter_contents": "Filter contents…",
       "filter_preview_contents": "Filter preview contents",
       "name": "Name",
       "packed": "Packed",
       "name_index": "{{name}}-{{index}}",
       "no_matching_items": "No matching items",
-      "showing_500_of": "Showing 500 of",
-      "matches": "matches",
       "install_the_missing_component_then_retry": "Install the missing component, then retry:",
       "copy_install_command": "Copy install command",
       "copied": "Copied",
@@ -373,7 +429,18 @@
       "this_media_format_or_codec_is_not_supported": "This media format or codec is not supported.",
       "the_native_media_engine_could_not_play_this_file": "The native media engine could not play this file.",
       "message": ": {{message}}",
-      "preview_of_name": "Preview of {{name}}"
+      "preview_of_name": "Preview of {{name}}",
+      "folder_inspect_failed": "This folder could not be inspected.",
+      "archive_uninspectable": "This archive format cannot be inspected yet.",
+      "media_prepare_failed": "Geyma could not prepare this media preview.",
+      "pdf_render_failed": "This PDF could not be rendered by the system webview.",
+      "image_decode_failed": "This image could not be decoded or read.",
+      "truncated_notice": "Showing the first {{size}} of this file.",
+      "position": "{{index}} of {{total}} · SPACE to close",
+      "matches_capped": "Showing 500 of {{total}} matches",
+      "entry_count_one": "{{formatted}} item",
+      "entry_count_other": "{{formatted}} items",
+      "first_indexed": "first {{count}} indexed"
     },
     "remote_password_prompt": {
       "connect_to_label": "Connect to {{label}}",
@@ -396,7 +463,11 @@
       "reset": "Reset",
       "done": "Done",
       "hidden_modules_drag_into_a_zone_or_click_to_add": "Hidden modules — drag into a zone, or click to add",
-      "all_modules_placed": "All modules placed"
+      "all_modules_placed": "All modules placed",
+      "drag_hint": "{{name}} — drag into a zone, or click to add",
+      "all_placed": "all placed",
+      "show_hidden": "Show hidden modules",
+      "collapse": "Collapse panel"
     },
     "module_preview": {
       "x_y": "{{x}}-{{y}}",
@@ -415,7 +486,7 @@
       "edit_layout": "Edit layout…",
       "settings": "Settings…",
       "reset_layout": "Reset layout",
-      "hide_module": "Hide module"
+      "hide_module": "Hide {{name}}"
     },
     "titlebar": {
       "m6_12h12": "M6 12h12",
@@ -431,5 +502,228 @@
       "drag_to_resize_double_click_to_reset": "Drag to resize · double-click to reset",
       "drop_i": "drop-{{i}}"
     }
+  },
+  "toast": {
+    "connection_failed": "Connection failed: {{error}}",
+    "disconnect_failed": "Disconnect failed: {{error}}",
+    "ollama_start_failed": "Could not start Ollama: {{error}}",
+    "ollama_stop_failed": "Could not stop Ollama: {{error}}",
+    "ollama_delete_model_failed": "Could not delete model: {{error}}",
+    "rename_failed": "Rename failed: {{error}}",
+    "rename_failed_for": "Rename failed for \"{{name}}\": {{error}}",
+    "copy_failed": "Copy failed: {{error}}",
+    "move_failed": "Move failed: {{error}}",
+    "duplicate_failed": "Duplicate failed: {{error}}",
+    "extract_failed": "Extract failed: {{error}}",
+    "compress_failed": "Compress failed: {{error}}",
+    "symlink_failed": "Create symlink failed: {{error}}",
+    "permission_change_failed": "Permission change failed: {{error}}",
+    "batch_rename_selection_changed": "Batch rename failed: selection changed, try again",
+    "batch_rename_collision": "Batch rename failed: name collision on \"{{name}}\"",
+    "confirm_trash": "Press again within {{seconds}}s to move to Trash.",
+    "confirm_permanent_delete": "Press Delete again within {{seconds}}s to permanently delete — this cannot be undone.",
+    "restore_failed": "Restore failed: {{error}}",
+    "trash_failed": "Trash failed: {{error}}",
+    "delete_failed": "Delete failed: {{error}}",
+    "undo_failed": "Undo failed: {{error}}",
+    "undid": "Undid: {{action}}",
+    "step_not_undoable": "This step can't be undone.",
+    "ai_summary_failed": "AI summary failed: {{error}}",
+    "ai_search_failed": "AI search failed: {{error}}",
+    "install_failed": "Install failed: {{error}}",
+    "pull_failed": "Pull failed: {{error}}",
+    "ai_suggestion_failed": "AI suggestion failed: {{error}}"
+  },
+  "undo": {
+    "rename": "Rename {{name}}",
+    "paste_one": "Paste {{count}} item",
+    "paste_other": "Paste {{count}} items",
+    "move_one": "Move {{count}} item",
+    "move_other": "Move {{count}} items",
+    "duplicate_one": "Duplicate {{count}} item",
+    "duplicate_other": "Duplicate {{count}} items",
+    "batch_rename_one": "Batch rename {{count}} item",
+    "batch_rename_other": "Batch rename {{count}} items",
+    "restore_one": "Restore {{count}} item",
+    "restore_other": "Restore {{count}} items",
+    "trash_one": "Trash {{count}} item",
+    "trash_other": "Trash {{count}} items",
+    "extract": "Extract {{name}}",
+    "compress": "Compress to {{name}}",
+    "create_symlink": "Create symlink to {{name}}",
+    "change_permissions": "Change permissions of {{name}}"
+  },
+  "event": {
+    "renamed": "Renamed",
+    "moved_here": "Moved here",
+    "created": "Created",
+    "copied_here": "Copied here",
+    "deleted": "Deleted",
+    "restored": "Restored",
+    "compressed": "Compressed",
+    "linked": "Linked",
+    "permissions_changed": "Permissions changed",
+    "permanently_deleted": "Permanently deleted"
+  },
+  "names": {
+    "new_folder": "New Folder",
+    "new_note": "New Note",
+    "imported_set": "Imported set",
+    "set_copy": "{{name}} copy",
+    "smart_week": "Fresh this week",
+    "smart_starred": "Starred",
+    "empty_name": "(empty)"
+  },
+  "modules": {
+    "tabs": "Tabs",
+    "nav": "Navigation",
+    "location": "Location bar",
+    "search": "Search",
+    "viewswitch": "View & sort",
+    "title": "Folder title",
+    "files": "Files",
+    "files2": "Second pane",
+    "details": "Details",
+    "settings": "Settings",
+    "places": "Places",
+    "devices": "Devices",
+    "network": "Network",
+    "sets": "Working Sets",
+    "disk": "Disk usage",
+    "recent": "Recent activity",
+    "timeline": "Timeline",
+    "dupes": "Duplicates",
+    "clock": "Clock",
+    "visualizer": "Visualizer",
+    "mood": "Folder mood",
+    "status": "Status bar"
+  },
+  "presets": {
+    "classic": "Classic",
+    "focus": "Focus",
+    "minimal": "Minimal",
+    "commander": "Commander",
+    "righthand": "Right rail",
+    "dashboard": "Dashboard",
+    "bottombar": "Bottom dock",
+    "stack": "Stacked"
+  },
+  "menu": {
+    "path_copied": "Path copied to clipboard",
+    "copy_path_failed": "Could not copy path",
+    "open": "Open",
+    "open_in_new_tab": "Open in new tab",
+    "open_in_lower_pane": "Open in lower pane",
+    "copy_path": "Copy path",
+    "quick_look": "Quick Look",
+    "show_in_folder": "Show in folder",
+    "remove_star": "Remove star",
+    "star": "Star"
+  },
+  "errors": {
+    "not_permitted": "Not permitted — this action isn't allowed on this file, even by its owner.",
+    "gone": "No longer there — it may have been moved, renamed, or deleted since it was listed.",
+    "permission_denied": "Permission denied — this file may be owned by another user, or the folder needs elevated access.",
+    "in_use": "In use elsewhere — this file looks like it's open in another program. Close it and try again.",
+    "already_exists": "Already exists — something with that name is already at the destination.",
+    "cross_device": "Can't move directly across drives or filesystems — try copying it, then deleting the original.",
+    "expected_folder": "Expected a folder, but this is a file.",
+    "expected_file": "Expected a file, but this is a folder.",
+    "disk_full": "The destination is full — free up space and try again.",
+    "read_only": "This location is mounted read-only — nothing can be written here right now.",
+    "name_too_long": "That name is too long for this filesystem.",
+    "not_empty": "This folder still has files in it.",
+    "desktop_only": "Local AI is only available in the desktop app",
+    "archive_preview_remote": "Archive previews aren't available for network locations yet",
+    "extract_remote": "Extracting archives isn't available for network locations yet",
+    "compress_remote": "Compressing to an archive isn't available for network locations yet",
+    "move_between_locations": "Can't move directly between these locations — copy the item across, then delete the original.",
+    "no_remote_trash": "Network locations have no Trash — delete permanently instead",
+    "disk_usage_remote": "Disk usage isn't available for network locations",
+    "permissions_remote": "Permissions aren't available for network locations",
+    "symlinks_remote": "Symlinks aren't available for network locations"
+  },
+  "time": {
+    "today": "Today, {{time}}",
+    "yesterday": "Yesterday, {{time}}",
+    "yesterday_bare": "Yesterday",
+    "just_now": "just now",
+    "min_ago_one": "{{count}} min ago",
+    "min_ago_other": "{{count}} min ago",
+    "hours_ago_one": "{{count}} hour ago",
+    "hours_ago_other": "{{count}} hours ago",
+    "days_ago_one": "{{count}} day ago",
+    "days_ago_other": "{{count}} days ago"
+  },
+  "options": {
+    "title_kicker": "Show path",
+    "title_summary": "Show summary line",
+    "files_view": "Default view",
+    "files_view_follow": "Follow toolbar",
+    "files_view_grid": "Grid",
+    "files_view_list": "List",
+    "clock_h24": "24-hour time",
+    "clock_seconds": "Show seconds",
+    "clock_date": "Show date",
+    "recent_count": "Items shown",
+    "places_show_trash": "Show Trash entry",
+    "viewswitch_chrome": "Appearance & Edit buttons",
+    "viewswitch_sort": "Sort controls",
+    "viewswitch_hidden": "Hidden-files button",
+    "visualizer_bars": "Bar count",
+    "details_preview": "Content preview",
+    "details_memory": "Memory & story",
+    "details_activity": "Show activity timeline"
+  },
+  "skins": {
+    "parchment": {
+      "name": "Parchment",
+      "tag": "THE KEEPER"
+    },
+    "obsidian": {
+      "name": "Obsidian",
+      "tag": "MIDNIGHT"
+    },
+    "phosphor": {
+      "name": "Phosphor",
+      "tag": "TERMINAL"
+    },
+    "nord": {
+      "name": "Nord",
+      "tag": "FROST"
+    },
+    "amber": {
+      "name": "Amber CRT",
+      "tag": "PHOSPHOR"
+    },
+    "plasma": {
+      "name": "Plasma",
+      "tag": "BREEZE"
+    },
+    "synthwave": {
+      "name": "Synthwave",
+      "tag": "OUTRUN"
+    },
+    "paper": {
+      "name": "Paper",
+      "tag": "MINIMAL"
+    }
+  },
+  "common": {
+    "yes": "Yes",
+    "no": "No",
+    "create": "Create",
+    "import": "Import"
+  },
+  "kind": {
+    "folder": "folder",
+    "document": "document",
+    "text": "text",
+    "code": "code",
+    "image": "image",
+    "video": "video",
+    "audio": "audio",
+    "archive": "archive",
+    "app": "app"
   }
 }

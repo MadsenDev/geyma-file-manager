@@ -89,21 +89,21 @@ export function Sets() {
               y: e.clientY,
               items: [
                 {
-                  label: "New working set…",
+                  label: tr("ui.sets.menu_new_set"),
                   onClick: () =>
                     setDialog({
                       kind: "new-set",
                     }),
                 },
                 {
-                  label: "New smart set…",
+                  label: tr("ui.sets.menu_new_smart_set"),
                   onClick: () =>
                     setDialog({
                       kind: "new-smart",
                     }),
                 },
                 {
-                  label: "Import set code…",
+                  label: tr("ui.sets.menu_import_set"),
                   onClick: () =>
                     setDialog({
                       kind: "import",
@@ -139,11 +139,11 @@ export function Sets() {
                   y: e.clientY,
                   items: [
                     {
-                      label: "Open",
+                      label: tr("ui.sets.menu_open"),
                       onClick: () => openSet(s.id),
                     },
                     {
-                      label: s.note ? "Edit note…" : "Add note…",
+                      label: s.note ? tr("ui.sets.menu_edit_note") : tr("ui.sets.menu_add_note"),
                       onClick: () =>
                         setDialog({
                           kind: "note",
@@ -152,7 +152,7 @@ export function Sets() {
                         }),
                     },
                     {
-                      label: "Rename",
+                      label: tr("ui.sets.menu_rename"),
                       onClick: () =>
                         setDialog({
                           kind: "rename",
@@ -161,11 +161,11 @@ export function Sets() {
                         }),
                     },
                     {
-                      label: "Duplicate",
+                      label: tr("ui.sets.menu_duplicate"),
                       onClick: () => duplicateSet(s.id),
                     },
                     {
-                      label: "Copy set code",
+                      label: tr("ui.sets.menu_copy_code"),
                       onClick: () => {
                         const items = setEntriesFor(s).map((e) => ({
                           dir: backend?.dirname(e.path) ?? "",
@@ -181,14 +181,14 @@ export function Sets() {
                         const code =
                           "GYSET." + toBase64Utf8(JSON.stringify(payload));
                         navigator.clipboard?.writeText(code).catch(() => {});
-                        showToast("Set code copied to clipboard");
+                        showToast(tr("ui.sets.code_copied"));
                       },
                     },
                     {
                       divider: true,
                     },
                     {
-                      label: "Remove",
+                      label: tr("ui.sets.menu_remove"),
                       danger: true,
                       onClick: () => removeSet(s.id),
                     },
@@ -246,7 +246,7 @@ export function Sets() {
                     textAlign: "left",
                   }}
                 >
-                  {s.note || "smart · fills itself"}
+                  {s.note || tr("ui.sets.smart_badge")}
                 </span>
               )}
             </button>
@@ -269,7 +269,7 @@ export function Sets() {
         <PromptModal
           title={tr("ui.sets.new_working_set")}
           label={tr("ui.sets.name")}
-          confirmLabel="Create"
+          confirmLabel={tr("common.create")}
           onClose={() => setDialog(null)}
           onConfirm={(name) => {
             if (name.trim()) createManualSet(name.trim());
@@ -281,7 +281,7 @@ export function Sets() {
         <PromptModal
           title={tr("ui.sets.new_smart_set")}
           label={tr("ui.sets.name_rule_starred_items")}
-          confirmLabel="Create"
+          confirmLabel={tr("common.create")}
           onClose={() => setDialog(null)}
           onConfirm={(name) => {
             if (name.trim())
@@ -321,7 +321,7 @@ export function Sets() {
         <PromptModal
           title={tr("ui.sets.import_set_code")}
           label={tr("ui.sets.paste_a_gyset_code")}
-          confirmLabel="Import"
+          confirmLabel={tr("common.import")}
           onClose={() => setDialog(null)}
           onConfirm={(code) => {
             try {
@@ -334,9 +334,9 @@ export function Sets() {
                 rule: parsed.rule || undefined,
                 items: Array.isArray(parsed.items) ? parsed.items : [],
               });
-              showToast(`Imported "${parsed.name || "set"}"`);
+              showToast(tr("ui.sets.imported", { name: parsed.name || tr("ui.sets.fallback_name") }));
             } catch {
-              showToast("That doesn't look like a set code");
+              showToast(tr("ui.sets.bad_code"));
             }
             setDialog(null);
           }}

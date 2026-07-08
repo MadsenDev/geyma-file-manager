@@ -123,12 +123,12 @@ export function Places() {
                 y: event.clientY,
                 items: [
                   {
-                    label: "Open Trash",
+                    label: tr("ui.places.open_trash"),
                     onClick: openTrash,
                   },
                   trashed.length > 0
                     ? {
-                        label: "Empty Trash…",
+                        label: tr("ui.places.empty_trash"),
                         danger: true,
                         onClick: () => store.requestPermanentDelete(trashed),
                       }

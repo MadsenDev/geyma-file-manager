@@ -194,11 +194,11 @@ export function GeneralSettings() {
           options={[
           {
             value: "resume",
-            label: "Reopen last session"
+            label: tr("ui.settings.startup_resume")
           },
           {
             value: "home",
-            label: "Always start at Home"
+            label: tr("ui.settings.startup_home")
           }]
           }
           value={startupMode}
@@ -212,11 +212,11 @@ export function GeneralSettings() {
           options={[
           {
             value: "grid",
-            label: "Grid"
+            label: tr("ui.settings.view_grid")
           },
           {
             value: "list",
-            label: "List"
+            label: tr("ui.settings.view_list")
           }]
           }
           value={view}
@@ -232,11 +232,11 @@ export function GeneralSettings() {
           options={[
           {
             value: "folder",
-            label: "This folder"
+            label: tr("ui.settings.scope_folder")
           },
           {
             value: "all",
-            label: "Everywhere"
+            label: tr("ui.settings.scope_all")
           }]
           }
           value={searchScope}
@@ -348,7 +348,7 @@ export function AiSettings() {
       );
       await refreshAiStatus();
     } catch (e) {
-      showToast(`Install failed: ${explainError(e)}`);
+      showToast(tr("toast.install_failed", { error: explainError(e) }));
     } finally {
       setInstalling(false);
     }
@@ -371,7 +371,7 @@ export function AiSettings() {
       setPullName("");
       await refreshAiStatus();
     } catch (e) {
-      showToast(`Pull failed: ${explainError(e)}`);
+      showToast(tr("toast.pull_failed", { error: explainError(e) }));
     } finally {
       setPulling(null);
       setPullProgress(null);
@@ -473,8 +473,7 @@ export function AiSettings() {
               color: t.ink
             }}>
             
-              {tr("ui.settings.ollama")}
-              {running ? "is running" : "is installed, not running"}
+              {running ? tr("ui.settings.ollama_running") : tr("ui.settings.ollama_installed")}
             </span>
             {running ?
           <button onClick={stopAiServer} style={softButtonStyle}>
@@ -504,7 +503,7 @@ export function AiSettings() {
           {models.length === 0 ?
         <div style={hintStyle(t)}>
               {tr(
-            "ui.settings.no_models_pulled_yet_pull_one_below_try_llama3_2"
+            "ui.settings.no_models_hint"
           )}
             </div> :
 

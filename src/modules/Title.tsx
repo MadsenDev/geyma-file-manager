@@ -77,11 +77,9 @@ export function Title() {
             marginTop: 2,
           }}
         >
-          {entries.length}
-          {tr("ui.title.item")}
-          {entries.length === 1 ? "" : "s"}
+          {tr("ui.title.items", { count: entries.length })}
           {folders > 0 && files > 0
-            ? ` · ${folders} folder${folders === 1 ? "" : "s"}, ${files} file${files === 1 ? "" : "s"}`
+            ? ` · ${tr("ui.title.folders_count", { count: folders })}, ${tr("ui.title.files_count", { count: files })}`
             : ""}
           {activeSet?.note
             ? tr("ui.title.note", {

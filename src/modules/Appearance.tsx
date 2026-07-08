@@ -246,9 +246,7 @@ function StyleTab() {
       </div>
       <div>
         <div style={panelTitleStyle(t)}>
-          {tr("ui.appearance.radius")}
-          {ov.radius ?? t.radius}
-          {"px"}
+          {tr("ui.appearance.radius_value", { value: ov.radius ?? t.radius })}
         </div>
         <input
           type="range"

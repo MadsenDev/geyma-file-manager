@@ -42,7 +42,7 @@ export function ConnectionModal({ initial, onClose }: ConnectionModalProps) {
     const trimmedShare = share.trim();
     if (!trimmedHost || !trimmedUser || protocol === "smb" && !trimmedShare) {
       showToast(
-        `Fill in host, username${protocol === "smb" ? ", and share" : ""}`
+        protocol === "smb" ? tr("ui.connection_modal.fill_in_smb") : tr("ui.connection_modal.fill_in")
       );
       return;
     }
@@ -63,7 +63,7 @@ export function ConnectionModal({ initial, onClose }: ConnectionModalProps) {
   }
   return (
     <Modal
-      title={initial ? "Edit connection" : "New network connection"}
+      title={initial ? tr("ui.connection_modal.edit_title") : tr("ui.connection_modal.new_title")}
       onClose={onClose}>
       
       <div
@@ -164,8 +164,8 @@ export function ConnectionModal({ initial, onClose }: ConnectionModalProps) {
       <FormField
         label={
         initial ?
-        "Password (leave blank to keep using the saved one)" :
-        "Password"
+        tr("ui.connection_modal.password_keep") :
+        tr("ui.connection_modal.password")
         }>
         
         <input

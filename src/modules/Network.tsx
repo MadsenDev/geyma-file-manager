@@ -99,7 +99,7 @@ export function Network() {
         label: tr("ui.network.copy_root_path"),
         onClick: () => {
           void navigator.clipboard.writeText(rootPathFor(conn));
-          showToast("Path copied");
+          showToast(tr("ui.network.path_copied"));
         }
       },
       {

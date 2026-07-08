@@ -23,9 +23,7 @@ export function Status() {
       }}
     >
       <span>
-        {entries.length}
-        {tr("ui.status.item")}
-        {entries.length === 1 ? "" : "s"}
+        {tr("ui.status.items", { count: entries.length })}
       </span>
       {selected.length > 0 && (
         <span
@@ -34,8 +32,7 @@ export function Status() {
             fontWeight: 600,
           }}
         >
-          {selected.length}
-          {tr("ui.status.selected")}
+          {tr("ui.status.selected_count", { count: selected.length })}
           {totalSize > 0 ? ` · ${formatSize(totalSize)}` : ""}
         </span>
       )}
@@ -46,9 +43,7 @@ export function Status() {
           }}
         >
           {clip.mode === "cut" ? tr("ui.status.cut") : tr("ui.status.copied")}:{" "}
-          {clip.items.length}
-          {tr("ui.status.item")}
-          {clip.items.length === 1 ? "" : "s"}
+          {tr("ui.status.items", { count: clip.items.length })}
         </span>
       )}
       <span

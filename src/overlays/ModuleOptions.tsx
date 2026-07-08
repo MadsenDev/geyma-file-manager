@@ -34,7 +34,7 @@ export function ModuleOptions() {
       
       <div
         role="dialog"
-        aria-label={`${MODULE_NAMES[menu.id]} options`}
+        aria-label={tr("ui.module_options.options_for", { name: MODULE_NAMES[menu.id] })}
         className="gy-anim"
         style={{
           position: "fixed",
@@ -92,7 +92,7 @@ export function ModuleOptions() {
           }}>
           
             {tr(
-            "ui.module_options.this_module_has_no_options_yet_you_can_still_mov"
+            "ui.module_options.no_options_hint"
           )}
           </div>
         }

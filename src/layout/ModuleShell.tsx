@@ -106,7 +106,7 @@ export function ModuleShell({
         divider: true
       },
       {
-        label: `Hide ${MODULE_NAMES[id]}`,
+        label: tr("ui.module_shell.hide_module", { name: MODULE_NAMES[id] }),
         danger: true,
         onClick: () => hideModule(id)
       },
@@ -209,7 +209,7 @@ export function ModuleShell({
             <button
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => hideModule(id)}
-            title={tr("ui.module_shell.hide_module")}
+            title={tr("ui.module_shell.hide_module", { name: MODULE_NAMES[id] })}
             style={iconBtnStyle(t.inkFaint)}>
             
               <Icon d={ICONS.close} size={13} />

@@ -89,7 +89,7 @@ export function QuickLook() {
         setInspectionState({
           status: "unavailable",
           support: loadFailure(
-            "This folder could not be inspected.",
+            tr("ui.quick_look.folder_inspect_failed"),
             String(error)
           )
         });
@@ -116,7 +116,7 @@ export function QuickLook() {
         setInspectionState({
           status: "unavailable",
           support: loadFailure(
-            "This archive format cannot be inspected yet.",
+            tr("ui.quick_look.archive_uninspectable"),
             String(error)
           )
         });
@@ -157,7 +157,7 @@ export function QuickLook() {
           setMediaState({
             status: "unavailable",
             support: loadFailure(
-              "This file cannot be previewed in the current environment."
+              tr("ui.quick_look.preview_unavailable")
             )
           });
         }
@@ -167,7 +167,7 @@ export function QuickLook() {
           setMediaState({
             status: "unavailable",
             support: loadFailure(
-              "Geyma could not prepare this media preview.",
+              tr("ui.quick_look.media_prepare_failed"),
               String(error)
             )
           });
@@ -400,9 +400,7 @@ export function QuickLook() {
           <>
                 {contentTruncated &&
             <PreviewNotice>
-                    {tr("ui.quick_look.showing_the_first")}
-                    {formatSize(1024 * 1024)}
-                    {tr("ui.quick_look.of_this_file")}
+                    {tr("ui.quick_look.truncated_notice", { size: formatSize(1024 * 1024) })}
                   </PreviewNotice>
             }
                 <style>{highlightCss(t)}</style>
@@ -426,9 +424,7 @@ export function QuickLook() {
           <>
                 {contentTruncated &&
             <PreviewNotice>
-                    {tr("ui.quick_look.showing_the_first")}
-                    {formatSize(1024 * 1024)}
-                    {tr("ui.quick_look.of_this_file")}
+                    {tr("ui.quick_look.truncated_notice", { size: formatSize(1024 * 1024) })}
                   </PreviewNotice>
             }
                 <pre
@@ -474,10 +470,7 @@ export function QuickLook() {
             `${formatSize(entry.size)} · ${formatWhen(entry.modifiedMs)}`}
           </span>
           <span>
-            {idx + 1}
-            {tr("ui.quick_look.of")}
-            {entries.length}
-            {tr("ui.quick_look.space_to_close")}
+            {tr("ui.quick_look.position", { index: idx + 1, total: entries.length })}
           </span>
         </div>
       </div>
@@ -667,10 +660,9 @@ function EntryListing({
             flex: 1
           }}>
           
-          {label} · {totalEntries.toLocaleString()}{" "}
-          {totalEntries === 1 ? "item" : "items"}
+          {label} · {tr("ui.quick_look.entry_count", { count: totalEntries, formatted: totalEntries.toLocaleString() })}
           {truncated ?
-          ` · first ${entries.length.toLocaleString()} indexed` :
+          ` · ${tr("ui.quick_look.first_indexed", { count: entries.length.toLocaleString() })}` :
           ""}
         </span>
         <input
@@ -826,9 +818,7 @@ function EntryListing({
             fontSize: 9.5
           }}>
           
-            {tr("ui.quick_look.showing_500_of")}
-            {filtered.length.toLocaleString()}
-            {tr("ui.quick_look.matches")}
+            {tr("ui.quick_look.matches_capped", { total: filtered.length.toLocaleString() })}
           </div>
         }
       </div>
@@ -1070,7 +1060,7 @@ function MediaPreview({
         onError={() =>
         onError(
           loadFailure(
-            "This PDF could not be rendered by the system webview."
+            tr("ui.quick_look.pdf_render_failed")
           )
         )
         }
@@ -1156,7 +1146,7 @@ function MediaPreview({
         src={url}
         alt={name}
         onError={() =>
-        onError(loadFailure("This image could not be decoded or read."))
+        onError(loadFailure(tr("ui.quick_look.image_decode_failed")))
         }
         style={{
           maxWidth: "100%",

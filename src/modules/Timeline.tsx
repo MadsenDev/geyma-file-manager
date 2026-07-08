@@ -1,4 +1,4 @@
-import { tr } from "@/i18n";
+import { tr, trEventAction } from "@/i18n";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { panelTitleStyle } from "./common";
@@ -101,7 +101,7 @@ export function Timeline() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  <b>{ev.action}</b>{" "}
+                  <b>{trEventAction(ev.action)}</b>{" "}
                   <span
                     style={{
                       color: t.inkSoft,

@@ -173,7 +173,7 @@ export function Files2() {
                   items: [
                   !multi ?
                   {
-                    label: "Open",
+                    label: tr("ui.files2.open"),
                     onClick: () =>
                     entry.isDir ?
                     goPath2(entry.path) :
@@ -182,23 +182,23 @@ export function Files2() {
                   undefined,
                   !multi ?
                   {
-                    label: "Show in upper pane",
+                    label: tr("ui.files2.show_in_upper_pane"),
                     onClick: () => revealReferencedPath(entry.path)
                   } :
                   undefined,
                   {
-                    label: allStarred ? "Remove star" : "Star",
+                    label: allStarred ? tr("ui.files2.remove_star") : tr("ui.files2.star"),
                     onClick: () => toggleStar(targets)
                   },
                   {
                     divider: true
                   },
                   {
-                    label: "Cut",
+                    label: tr("ui.files2.cut"),
                     onClick: () => setClip("cut", targets)
                   },
                   {
-                    label: "Copy",
+                    label: tr("ui.files2.copy"),
                     onClick: () => setClip("copy", targets)
                   },
                   {
@@ -206,7 +206,7 @@ export function Files2() {
                     tr("ui.files2.duplicate_length_items", {
                       length: targets.length
                     }) :
-                    "Duplicate",
+                    tr("ui.files2.duplicate"),
                     onClick: () => duplicateEntries(targets)
                   },
                   {
@@ -217,7 +217,7 @@ export function Files2() {
                     tr("ui.files2.trash_length_items", {
                       length: targets.length
                     }) :
-                    "Trash",
+                    tr("ui.files2.trash"),
                     danger: true,
                     onClick: () => trashEntries(targets)
                   }].

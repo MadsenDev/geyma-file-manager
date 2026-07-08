@@ -1,4 +1,4 @@
-import { tr } from "@/i18n";
+import { tr, trEventAction } from "@/i18n";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { formatAgo } from "../lib/format";
@@ -72,7 +72,7 @@ export function Recent() {
                   color: t.ink,
                 }}
               >
-                {ev.action}
+                {trEventAction(ev.action)}
               </b>{" "}
               <span
                 style={{

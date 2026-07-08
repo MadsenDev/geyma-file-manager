@@ -73,7 +73,7 @@ export function Search() {
         starred: !!parsed.starred
       });
     } catch (e) {
-      showToast(`AI search failed: ${explainError(e)}`);
+      showToast(tr("toast.ai_search_failed", { error: explainError(e) }));
     } finally {
       setAsking(false);
     }
@@ -112,8 +112,8 @@ export function Search() {
           }}
           placeholder={
           aiAvailable ?
-          "Search, or describe what you want…" :
-          "Search this folder…"
+          tr("ui.search.placeholder_ai") :
+          tr("ui.search.placeholder")
           }
           style={{
             width: "100%",

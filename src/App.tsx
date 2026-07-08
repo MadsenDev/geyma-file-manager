@@ -136,7 +136,7 @@ export function App() {
       <Zone
         zoneId="top"
         orientation="h"
-        emptyHint="Top zone — drop modules here"
+        emptyHint={tr("ui.app.zone_hint_top")}
         style={{
           borderBottom: `1px solid ${
           t.border}`,
@@ -158,7 +158,7 @@ export function App() {
         <Zone
           zoneId="left"
           orientation="v"
-          emptyHint="Left rail — drop here"
+          emptyHint={tr("ui.app.zone_hint_left")}
           style={{
             width: railW.left,
             flex: "none",
@@ -219,7 +219,7 @@ export function App() {
           <Zone
             zoneId="center2"
             orientation="v"
-            emptyHint="Lower pane — drop modules here"
+            emptyHint={tr("ui.app.zone_hint_center2")}
             style={{
               flex: "1 1 0",
               borderTop: `1px solid ${
@@ -243,7 +243,7 @@ export function App() {
         <Zone
           zoneId="right"
           orientation="v"
-          emptyHint="Right rail — drop here"
+          emptyHint={tr("ui.app.zone_hint_right")}
           style={{
             width: railW.right,
             flex: "none",
@@ -259,7 +259,7 @@ export function App() {
       <Zone
         zoneId="bottom"
         orientation="h"
-        emptyHint="Bottom zone — drop here"
+        emptyHint={tr("ui.app.zone_hint_bottom")}
         style={{
           borderTop: `1px solid ${
           t.border}`,
@@ -359,7 +359,7 @@ openMenu: ReturnType<typeof useStore.getState>["openMenu"])
       readText().
       then(replaceSelection).
       catch(() =>
-      useStore.getState().showToast("Clipboard access was denied")
+      useStore.getState().showToast(tr("ui.app.clipboard_access_was_denied"))
       )
     } :
     undefined,

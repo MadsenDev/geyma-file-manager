@@ -744,7 +744,7 @@ function ghostDestName(toDir: string): string {
 }
 function ghostAgo(atMs: number): string {
   const s = Math.max(0, Math.round((Date.now() - atMs) / 1000));
-  if (s < 45) return "just now";
+  if (s < 45) return tr("time.just_now");
   const m = Math.round(s / 60);
   if (m < 60)
   return tr("ui.files.m_m_ago", {
@@ -755,7 +755,7 @@ function ghostAgo(atMs: number): string {
   tr("ui.files.h_h_ago", {
     h
   }) :
-  `${Math.round(h / 24)}d ago`;
+  tr("ui.files.d_d_ago", { d: Math.round(h / 24) });
 }
 function useFollowGhost(ghost: Ghost) {
   const goPath = useStore((s) => s.goPath);
@@ -929,7 +929,7 @@ function GhostTile({ ghost }: {ghost: Ghost;}) {
           transition: "color .15s ease"
         }}>
         
-        {hover ? "click to follow" : `moved ${ghostAgo(ghost.atMs)}`}
+        {hover ? tr("ui.files.click_to_follow") : tr("ui.files.moved_ago", { ago: ghostAgo(ghost.atMs) })}
       </span>
     </div>);
 
@@ -1350,7 +1350,7 @@ function FileRow({
           color: t.inkFaint
         }}>
         
-          {entry.isDir ? tr("ui.files.folder") : kind}
+          {entry.isDir ? tr("ui.files.folder") : tr(`kind.${kind}`)}
         </span>
       }
       {columns.includes("size") &&

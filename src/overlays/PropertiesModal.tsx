@@ -208,8 +208,7 @@ export function PropertiesModal({ entry, onClose }: PropertiesModalProps) {
               fontWeight: 700,
             }}
           >
-            {tr("ui.properties_modal.permissions")}
-            {perms.mode.toString(8).padStart(3, "0")}
+            {tr("ui.properties_modal.permissions_mode", { mode: perms.mode.toString(8).padStart(3, "0") })}
           </div>
           <div
             style={{

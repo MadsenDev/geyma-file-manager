@@ -134,6 +134,31 @@ The entire UI chrome is built from **modules** (one per feature: `Nav`, `Files`,
   `applyPreset`, `resetLayout`) which call `mergeLayout` to filter out unknown/duplicate module
   ids before persisting — don't hand-edit the `layout` object.
 
+### Localization
+
+All user-facing strings live in `src/i18n/en.json`, served through react-i18next
+(`src/i18n/index.ts`). Components import `{ tr } from "@/i18n"` — named `tr`, not `t`, because
+components conventionally bind `const t = useTheme()` and a local `t` would shadow the
+translation function. Init is synchronous (`initAsync: false`, resources bundled inline), so
+`tr` is callable at module scope (store toasts, `layout.ts` constants, `PLACE_DEFS`) — which
+also means the language is resolved once at startup; a future language switcher needs a reload
+or a pass converting module-scope constants into functions.
+
+Things that are deliberately NOT translated:
+- **`FileEvent.action` values** (`"Renamed"`, `"Moved here"`, …) are persisted in localStorage
+  and compared for undo eligibility/dispatch — they're stable identifiers, not copy. Translate
+  only at display time via `trEventAction()` from `@/i18n`. Event `detail` fragments
+  (`` `from ${dir}` ``) are stored as recorded and stay untranslated.
+- **`kindOf()` kinds** and **errno keys in `explainError.ts`** reach `tr()` through variables
+  (`` tr(`kind.${kind}`) ``, `CODE_EXPLANATION_KEYS`), so the `kind.*` / `errors.*` / `event.*`
+  groups look unused to a grep — don't remove them in an "orphan key" cleanup.
+- **`Places` `sub` values** are filesystem path segments, **AI prompt text** in `Details.tsx` is
+  model instructions, and **mockBackend demo content** is dev-only — all stay hardcoded.
+
+Plurals use i18next `_one`/`_other` suffixed keys with a `count` option. `tunga.config.json`
+configures the external [Tunga](https://github.com/vardirhq/tunga) CLI used for the initial
+bulk extraction; new strings should just be written with `tr()` directly.
+
 ### Theming
 
 `src/theme/skins.ts` defines `SKINS` (eight named palettes, each a flat set of color/font/radius/

@@ -170,12 +170,12 @@ export function EditBar() {
           tr("ui.edit_bar.length_hidden", {
             length: hidden.length
           }) :
-          "all placed"}
+          tr("ui.edit_bar.all_placed")}
         </span>
         <button
           onClick={() => setCollapsed((v) => !v)}
           className="gy-soft"
-          title={collapsed ? "Show hidden modules" : "Collapse panel"}
+          title={collapsed ? tr("ui.edit_bar.show_hidden") : tr("ui.edit_bar.collapse")}
           style={{
             flex: "none",
             display: "grid",
@@ -274,7 +274,7 @@ export function EditBar() {
             e.dataTransfer.setData(MODULE_DRAG_TYPE, id)
             }
             onClick={() => showModule(id, "left")}
-            title={`${MODULE_NAMES[id]} — drag into a zone, or click to add`}
+            title={tr("ui.edit_bar.drag_hint", { name: MODULE_NAMES[id] })}
             className="gy-soft"
             style={{
               flex: "none",
