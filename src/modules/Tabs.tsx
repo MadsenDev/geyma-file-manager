@@ -1,3 +1,4 @@
+import { tr } from "@/i18n";
 import { useState } from "react";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
@@ -6,7 +7,6 @@ import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
 import { iconButtonStyle } from "./common";
 import type { TabState } from "../state/types";
-
 export function Tabs() {
   const t = useTheme();
   const tabs = useStore((s) => s.tabs);
@@ -23,17 +23,31 @@ export function Tabs() {
   const reorderTab = useStore((s) => s.reorderTab);
   const openMenu = useStore((s) => s.openMenu);
   const [dragId, setDragId] = useState<string | null>(null);
-
-  function labelFor(tab: TabState): { icon: string; text: string } {
-    if (tab.trashView) return { icon: ICONS.trash, text: "Trash" };
+  function labelFor(tab: TabState): {
+    icon: string;
+    text: string;
+  } {
+    if (tab.trashView)
+      return {
+        icon: ICONS.trash,
+        text: tr("ui.tabs.trash"),
+      };
     if (tab.activeSetId) {
       const set = setDefs.find((s) => s.id === tab.activeSetId);
-      return { icon: ICONS.star, text: set?.name || "Set" };
+      return {
+        icon: ICONS.star,
+        text: set?.name || tr("ui.tabs.set"),
+      };
     }
-    const text = tab.path === home ? "Home" : backend?.basename(tab.path) || tab.path;
-    return { icon: ICONS.folder, text };
+    const text =
+      tab.path === home
+        ? tr("ui.tabs.home")
+        : backend?.basename(tab.path) || tab.path;
+    return {
+      icon: ICONS.folder,
+      text,
+    };
   }
-
   function tabMenu(tab: TabState, index: number, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -41,26 +55,59 @@ export function Tabs() {
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: "New Tab", onClick: () => newTab() },
-        { label: "Duplicate Tab", onClick: () => duplicateTab(tab.id) },
-        { divider: true },
-        { label: "Close Tab", onClick: () => closeTab(tab.id) },
-        tabs.length > 1 ? { label: "Close Other Tabs", onClick: () => closeOtherTabs(tab.id) } : undefined,
-        index < tabs.length - 1 ? { label: "Close Tabs to the Right", onClick: () => closeTabsToRight(tab.id) } : undefined,
-        { divider: true },
         {
-          label: "Copy path",
+          label: tr("ui.tabs.new_tab"),
+          onClick: () => newTab(),
+        },
+        {
+          label: tr("ui.tabs.duplicate_tab"),
+          onClick: () => duplicateTab(tab.id),
+        },
+        {
+          divider: true,
+        },
+        {
+          label: tr("ui.tabs.close_tab"),
+          onClick: () => closeTab(tab.id),
+        },
+        tabs.length > 1
+          ? {
+              label: tr("ui.tabs.close_other_tabs"),
+              onClick: () => closeOtherTabs(tab.id),
+            }
+          : undefined,
+        index < tabs.length - 1
+          ? {
+              label: tr("ui.tabs.close_tabs_to_the_right"),
+              onClick: () => closeTabsToRight(tab.id),
+            }
+          : undefined,
+        {
+          divider: true,
+        },
+        {
+          label: tr("ui.tabs.copy_path"),
           onClick: () => {
             void navigator.clipboard.writeText(tab.path);
           },
         },
-      ].filter(Boolean) as { label: string; onClick?: () => void; divider?: boolean }[],
+      ].filter(Boolean) as {
+        label: string;
+        onClick?: () => void;
+        divider?: boolean;
+      }[],
     });
   }
-
   return (
     <div
-      style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0, overflowX: "auto" }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        flex: 1,
+        minWidth: 0,
+        overflowX: "auto",
+      }}
       onDoubleClick={(e) => {
         if (e.target === e.currentTarget) newTab();
       }}
@@ -105,7 +152,9 @@ export function Tabs() {
               flex: "none",
               maxWidth: 180,
               minWidth: 0,
-              background: active ? hexA(t.accent, t.isDark ? 0.2 : 0.14) : "transparent",
+              background: active
+                ? hexA(t.accent, t.isDark ? 0.2 : 0.14)
+                : "transparent",
               color: active ? t.accent : t.inkSoft,
               border: `1px solid ${active ? hexA(t.accent, 0.35) : "transparent"}`,
               fontWeight: active ? 700 : 500,
@@ -113,14 +162,23 @@ export function Tabs() {
             }}
           >
             <Icon d={icon} size={12} color={active ? t.accent : t.inkFaint} />
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{text}</span>
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                minWidth: 0,
+              }}
+            >
+              {text}
+            </span>
             {tabs.length > 1 && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   closeTab(tab.id);
                 }}
-                title="Close tab"
+                title={tr("ui.tabs.close_tab")}
                 style={{
                   width: 16,
                   height: 16,
@@ -141,7 +199,17 @@ export function Tabs() {
           </div>
         );
       })}
-      <button onClick={() => newTab()} title="New tab" className="gy-soft" style={{ ...iconButtonStyle(t), width: 24, height: 24, flex: "none" }}>
+      <button
+        onClick={() => newTab()}
+        title={tr("ui.tabs.new_tab")}
+        className="gy-soft"
+        style={{
+          ...iconButtonStyle(t),
+          width: 24,
+          height: 24,
+          flex: "none",
+        }}
+      >
         <Icon d={ICONS.plus} size={13} />
       </button>
     </div>

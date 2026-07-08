@@ -1,3 +1,4 @@
+import { tr } from "@/i18n";
 import { useState } from "react";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
@@ -5,7 +6,6 @@ import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
 import { navItemStyle, iconButtonStyle } from "./common";
 import { PromptModal } from "../overlays/Modal";
-
 function toBase64Utf8(s: string): string {
   const bytes = new TextEncoder().encode(s);
   let binary = "";
@@ -17,15 +17,27 @@ function fromBase64Utf8(b64: string): string {
   const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
   return new TextDecoder().decode(bytes);
 }
-
 type DialogState =
-  | { kind: "new-set" }
-  | { kind: "new-smart" }
-  | { kind: "note"; setId: string; initial: string }
-  | { kind: "rename"; setId: string; initial: string }
-  | { kind: "import" }
+  | {
+      kind: "new-set";
+    }
+  | {
+      kind: "new-smart";
+    }
+  | {
+      kind: "note";
+      setId: string;
+      initial: string;
+    }
+  | {
+      kind: "rename";
+      setId: string;
+      initial: string;
+    }
+  | {
+      kind: "import";
+    }
   | null;
-
 export function Sets() {
   const t = useTheme();
   const setDefs = useStore((s) => s.setDefs);
@@ -46,11 +58,28 @@ export function Sets() {
   const backend = useStore((s) => s.backend);
   const showToast = useStore((s) => s.showToast);
   const [dialog, setDialog] = useState<DialogState>(null);
-
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 6px" }}>
-        <span style={{ fontFamily: t.mono, fontSize: 10, textTransform: "uppercase", letterSpacing: ".12em", fontWeight: 700, color: t.inkFaint }}>Working Sets</span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "10px 12px 6px",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: t.mono,
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: ".12em",
+            fontWeight: 700,
+            color: t.inkFaint,
+          }}
+        >
+          {tr("ui.sets.working_sets")}
+        </span>
         <button
           className="gy-soft"
           style={iconButtonStyle(t)}
@@ -59,9 +88,27 @@ export function Sets() {
               x: e.clientX,
               y: e.clientY,
               items: [
-                { label: "New working set…", onClick: () => setDialog({ kind: "new-set" }) },
-                { label: "New smart set…", onClick: () => setDialog({ kind: "new-smart" }) },
-                { label: "Import set code…", onClick: () => setDialog({ kind: "import" }) },
+                {
+                  label: "New working set…",
+                  onClick: () =>
+                    setDialog({
+                      kind: "new-set",
+                    }),
+                },
+                {
+                  label: "New smart set…",
+                  onClick: () =>
+                    setDialog({
+                      kind: "new-smart",
+                    }),
+                },
+                {
+                  label: "Import set code…",
+                  onClick: () =>
+                    setDialog({
+                      kind: "import",
+                    }),
+                },
               ],
             })
           }
@@ -69,7 +116,14 @@ export function Sets() {
           <Icon d={ICONS.plus} size={13} />
         </button>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 6px 8px" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          padding: "0 6px 8px",
+        }}
+      >
         {setDefs.map((s) => {
           const count = setEntriesFor(s).length;
           return (
@@ -84,10 +138,32 @@ export function Sets() {
                   x: e.clientX,
                   y: e.clientY,
                   items: [
-                    { label: "Open", onClick: () => openSet(s.id) },
-                    { label: s.note ? "Edit note…" : "Add note…", onClick: () => setDialog({ kind: "note", setId: s.id, initial: s.note || "" }) },
-                    { label: "Rename", onClick: () => setDialog({ kind: "rename", setId: s.id, initial: s.name }) },
-                    { label: "Duplicate", onClick: () => duplicateSet(s.id) },
+                    {
+                      label: "Open",
+                      onClick: () => openSet(s.id),
+                    },
+                    {
+                      label: s.note ? "Edit note…" : "Add note…",
+                      onClick: () =>
+                        setDialog({
+                          kind: "note",
+                          setId: s.id,
+                          initial: s.note || "",
+                        }),
+                    },
+                    {
+                      label: "Rename",
+                      onClick: () =>
+                        setDialog({
+                          kind: "rename",
+                          setId: s.id,
+                          initial: s.name,
+                        }),
+                    },
+                    {
+                      label: "Duplicate",
+                      onClick: () => duplicateSet(s.id),
+                    },
                     {
                       label: "Copy set code",
                       onClick: () => {
@@ -95,39 +171,104 @@ export function Sets() {
                           dir: backend?.dirname(e.path) ?? "",
                           name: e.name,
                         }));
-                        const payload = { name: s.name, note: s.note || "", smart: !!s.smart, rule: s.rule || null, items };
-                        const code = "GYSET." + toBase64Utf8(JSON.stringify(payload));
+                        const payload = {
+                          name: s.name,
+                          note: s.note || "",
+                          smart: !!s.smart,
+                          rule: s.rule || null,
+                          items,
+                        };
+                        const code =
+                          "GYSET." + toBase64Utf8(JSON.stringify(payload));
                         navigator.clipboard?.writeText(code).catch(() => {});
                         showToast("Set code copied to clipboard");
                       },
                     },
-                    { divider: true },
-                    { label: "Remove", danger: true, onClick: () => removeSet(s.id) },
+                    {
+                      divider: true,
+                    },
+                    {
+                      label: "Remove",
+                      danger: true,
+                      onClick: () => removeSet(s.id),
+                    },
                   ],
                 });
               }}
-              style={{ ...navItemStyle(t, activeSetId === s.id, false), flexDirection: "column", alignItems: "flex-start", gap: 1, padding: "6px 9px" }}
+              style={{
+                ...navItemStyle(t, activeSetId === s.id, false),
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 1,
+                padding: "6px 9px",
+              }}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                }}
+              >
                 <Icon d={s.smart ? ICONS.lightning : ICONS.folder} size={14} />
-                <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-                <span style={{ fontFamily: t.mono, fontSize: 10.5, color: t.inkFaint }}>{count}</span>
+                <span
+                  style={{
+                    flex: 1,
+                    textAlign: "left",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {s.name}
+                </span>
+                <span
+                  style={{
+                    fontFamily: t.mono,
+                    fontSize: 10.5,
+                    color: t.inkFaint,
+                  }}
+                >
+                  {count}
+                </span>
               </span>
               {(s.note || s.smart) && (
-                <span style={{ fontSize: 10, color: t.inkFaint, paddingLeft: 22, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", textAlign: "left" }}>
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: t.inkFaint,
+                    paddingLeft: 22,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    width: "100%",
+                    textAlign: "left",
+                  }}
+                >
                   {s.note || "smart · fills itself"}
                 </span>
               )}
             </button>
           );
         })}
-        {setDefs.length === 0 && <div style={{ padding: "6px 9px", fontSize: 11.5, color: t.inkFaint }}>No sets yet — create one above.</div>}
+        {setDefs.length === 0 && (
+          <div
+            style={{
+              padding: "6px 9px",
+              fontSize: 11.5,
+              color: t.inkFaint,
+            }}
+          >
+            {tr("ui.sets.no_sets_yet_create_one_above")}
+          </div>
+        )}
       </div>
 
       {dialog?.kind === "new-set" && (
         <PromptModal
-          title="New working set"
-          label="Name"
+          title={tr("ui.sets.new_working_set")}
+          label={tr("ui.sets.name")}
           confirmLabel="Create"
           onClose={() => setDialog(null)}
           onConfirm={(name) => {
@@ -138,20 +279,23 @@ export function Sets() {
       )}
       {dialog?.kind === "new-smart" && (
         <PromptModal
-          title="New smart set"
-          label="Name (rule: starred items)"
+          title={tr("ui.sets.new_smart_set")}
+          label={tr("ui.sets.name_rule_starred_items")}
           confirmLabel="Create"
           onClose={() => setDialog(null)}
           onConfirm={(name) => {
-            if (name.trim()) createSmartSet(name.trim(), { starred: true });
+            if (name.trim())
+              createSmartSet(name.trim(), {
+                starred: true,
+              });
             setDialog(null);
           }}
         />
       )}
       {dialog?.kind === "note" && (
         <PromptModal
-          title="Set note"
-          label="Note"
+          title={tr("ui.sets.set_note")}
+          label={tr("ui.sets.note")}
           multiline
           initial={dialog.initial}
           onClose={() => setDialog(null)}
@@ -163,8 +307,8 @@ export function Sets() {
       )}
       {dialog?.kind === "rename" && (
         <PromptModal
-          title="Rename set"
-          label="Name"
+          title={tr("ui.sets.rename_set")}
+          label={tr("ui.sets.name")}
           initial={dialog.initial}
           onClose={() => setDialog(null)}
           onConfirm={(name) => {
@@ -175,8 +319,8 @@ export function Sets() {
       )}
       {dialog?.kind === "import" && (
         <PromptModal
-          title="Import set code"
-          label="Paste a GYSET. code"
+          title={tr("ui.sets.import_set_code")}
+          label={tr("ui.sets.paste_a_gyset_code")}
           confirmLabel="Import"
           onClose={() => setDialog(null)}
           onConfirm={(code) => {
