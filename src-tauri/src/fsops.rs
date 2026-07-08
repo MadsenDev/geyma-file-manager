@@ -67,13 +67,23 @@ pub fn home_dir() -> Result<String, String> {
         .ok_or_else(|| "no home directory".to_string())
 }
 
-#[tauri::command]
-pub fn read_text_file(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|e| e.to_string())
+/// Rejects name parameters that could escape the directory they're joined onto.
+/// Every IPC command that takes a bare file/folder name (as opposed to a full path)
+/// must call this before joining it — the UI only ever sends plain names, so anything
+/// with a separator or `..` in it is a forged `invoke()` call, not a user action.
+pub(crate) fn validate_name(name: &str) -> Result<(), String> {
+    if name.is_empty() || name == "." || name == ".." {
+        return Err("Invalid name".to_string());
+    }
+    if name.contains('/') || name.contains('\\') || name.contains('\0') {
+        return Err("Names cannot contain path separators".to_string());
+    }
+    Ok(())
 }
 
 #[tauri::command]
 pub fn create_folder(parent: String, name: String) -> Result<String, String> {
+    validate_name(&name)?;
     let target = PathBuf::from(&parent).join(&name);
     fs::create_dir(&target).map_err(|e| e.to_string())?;
     Ok(target.to_string_lossy().to_string())
@@ -81,6 +91,7 @@ pub fn create_folder(parent: String, name: String) -> Result<String, String> {
 
 #[tauri::command]
 pub fn create_file(parent: String, name: String, contents: String) -> Result<String, String> {
+    validate_name(&name)?;
     let target = PathBuf::from(&parent).join(&name);
     fs::write(&target, contents).map_err(|e| e.to_string())?;
     Ok(target.to_string_lossy().to_string())
@@ -88,6 +99,7 @@ pub fn create_file(parent: String, name: String, contents: String) -> Result<Str
 
 #[tauri::command]
 pub fn rename_path(from: String, to_name: String) -> Result<String, String> {
+    validate_name(&to_name)?;
     let from_path = PathBuf::from(&from);
     let parent = from_path.parent().ok_or("no parent")?;
     let target = parent.join(&to_name);
@@ -130,6 +142,7 @@ fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 
 #[tauri::command]
 pub fn copy_path(from: String, to_dir: String, to_name: String) -> Result<String, String> {
+    validate_name(&to_name)?;
     let src = PathBuf::from(&from);
     let target = PathBuf::from(&to_dir).join(&to_name);
     copy_recursive(&src, &target).map_err(|e| e.to_string())?;
@@ -138,6 +151,7 @@ pub fn copy_path(from: String, to_dir: String, to_name: String) -> Result<String
 
 #[tauri::command]
 pub async fn extract_archive(path: String, dest_dir: String, folder_name: String) -> Result<String, String> {
+    validate_name(&folder_name)?;
     tauri::async_runtime::spawn_blocking(move || {
         if let Some(kind) = crate::archives::detect(&path) {
             crate::archives::extract(kind, &path, &dest_dir, &folder_name)
@@ -364,6 +378,7 @@ pub fn set_path_mode(path: String, mode: u32) -> Result<(), String> {
 
 #[tauri::command]
 pub fn create_symlink(target: String, link_dir: String, link_name: String) -> Result<String, String> {
+    validate_name(&link_name)?;
     let link_path = PathBuf::from(&link_dir).join(&link_name);
     if fs::symlink_metadata(&link_path).is_ok() {
         return Err("A file or folder with that name already exists".to_string());
@@ -382,6 +397,7 @@ pub fn create_symlink(target: String, link_dir: String, link_name: String) -> Re
 
 #[tauri::command]
 pub async fn create_archive(paths: Vec<String>, dest_dir: String, archive_name: String) -> Result<String, String> {
+    validate_name(&archive_name)?;
     tauri::async_runtime::spawn_blocking(move || zip_paths(&paths, &dest_dir, &archive_name))
         .await
         .map_err(|error| format!("Compression failed: {error}"))?
@@ -466,6 +482,34 @@ mod tests {
             writer.write_all(contents).unwrap();
         }
         writer.finish().unwrap();
+    }
+
+    #[test]
+    fn validate_name_rejects_traversal_and_separators() {
+        assert!(validate_name("notes.txt").is_ok());
+        assert!(validate_name("weird but fine ~!@#$%^&()").is_ok());
+        assert!(validate_name("..hidden-ish").is_ok());
+        assert!(validate_name("").is_err());
+        assert!(validate_name(".").is_err());
+        assert!(validate_name("..").is_err());
+        assert!(validate_name("../escape").is_err());
+        assert!(validate_name("nested/child").is_err());
+        assert!(validate_name("back\\slash").is_err());
+        assert!(validate_name("nul\0byte").is_err());
+    }
+
+    #[test]
+    fn create_folder_refuses_names_that_escape_the_parent() {
+        let root = temp_workdir("traversal");
+        let parent = root.join("inbox");
+        fs::create_dir(&parent).unwrap();
+
+        let result = create_folder(
+            parent.to_string_lossy().to_string(),
+            "../escaped".to_string(),
+        );
+        assert!(result.is_err());
+        assert!(!root.join("escaped").exists());
     }
 
     #[test]

@@ -5,7 +5,11 @@
 //! on the UI process), so media is served over plain HTTP with Range support
 //! instead. The server binds 127.0.0.1 on an ephemeral port and requires a
 //! per-session random token so other local processes/pages can't read files
-//! through it.
+//! through it. Defense in depth on top of the token: the token comparison is
+//! constant-time, the Host header must be the server's own 127.0.0.1 origin
+//! (which defeats DNS-rebinding pages, whose requests carry the attacker's
+//! hostname), and only extensions the previewer actually renders are served —
+//! this is a media server, not a general file-read endpoint.
 
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
@@ -186,7 +190,7 @@ pub fn start() -> std::io::Result<MediaServer> {
         for stream in listener.incoming().flatten() {
             let expected = expected.clone();
             std::thread::spawn(move || {
-                let _ = handle(stream, &expected);
+                let _ = handle(stream, &expected, port);
             });
         }
     });
@@ -199,7 +203,22 @@ fn new_token() -> String {
     buf.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn handle(stream: TcpStream, expected_token: &str) -> std::io::Result<()> {
+/// Compares the presented token against the expected one without an early exit,
+/// so response timing doesn't leak how many leading characters matched.
+fn token_matches(presented: &str, expected: &str) -> bool {
+    let presented = presented.as_bytes();
+    let expected = expected.as_bytes();
+    if presented.len() != expected.len() {
+        return false;
+    }
+    presented
+        .iter()
+        .zip(expected)
+        .fold(0u8, |acc, (a, b)| acc | (a ^ b))
+        == 0
+}
+
+fn handle(stream: TcpStream, expected_token: &str, port: u16) -> std::io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_secs(5)))?;
     stream.set_write_timeout(Some(Duration::from_secs(30)))?;
     let mut reader = BufReader::new(stream.try_clone()?);
@@ -207,6 +226,7 @@ fn handle(stream: TcpStream, expected_token: &str) -> std::io::Result<()> {
     reader.read_line(&mut request_line)?;
 
     let mut range_header: Option<String> = None;
+    let mut host_header: Option<String> = None;
     loop {
         let mut line = String::new();
         if reader.read_line(&mut line)? == 0 || line.trim().is_empty() {
@@ -215,8 +235,18 @@ fn handle(stream: TcpStream, expected_token: &str) -> std::io::Result<()> {
         if let Some((name, value)) = line.split_once(':') {
             if name.eq_ignore_ascii_case("range") {
                 range_header = Some(value.trim().to_string());
+            } else if name.eq_ignore_ascii_case("host") {
+                host_header = Some(value.trim().to_string());
             }
         }
+    }
+
+    // A browser reaches this server through the attacker's hostname when doing
+    // DNS rebinding, and the Host header faithfully carries that hostname —
+    // requiring our own loopback origin shuts that vector down.
+    let own_origin = format!("127.0.0.1:{port}");
+    if host_header.as_deref() != Some(own_origin.as_str()) {
+        return respond_status(stream, "403 Forbidden");
     }
 
     let mut parts = request_line.split_whitespace();
@@ -241,18 +271,23 @@ fn handle(stream: TcpStream, expected_token: &str) -> std::io::Result<()> {
         }
     }
 
-    if token.as_deref() != Some(expected_token) {
+    if !token.as_deref().is_some_and(|t| token_matches(t, expected_token)) {
         return respond_status(stream, "403 Forbidden");
     }
     let Some(path) = path else {
         return respond_status(stream, "400 Bad Request");
+    };
+    // Only serve what QuickLook/Details actually preview through this server.
+    // Anything else (dotfiles, keys, arbitrary documents) stays unreachable even
+    // with a valid token.
+    let Some(mime) = mime_for(&path) else {
+        return respond_status(stream, "403 Forbidden");
     };
 
     let Ok(mut file) = File::open(&path) else {
         return respond_status(stream, "404 Not Found");
     };
     let total = file.metadata()?.len();
-    let mime = mime_for(&path);
 
     let (start, end) = match range_header.as_deref() {
         Some(value) => match parse_range(value, total) {
@@ -366,29 +401,32 @@ fn percent_decode(s: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
-fn mime_for(path: &str) -> &'static str {
+/// The closed set of types this server will serve — doubling as the access-control
+/// list for which files are reachable at all (an unknown extension is refused, not
+/// served as octet-stream).
+fn mime_for(path: &str) -> Option<&'static str> {
     let ext = Path::new(path)
         .extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_ascii_lowercase())
         .unwrap_or_default();
     match ext.as_str() {
-        "mp3" => "audio/mpeg",
-        "flac" => "audio/flac",
-        "wav" => "audio/wav",
-        "ogg" | "oga" => "audio/ogg",
-        "m4a" => "audio/mp4",
-        "mp4" | "m4v" => "video/mp4",
-        "webm" => "video/webm",
-        "mov" => "video/quicktime",
-        "mkv" => "video/x-matroska",
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "webp" => "image/webp",
-        "svg" => "image/svg+xml",
-        "pdf" => "application/pdf",
-        _ => "application/octet-stream",
+        "mp3" => Some("audio/mpeg"),
+        "flac" => Some("audio/flac"),
+        "wav" => Some("audio/wav"),
+        "ogg" | "oga" => Some("audio/ogg"),
+        "m4a" => Some("audio/mp4"),
+        "mp4" | "m4v" => Some("video/mp4"),
+        "webm" => Some("video/webm"),
+        "mov" => Some("video/quicktime"),
+        "mkv" => Some("video/x-matroska"),
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        "svg" => Some("image/svg+xml"),
+        "pdf" => Some("application/pdf"),
+        _ => None,
     }
 }
 
@@ -425,47 +463,108 @@ mod tests {
         assert_eq!(percent_decode("%zz"), None);
     }
 
-    #[test]
-    fn serves_a_partial_response() {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("geyma-media-{nonce}.mp3"));
-        std::fs::write(&path, b"0123456789").unwrap();
-
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = std::thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            handle(stream, "test-token").unwrap();
-        });
-
-        let encoded_path = path
-            .to_string_lossy()
-            .bytes()
+    fn percent_encode(text: &str) -> String {
+        text.bytes()
             .map(|byte| match byte {
                 b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
                     (byte as char).to_string()
                 }
                 _ => format!("%{byte:02X}"),
             })
-            .collect::<String>();
+            .collect()
+    }
+
+    /// Spins up one `handle()` invocation and returns the raw HTTP response for
+    /// `request_for(port)` — Host and other headers are the caller's to choose.
+    fn roundtrip(request_for: impl FnOnce(u16) -> String) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let port = address.port();
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            handle(stream, "test-token", port).unwrap();
+        });
+
         let mut client = TcpStream::connect(address).unwrap();
-        write!(
-            client,
-            "GET /media?token=test-token&path={encoded_path} HTTP/1.1\r\nRange: bytes=2-5\r\n\r\n"
-        )
-        .unwrap();
+        write!(client, "{}", request_for(port)).unwrap();
         let mut response = Vec::new();
         client.read_to_end(&mut response).unwrap();
         server.join().unwrap();
+        String::from_utf8(response).unwrap()
+    }
+
+    fn temp_media_file(ext: &str, contents: &[u8]) -> std::path::PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("geyma-media-{nonce}.{ext}"));
+        std::fs::write(&path, contents).unwrap();
+        path
+    }
+
+    #[test]
+    fn serves_a_partial_response() {
+        let path = temp_media_file("mp3", b"0123456789");
+        let encoded_path = percent_encode(&path.to_string_lossy());
+        let response = roundtrip(|port| {
+            format!(
+                "GET /media?token=test-token&path={encoded_path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nRange: bytes=2-5\r\n\r\n"
+            )
+        });
         std::fs::remove_file(path).unwrap();
 
-        let response = String::from_utf8(response).unwrap();
         assert!(response.starts_with("HTTP/1.1 206 Partial Content\r\n"));
         assert!(response.contains("Content-Range: bytes 2-5/10\r\n"));
         assert!(response.ends_with("\r\n\r\n2345"));
+    }
+
+    #[test]
+    fn refuses_a_rebound_host_header() {
+        let path = temp_media_file("mp3", b"0123456789");
+        let encoded_path = percent_encode(&path.to_string_lossy());
+        let response = roundtrip(|port| {
+            format!(
+                "GET /media?token=test-token&path={encoded_path} HTTP/1.1\r\nHost: attacker.example:{port}\r\n\r\n"
+            )
+        });
+        std::fs::remove_file(path).unwrap();
+        assert!(response.starts_with("HTTP/1.1 403 Forbidden\r\n"));
+    }
+
+    #[test]
+    fn refuses_a_wrong_token() {
+        let path = temp_media_file("mp3", b"0123456789");
+        let encoded_path = percent_encode(&path.to_string_lossy());
+        let response = roundtrip(|port| {
+            format!(
+                "GET /media?token=wrong-token&path={encoded_path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n"
+            )
+        });
+        std::fs::remove_file(path).unwrap();
+        assert!(response.starts_with("HTTP/1.1 403 Forbidden\r\n"));
+    }
+
+    #[test]
+    fn refuses_non_media_extensions() {
+        let path = temp_media_file("txt", b"secret contents");
+        let encoded_path = percent_encode(&path.to_string_lossy());
+        let response = roundtrip(|port| {
+            format!(
+                "GET /media?token=test-token&path={encoded_path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n"
+            )
+        });
+        std::fs::remove_file(path).unwrap();
+        assert!(response.starts_with("HTTP/1.1 403 Forbidden\r\n"));
+        assert!(!response.contains("secret contents"));
+    }
+
+    #[test]
+    fn token_comparison_requires_exact_match() {
+        assert!(super::token_matches("abc123", "abc123"));
+        assert!(!super::token_matches("abc124", "abc123"));
+        assert!(!super::token_matches("abc12", "abc123"));
+        assert!(!super::token_matches("", "abc123"));
     }
 
     #[cfg(target_os = "linux")]

@@ -1,11 +1,11 @@
-export function splitBaseExt(name: string): { base: string; ext: string } {
+function splitBaseExt(name: string): { base: string; ext: string } {
   const idx = name.lastIndexOf(".");
   if (idx <= 0) return { base: name, ext: "" };
   return { base: name.slice(0, idx), ext: name.slice(idx) };
 }
 
 /** Expands {name} to the original base name and any run of #'s to a zero-padded sequence number. */
-export function applyRenameTemplate(template: string, base: string, index: number): string {
+function applyRenameTemplate(template: string, base: string, index: number): string {
   return template.replace(/\{name\}/g, base).replace(/#+/g, (run) => String(index).padStart(run.length, "0"));
 }
 

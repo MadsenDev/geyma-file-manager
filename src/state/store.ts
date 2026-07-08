@@ -1121,12 +1121,15 @@ export const useStore = create<AppState>()((set, get) => ({
   async moveEntries(paths, destDir) {
     const { backend } = get();
     if (!backend) return;
-    const srcDir = backend.dirname(paths[0]);
-    const moved: { from: string; to: string }[] = [];
+    // Each item keeps its own source dir — a multi-select move can span folders
+    // (e.g. dragged out of an "All"-scope search), so one shared srcDir would
+    // orphan set refs and undo items back into the wrong folder.
+    const moved: { from: string; srcDir: string; to: string }[] = [];
     for (const p of paths) {
+      const srcDir = backend.dirname(p);
       try {
         const to = await backend.movePath(p, destDir);
-        moved.push({ from: p, to });
+        moved.push({ from: p, srcDir, to });
         const name = backend.basename(p);
         logEvent(get, set, to, "Moved here", `from ${srcDir}`, "video", p);
         addGhost(get, set, srcDir, { name, fromPath: p, toDir: destDir, toName: name, atMs: Date.now() });
@@ -1141,17 +1144,17 @@ export const useStore = create<AppState>()((set, get) => ({
         label: `Move ${moved.length} item${moved.length > 1 ? "s" : ""}`,
         undo: async () => {
           for (const m of moved) {
-            await backend.movePath(m.to, srcDir);
-            updateSetRefs(get, set, destDir, backend.basename(m.to), srcDir);
+            await backend.movePath(m.to, m.srcDir);
+            updateSetRefs(get, set, destDir, backend.basename(m.to), m.srcDir);
             migrateFileEvents(get, set, m.to, m.from);
           }
-          await get().loadDir(srcDir, true);
-          await get().loadDir(destDir, true);
+          const reload = new Set([destDir, ...moved.map((m) => m.srcDir)]);
+          for (const d of reload) await get().loadDir(d, true);
         },
       });
     }
-    await get().loadDir(srcDir, true);
-    await get().loadDir(destDir, true);
+    const reload = new Set([destDir, ...paths.map((p) => backend.dirname(p))]);
+    for (const d of reload) await get().loadDir(d, true);
     set({ selected: [] });
   },
 

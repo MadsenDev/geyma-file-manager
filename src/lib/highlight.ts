@@ -41,7 +41,7 @@ const LANG_BY_EXT: Record<string, string> = {
   SH: "bash", BASH: "bash", FISH: "bash",
 };
 
-export function langForExt(ext: string): string | null {
+function langForExt(ext: string): string | null {
   return LANG_BY_EXT[ext] || null;
 }
 

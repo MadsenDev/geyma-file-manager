@@ -78,7 +78,3 @@ export function archiveStem(name: string): string {
   return name.replace(/\.[^./]+$/, "");
 }
 
-export function isTextLike(name: string): boolean {
-  const ext = extOf(name);
-  return ["TXT", "MD", "LOG", "TS", "JS", "TSX", "JSX", "JSON", "HTML", "CSS", "RS", "PY", "PATCH", "YML", "YAML", "TOML"].includes(ext);
-}

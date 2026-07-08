@@ -252,6 +252,7 @@ pub async fn remote_stat(path: String, sessions: tauri::State<'_, RemoteSessions
 
 #[tauri::command]
 pub async fn remote_create_folder(parent: String, name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    crate::fsops::validate_name(&name)?;
     let addr = parse(&parent).ok_or_else(|| format!("Not a remote path: {parent}"))?;
     match &addr {
         RemoteAddr::Sftp { host, port, username, path: remote_path } => {
@@ -269,6 +270,7 @@ pub async fn remote_create_folder(parent: String, name: String, sessions: tauri:
 
 #[tauri::command]
 pub async fn remote_create_file(parent: String, name: String, contents: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    crate::fsops::validate_name(&name)?;
     let addr = parse(&parent).ok_or_else(|| format!("Not a remote path: {parent}"))?;
     match &addr {
         RemoteAddr::Sftp { host, port, username, path: remote_path } => {
@@ -286,6 +288,7 @@ pub async fn remote_create_file(parent: String, name: String, contents: String, 
 
 #[tauri::command]
 pub async fn remote_rename_path(from: String, to_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    crate::fsops::validate_name(&to_name)?;
     let addr = parse(&from).ok_or_else(|| format!("Not a remote path: {from}"))?;
     match &addr {
         RemoteAddr::Sftp { host, port, username, path: remote_path } => {
@@ -385,6 +388,7 @@ async fn read_remote_bytes(path: &str, sessions: &tauri::State<'_, RemoteSession
 /// "copy into a remote folder" side of drag-and-drop / paste).
 #[tauri::command]
 pub async fn upload_to_remote(local_path: String, remote_dest_dir: String, remote_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    crate::fsops::validate_name(&remote_name)?;
     let bytes = tokio::fs::read(&local_path).await.map_err(|error| format!("Could not read local file: {error}"))?;
     let addr = parse(&remote_dest_dir).ok_or_else(|| format!("Not a remote path: {remote_dest_dir}"))?;
     match &addr {
@@ -405,6 +409,7 @@ pub async fn upload_to_remote(local_path: String, remote_dest_dir: String, remot
 /// remote folder" side of drag-and-drop / paste).
 #[tauri::command]
 pub async fn download_from_remote(remote_path: String, local_dest_dir: String, local_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    crate::fsops::validate_name(&local_name)?;
     let bytes = read_remote_bytes(&remote_path, &sessions).await?;
     let target = std::path::PathBuf::from(&local_dest_dir).join(&local_name);
     tokio::fs::write(&target, bytes).await.map_err(|error| format!("Could not write local file: {error}"))?;
@@ -417,6 +422,7 @@ pub async fn download_from_remote(remote_path: String, local_dest_dir: String, l
 /// keeps this simple) — fine for the file sizes a file manager's copy/paste deals with.
 #[tauri::command]
 pub async fn remote_copy_path(from: String, to_dir: String, to_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+    crate::fsops::validate_name(&to_name)?;
     let bytes = read_remote_bytes(&from, &sessions).await?;
     let addr = parse(&to_dir).ok_or_else(|| format!("Not a remote path: {to_dir}"))?;
     match &addr {

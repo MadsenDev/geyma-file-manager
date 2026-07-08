@@ -29,7 +29,6 @@ pub fn run() {
             fsops::list_dir,
             fsops::stat_path,
             fsops::home_dir,
-            fsops::read_text_file,
             fsops::create_folder,
             fsops::create_file,
             fsops::rename_path,
