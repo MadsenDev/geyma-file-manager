@@ -34,7 +34,7 @@ pub async fn connect(host: &str, port: u16, username: &str, password: &str, shar
     client
         .share_connect(&root, username, password.to_string())
         .await
-        .map_err(|error| CmdError::new("connect_failed", format!(r"Could not connect to \\{host}\{share}: {error}")))?;
+        .map_err(|error| CmdError::from(format!(r"Could not connect to \\{host}\{share}: {error}")).or_code("connect_failed"))?;
     Ok(SmbConnection { client, root })
 }
 

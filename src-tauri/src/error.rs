@@ -34,6 +34,18 @@ impl CmdError {
         self.message = format!("{prefix}: {}", self.message);
         self
     }
+
+    /// Replaces an `unknown` code with a caller-supplied one, keeping any more specific
+    /// classification `From<String>` already made. For failure sites where the operation
+    /// itself implies a decent default ("connecting failed") but the underlying message
+    /// may reveal the real cause (an SMB `STATUS_LOGON_FAILURE` is a sign-in problem,
+    /// not a network one).
+    pub fn or_code(mut self, code: &str) -> Self {
+        if self.code == "unknown" {
+            self.code = code.to_string();
+        }
+        self
+    }
 }
 
 impl std::fmt::Display for CmdError {
@@ -122,15 +134,18 @@ impl From<String> for CmdError {
             .and_then(code_for_errno);
         let code = errno_code.unwrap_or_else(|| {
             // Remote-protocol (SFTP/SMB) errors carry no errno; recognize the handful of
-            // stable English status phrases the protocol crates embed in their messages.
+            // stable English status phrases (and SMB NT_STATUS names) the protocol
+            // crates embed in their messages.
             let lower = message.to_ascii_lowercase();
-            if lower.contains("permission denied") || lower.contains("access denied") || lower.contains("access is denied") {
+            if lower.contains("logon_failure") || lower.contains("logon failure") || lower.contains("password_expired") || lower.contains("account_disabled") || lower.contains("account_locked_out") {
+                "auth_failed"
+            } else if lower.contains("permission denied") || lower.contains("access denied") || lower.contains("access is denied") || lower.contains("access_denied") {
                 "permission_denied"
-            } else if lower.contains("no such file") || lower.contains("not found") {
+            } else if lower.contains("no such file") || lower.contains("not found") || lower.contains("object_name_not_found") || lower.contains("object_path_not_found") || lower.contains("bad_network_name") {
                 "gone"
-            } else if lower.contains("already exists") || lower.contains("file exists") || lower.contains("name collision") {
+            } else if lower.contains("already exists") || lower.contains("file exists") || lower.contains("name collision") || lower.contains("object_name_collision") {
                 "already_exists"
-            } else if lower.contains("connection reset") || lower.contains("connection closed") || lower.contains("broken pipe") {
+            } else if lower.contains("connection reset") || lower.contains("connection closed") || lower.contains("broken pipe") || lower.contains("connection_reset") {
                 "connection_lost"
             } else if lower.contains("timed out") || lower.contains("timeout") {
                 "timed_out"
@@ -180,6 +195,24 @@ mod tests {
     fn string_errors_without_an_errno_stay_unknown() {
         let err = CmdError::from("Could not rename: SFTP failure".to_string());
         assert_eq!(err.code, "unknown");
+    }
+
+    #[test]
+    fn smb_nt_status_names_classify_to_specific_codes() {
+        let auth = CmdError::from(r"Could not connect to \\nas\Media: Server returned STATUS_LOGON_FAILURE".to_string());
+        assert_eq!(auth.code, "auth_failed");
+        let denied = CmdError::from("Could not list shares on nas: STATUS_ACCESS_DENIED".to_string());
+        assert_eq!(denied.code, "permission_denied");
+        let missing = CmdError::from("Could not open directory: STATUS_OBJECT_NAME_NOT_FOUND".to_string());
+        assert_eq!(missing.code, "gone");
+    }
+
+    #[test]
+    fn or_code_only_replaces_unknown() {
+        let generic = CmdError::from("some opaque transport failure".to_string()).or_code("connect_failed");
+        assert_eq!(generic.code, "connect_failed");
+        let auth = CmdError::from("STATUS_LOGON_FAILURE".to_string()).or_code("connect_failed");
+        assert_eq!(auth.code, "auth_failed");
     }
 
     #[test]
