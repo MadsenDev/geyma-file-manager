@@ -8,16 +8,44 @@
       name="description"
       content="Geyma — a file manager that remembers."
     />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Spectral:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
     <title>Geyma</title>
+    <style>
+      /* First paint, before any JS runs: parchment (default skin) colors. The
+         inline script below swaps in the last-used skin's colors from
+         localStorage so a dark-skin user never sees a light flash. */
+      html {
+        background: #efe9de;
+      }
+      #gy-splash {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-family: system-ui, sans-serif;
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(33, 29, 23, 0.4);
+        user-select: none;
+      }
+    </style>
+    <script>
+      // Written by ThemeContext on every skin change; read here so the window
+      // paints in the active skin's colors on the very first frame.
+      try {
+        var bg = localStorage.getItem("geyma-bg");
+        var ink = localStorage.getItem("geyma-ink");
+        if (bg) document.documentElement.style.background = bg;
+        if (ink) {
+          var s = document.createElement("style");
+          s.textContent = "#gy-splash{color:" + ink + "}";
+          document.head.appendChild(s);
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="gy-splash">Geyma</div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

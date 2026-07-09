@@ -1,12 +1,12 @@
 import { tr } from "@/i18n";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA, itemColors } from "../theme/skins";
 import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
 import { extOf, formatSize, formatWhen, kindOf } from "../lib/format";
-import { highlightCode, highlightCss } from "../lib/highlight";
+import { useHighlight, highlightCss } from "../lib/highlight";
 import { getFsBackend } from "../fs";
 import type { ArchivePreview, FsEntry, MediaPlaybackSupport } from "../fs";
 type MediaState =
@@ -203,10 +203,7 @@ export function QuickLook() {
       cancelled = true;
     };
   }, [entry?.path, previewRetry]);
-  const highlighted = useMemo(
-    () => content != null ? highlightCode(content, ext) : null,
-    [content, ext]
-  );
+  const highlighted = useHighlight(content, ext);
   if (!previewPath || !entry) return null;
   const origin = preview?.origin;
   const colors = itemColors(kind, t);
