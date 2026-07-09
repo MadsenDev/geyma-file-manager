@@ -8,6 +8,7 @@ import { chipStyle } from "./common";
 import type { Filters } from "../state/types";
 import { aiGenerate, extractJson } from "../ai/ollama";
 import { explainError } from "../lib/explainError";
+import { SetRuleModal } from "../overlays/SetRuleModal";
 const KIND_CHIPS: {
   key: NonNullable<Filters["kind"]>;
   label: string;
@@ -49,7 +50,11 @@ export function Search() {
   const aiSelectedModel = useStore((s) => s.aiSelectedModel);
   const applyAiSearch = useStore((s) => s.applyAiSearch);
   const showToast = useStore((s) => s.showToast);
+  const createSmartSet = useStore((s) => s.createSmartSet);
+  const path = useStore((s) => s.path);
+  const home = useStore((s) => s.home);
   const [asking, setAsking] = useState(false);
+  const [savingAsSet, setSavingAsSet] = useState(false);
   const active = !!query || filters.kind || filters.starred;
   const aiAvailable = aiSearchEnabled && aiRunning && !!aiSelectedModel;
   async function handleAskAi() {
@@ -190,11 +195,32 @@ export function Search() {
           onClick={handleAskAi}
           disabled={asking}
           style={chipStyle(t, false)}>
-          
+
               {asking ? tr("ui.search.asking_ai") : tr("ui.search.ask_ai")}
             </button>
         }
+          <button onClick={() => setSavingAsSet(true)} style={chipStyle(t, false)}>
+            {tr("ui.search.save_as_set")}
+          </button>
         </div>
+      }
+      {savingAsSet &&
+      <SetRuleModal
+        title={tr("ui.search.save_as_set_title")}
+        initialName={query.trim()}
+        initialRule={{
+          nameContains: query.trim() || undefined,
+          kind: filters.kind || undefined,
+          starred: filters.starred || undefined,
+          roots: [searchScope === "all" ? home : path]
+        }}
+        confirmLabel={tr("common.create")}
+        onClose={() => setSavingAsSet(false)}
+        onConfirm={(name, rule) => {
+          createSmartSet(name, rule);
+          setSavingAsSet(false);
+          showToast(tr("ui.search.saved_as_set", { name }));
+        }} />
       }
     </div>);
 
