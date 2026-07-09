@@ -186,7 +186,28 @@
       "network": "Network",
       "add_connection": "Add connection",
       "no_saved_connections": "No saved connections",
-      "path_copied": "Path copied"
+      "path_copied": "Path copied",
+      "devices": "Nearby devices",
+      "scan_for_devices": "Scan for devices",
+      "scanning": "Scanning network…",
+      "no_devices_found": "No SMB devices found nearby",
+      "loading_shares": "Loading shares…",
+      "no_shares": "No browseable shares",
+      "try_again": "Try again",
+      "sign_in_as_different_user": "Sign in as a different user…",
+      "copy_address": "Copy address",
+      "address_copied": "Address copied"
+    },
+    "smb_browse_modal": {
+      "title": "Browse {{name}}",
+      "hint": "Sign in to list the shares on {{host}}. Leave the username empty to browse as guest.",
+      "username": "Username",
+      "guest": "Guest",
+      "password": "Password",
+      "remember_password": "Remember password (stored in your OS keyring)",
+      "cancel": "Cancel",
+      "browse_as_guest": "Browse as guest",
+      "list_shares": "List shares"
     },
     "places": {
       "home": "Home",
@@ -563,6 +584,7 @@
     "set_exported": "Exported to ~/{{name}}",
     "connection_failed": "Connection failed: {{error}}",
     "disconnect_failed": "Disconnect failed: {{error}}",
+    "smb_scan_failed": "Network scan failed: {{error}}",
     "ollama_start_failed": "Could not start Ollama: {{error}}",
     "ollama_stop_failed": "Could not stop Ollama: {{error}}",
     "ollama_delete_model_failed": "Could not delete model: {{error}}",

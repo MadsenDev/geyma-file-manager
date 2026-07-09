@@ -14,6 +14,8 @@ export const ICONS = {
   lightning: "M13 3 5 13.5h5.5L11 21l8-11h-5.5z",
   chevronLeft: "M15 5 8 12l7 7",
   chevronRight: "M9 5l7 7-7 7",
+  chevronDown: "M5 9l7 7 7-7",
+  refresh: "M19.5 12a7.5 7.5 0 1 1-2.2-5.3L20 9.5M20 4.5v5h-5",
   chevronUp: "M12 19V6M6.5 11.5 12 6l5.5 5.5",
   search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.35-4.35",
   grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",

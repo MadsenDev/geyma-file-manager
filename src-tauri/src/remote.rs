@@ -16,6 +16,7 @@ use tokio::sync::Mutex;
 
 use crate::fsops::FsEntry;
 
+pub mod discovery;
 pub mod sftp;
 pub mod smb;
 

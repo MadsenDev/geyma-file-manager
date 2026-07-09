@@ -1,4 +1,4 @@
-import type { DeviceEntry, FsBackend, FsEntry, PathPermissions, RemoteConnectInput, RemoteDisconnectInput } from "./types";
+import type { DeviceEntry, FsBackend, FsEntry, PathPermissions, RemoteConnectInput, RemoteDisconnectInput, SmbDevice, SmbShare } from "./types";
 import { basenamePosix, dirnamePosix, joinPosix } from "./pathUtil";
 import { isRemotePath, parseRemotePath, remoteBasename, remoteDirname, remoteJoin } from "./remotePath";
 
@@ -188,6 +188,23 @@ TREE[MOCK_SMB_ROOT] = [
   file("team-notes.md", 2048, day(2026, 6, 29)),
 ];
 TREE[joinOf(MOCK_SMB_ROOT, "Invoices")] = [file("2026-q2.pdf", 154624, day(2026, 6, 27))];
+
+// Demo SMB discovery: the devices a "network scan" finds in the browser, and the shares
+// each one enumerates. office-nas matches MOCK_SMB_ROOT so connecting its "Shared" share
+// (username/password "demo") lands in the populated tree above.
+const MOCK_SMB_DEVICES: SmbDevice[] = [
+  { name: "Office NAS", hostname: "office-nas.local", host: "office-nas", port: 445 },
+  { name: "Studio Pi", hostname: "studio-pi.local", host: "studio-pi.local", port: 445 },
+];
+const MOCK_SMB_SHARES: Record<string, SmbShare[]> = {
+  "office-nas": [
+    { name: "Media", comment: "Movies and music" },
+    { name: "Shared", comment: "Team documents" },
+  ],
+  "studio-pi.local": [{ name: "Public", comment: "" }],
+};
+TREE["smb://demo@office-nas:445/Media"] = [file("intro-cut.mp4", 52428800, day(2026, 6, 24))];
+TREE["smb://demo@studio-pi.local:445/Public"] = [file("print-queue.txt", 1024, day(2026, 6, 30))];
 
 function ensureDir(path: string) {
   if (!TREE[path]) TREE[path] = [];
@@ -461,6 +478,20 @@ export const mockBackend: FsBackend = {
   },
   basename(path: string) {
     return baseOf(path);
+  },
+  async discoverSmbDevices() {
+    // A real scan listens for a couple of seconds; simulate that.
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    return delay(MOCK_SMB_DEVICES.map((d) => ({ ...d })));
+  },
+  async listSmbShares(host: string, _port: number, _username: string, password: string) {
+    await delay(undefined);
+    if (password !== MOCK_REMOTE_PASSWORD) {
+      throw new Error("Authentication failed: incorrect username or password");
+    }
+    const shares = MOCK_SMB_SHARES[host];
+    if (!shares) throw new Error(`Could not connect to ${host}`);
+    return shares.map((s) => ({ ...s }));
   },
   async connectRemote(input: RemoteConnectInput) {
     await delay(undefined);

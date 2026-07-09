@@ -56,6 +56,23 @@ export interface PathPermissions {
   symlinkTarget: string | null;
 }
 
+/** An SMB host discovered on the local network via mDNS/DNS-SD (`_smb._tcp`). */
+export interface SmbDevice {
+  /** Advertised instance name, e.g. "Office NAS". */
+  name: string;
+  /** Advertised hostname, e.g. "office-nas.local". */
+  hostname: string;
+  /** Best address to connect to (IPv4 when advertised, otherwise the hostname). */
+  host: string;
+  port: number;
+}
+
+/** A browseable disk share enumerated on an SMB host. */
+export interface SmbShare {
+  name: string;
+  comment: string;
+}
+
 export interface RemoteConnectInput {
   protocol: "sftp" | "smb";
   host: string;
@@ -107,6 +124,10 @@ export interface FsBackend {
   dirname(path: string): string;
   basename(path: string): string;
 
+  /** Scans the local network for hosts advertising SMB file sharing over mDNS. */
+  discoverSmbDevices(): Promise<SmbDevice[]>;
+  /** Lists browseable disk shares on an SMB host. An empty username browses as guest. */
+  listSmbShares(host: string, port: number, username: string, password: string): Promise<SmbShare[]>;
   /** Returns the connection's root path (e.g. "sftp://user@host:22/" or "smb://user@host:445/Share"). */
   connectRemote(input: RemoteConnectInput): Promise<string>;
   disconnectRemote(input: RemoteDisconnectInput): Promise<void>;

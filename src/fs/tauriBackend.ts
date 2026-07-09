@@ -10,6 +10,8 @@ import type {
   PathPermissions,
   RemoteConnectInput,
   RemoteDisconnectInput,
+  SmbDevice,
+  SmbShare,
   TextPreview,
 } from "./types";
 import { basenamePosix, dirnamePosix, joinPosix } from "./pathUtil";
@@ -200,6 +202,12 @@ export const tauriBackend: FsBackend = {
   basename(path: string) {
     if (isRemotePath(path)) return remoteBasename(path);
     return basenamePosix(path);
+  },
+  async discoverSmbDevices() {
+    return invoke<SmbDevice[]>("smb_discover", {});
+  },
+  async listSmbShares(host: string, port: number, username: string, password: string) {
+    return invoke<SmbShare[]>("smb_list_shares", { host, port, username, password });
   },
   async connectRemote(input: RemoteConnectInput) {
     return invoke<string>("remote_connect", { ...input });
