@@ -155,6 +155,11 @@ export interface RemoteConnection {
 
 export type RemoteStatus = "disconnected" | "connecting" | "connected" | "error";
 
+/** Per-module option bag (see `modCfg`/`mcfg` in the store). */
+export interface ModOptionValue {
+  [key: string]: string | number | boolean;
+}
+
 export type ToastKind = "info" | "success" | "error";
 
 /** One entry in the toast queue. `message` is the headline; `detail` is the optional
