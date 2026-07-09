@@ -120,6 +120,8 @@ undo action.
 - **Natural-language search (local AI, optional)** — with a local model running, a
   query like "starred photos from last week" is converted into the structured
   query/kind/starred filters and applied.
+- **Save as Set** — the current query + filters can be saved as a Smart Working Set in
+  one click (see Working Sets below).
 - Search, filters, sort, and hidden-file visibility all funnel through one
   `visibleEntries()` pipeline, so the grid, item counts, keyboard navigation,
   select-all, and Quick Look stepping always agree on what's visible.
@@ -169,11 +171,29 @@ Cross-folder collections of file *references* (never copies) — like playlists 
 files.
 
 - **Manual sets** — add any files from any folders via the context menu ("Add to …").
-- **Smart sets** — rule-driven, recomputed live: by starred state, file kind, or
-  minimum modified time (e.g. "everything starred", "recent images").
-- Sets can be renamed, duplicated, annotated with a **note**, and removed.
-- **Set codes** — a set (including its rule/note) can be exported as a compact
-  `GYSET.…` code to the clipboard and imported on another machine.
+- **Smart sets** — rule-driven, recomputed live. Rules are built in a **visual rule
+  editor**: file kind, extension list, name-contains, min/max size,
+  modified-within-N-days, and starred, combined as **ALL** or **ANY**.
+- **Scope roots** — a rule can be limited to specific folders; those folders are
+  scanned (recursively, bounded) every time the set opens, so matches don't depend on
+  where you happen to have browsed. Without roots, a rule matches anywhere you've
+  visited.
+- **Hybrid sets** — any manual set can also carry a rule ("Add rule…" in its context
+  menu): it then shows your hand-picked items *plus* the rule's live matches, deduped.
+- **Save a search as a Smart Set** — the search bar's "Save as Set" chip opens the rule
+  editor prefilled from the current query and filter chips.
+- **Missing-file tracking** — a reference whose folder is loaded but whose file is gone
+  is surfaced, not silently dropped: an amber `!n` badge in the sidebar and an
+  expandable banner in the set view list each missing item with its last-known folder,
+  plus **Locate…** (relinks by filename across browsed/scanned folders, with a picker
+  menu when several candidates exist) and **Remove**.
+- **Per-set metadata** — color, icon, pin (pinned sets sort to the top), archive
+  (archived sets collapse into their own section), a free-text **note**, and
+  created / last-used timestamps.
+- Sets can be renamed, duplicated, and removed.
+- **Portable sets** — export as a compact `GYSET.…` clipboard code or as a versioned
+  **`.gyset` file** (written to your home folder). Import by pasting either form into
+  "Import set…", or simply open a `.gyset` file in the file grid.
 - References are **self-healing**: every move/rename/trash/restore updates set items to
   keep pointing at the right file; permanent deletion drops the reference.
 - Opening a set shows its members as a virtual folder view.

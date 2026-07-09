@@ -26,7 +26,9 @@ export function Title() {
   const kicker = activeSet
     ? activeSet.smart
       ? tr("ui.title.smart_set_fills_itself_from_rules")
-      : tr("ui.title.working_set_references_not_copies")
+      : activeSet.rule
+        ? tr("ui.title.hybrid_set_items_plus_rules")
+        : tr("ui.title.working_set_references_not_copies")
     : trashView
       ? tr("ui.title.trash_items_awaiting_permanent_removal")
       : path;

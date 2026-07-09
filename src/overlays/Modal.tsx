@@ -6,8 +6,9 @@ interface ModalProps {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  width?: number;
 }
-export function Modal({ title, onClose, children }: ModalProps) {
+export function Modal({ title, onClose, children, width = 380 }: ModalProps) {
   const t = useTheme();
   return (
     <>
@@ -27,7 +28,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
           left: "50%",
           top: "50%",
           transform: "translate(-50%,-50%)",
-          width: "min(380px, 100vw - 48px)",
+          width: `min(${width}px, 100vw - 48px)`,
           background: t.card,
           border: `1px solid ${
           t.border}`,

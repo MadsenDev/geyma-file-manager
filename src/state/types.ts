@@ -36,11 +36,26 @@ export interface Ghost {
   modifiedMs?: number;
 }
 
+export type SetRuleMatch = "all" | "any";
+
 export interface SetRule {
+  /** Comma/space-separated extension list, matched case-insensitively ("pdf, docx"). */
   ext?: string;
   kind?: string;
   starred?: boolean;
+  /** Legacy absolute threshold (epoch ms) from older persisted sets — frozen at creation
+   *  time. New rules use withinDays, which rolls with the clock. */
   minMt?: number;
+  /** Modified within the last N days, evaluated at read time. */
+  withinDays?: number;
+  nameContains?: string;
+  minBytes?: number;
+  maxBytes?: number;
+  /** "all" (default) = every condition must pass; "any" = at least one. */
+  match?: SetRuleMatch;
+  /** Folders this rule is scoped to. They're scanned (recursively, bounded) when the set
+   *  opens, and matches outside them are excluded. Empty/absent = any browsed folder. */
+  roots?: string[];
 }
 
 export interface SetItemRef {
@@ -61,10 +76,20 @@ export interface WorkingSet {
   id: string;
   name: string;
   note?: string;
+  /** Rule-only set: items are ignored and refs aren't maintained by updateSetRefs.
+   *  A non-smart set with a rule is a hybrid — it shows items ∪ rule matches. */
   smart?: boolean;
   rule?: SetRule;
   snap?: EnvironmentSnapshot;
   items: SetItemRef[];
+  /** Accent color (hex) shown in the Sets sidebar; also tints the set icon. */
+  color?: string;
+  /** ICONS key overriding the default folder/lightning glyph. */
+  icon?: string;
+  pinned?: boolean;
+  archived?: boolean;
+  createdMs?: number;
+  lastUsedMs?: number;
 }
 
 export interface Workspace {

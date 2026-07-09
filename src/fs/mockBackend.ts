@@ -10,6 +10,9 @@ interface MockNode {
   createdMs: number;
   isSymlink?: boolean;
   symlinkTarget?: string;
+  /** Real text contents for files created in-session, so previewTextFile round-trips
+   *  (e.g. exporting a .gyset and importing it back) instead of showing the placeholder. */
+  contents?: string;
 }
 
 function day(y: number, m: number, d: number, h = 12, min = 0): number {
@@ -321,6 +324,9 @@ export const mockBackend: FsBackend = {
   async previewTextFile(path: string) {
     requireConnected(path);
     const found = findNode(path);
+    if (found?.node.contents != null) {
+      return { content: found.node.contents, truncated: false };
+    }
     const name = found?.node.name ?? baseOf(path);
     return {
       content: `# ${name}\n\nThis is placeholder content shown by Geyma's mock filesystem.\n`,
@@ -335,7 +341,9 @@ export const mockBackend: FsBackend = {
   },
   async createFile(parent: string, name: string, contents: string) {
     requireConnected(parent);
-    insertNode(parent, file(name, contents.length, Date.now()));
+    const node = file(name, contents.length, Date.now());
+    node.contents = contents;
+    insertNode(parent, node);
     return delay(joinOf(parent, name));
   },
   async renamePath(from: string, toName: string) {

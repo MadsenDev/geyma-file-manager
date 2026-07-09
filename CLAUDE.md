@@ -101,8 +101,13 @@ Key invariants enforced in the store, not obvious from any single function:
   `state/types.ts`). Every operation that moves/renames/trashes/restores/permanently-deletes a
   file must call `updateSetRefs(...)` to keep set items pointing at the right place (or drop the
   ref, on permanent delete). Smart sets (`WorkingSet.smart`) are excluded from this — they're
-  recomputed live from a `rule` (`starred`, `kind`, `minMt`) against `get().dirs` instead of a
-  fixed item list.
+  recomputed live from a `rule` (`SetRule`: kind/ext/name/size/modified/starred, combined ALL or
+  ANY, optionally scoped to `roots`) against `get().dirs` instead of a fixed item list. A
+  non-smart set that also has a `rule` is a *hybrid*: `setEntriesFor()` returns items ∪ rule
+  matches, and its items still go through `updateSetRefs`. Rule `roots` are scanned (bounded
+  BFS, `scanRuleRoots`) when a set opens — rules only ever see what's in the `dirs` cache.
+  `setResolutionFor()` splits a set's refs into present/missing/pending; a ref is only "missing"
+  once its dir listing is loaded, which is why `openSet` loads every item dir.
 - **Undo is a manual stack** (`pushUndo`/`undo`), not automatic — each mutating action builds its
   own inverse (e.g. move back, re-trash, rename back) and pushes it after the operation succeeds.
 - **Ghost trails** (`addGhost`/`ghosts` map) are a separate, capped-at-3-per-folder breadcrumb of
@@ -196,6 +201,12 @@ the Network panel" error rather than retrying silently. Both submodules were ver
 real local `sshd`/`smbd` instances during development (not part of the committed test suite,
 since that would need live servers in CI too) — the parsing/routing logic in `remote.rs` itself
 has ordinary `#[cfg(test)]` unit tests that need no network.
+
+## Docs to keep in sync
+
+`docs/FEATURES.md` is the user-facing feature reference — the complete "what can Geyma
+do" list. Whenever a feature is added, changed, or removed, update it in the same
+change (and this file too, if the architecture notes above are affected).
 
 ## Known gaps
 
