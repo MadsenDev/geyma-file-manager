@@ -1,59 +1,44 @@
-import hljs from "highlight.js/lib/core";
-import typescript from "highlight.js/lib/languages/typescript";
-import javascript from "highlight.js/lib/languages/javascript";
-import json from "highlight.js/lib/languages/json";
-import xml from "highlight.js/lib/languages/xml";
-import css from "highlight.js/lib/languages/css";
-import rust from "highlight.js/lib/languages/rust";
-import python from "highlight.js/lib/languages/python";
-import markdown from "highlight.js/lib/languages/markdown";
-import yaml from "highlight.js/lib/languages/yaml";
-import ini from "highlight.js/lib/languages/ini";
-import diff from "highlight.js/lib/languages/diff";
-import bash from "highlight.js/lib/languages/bash";
+import { useEffect, useState } from "react";
 import type { ResolvedTheme } from "../theme/skins";
 
-hljs.registerLanguage("typescript", typescript);
-hljs.registerLanguage("javascript", javascript);
-hljs.registerLanguage("json", json);
-hljs.registerLanguage("xml", xml);
-hljs.registerLanguage("css", css);
-hljs.registerLanguage("rust", rust);
-hljs.registerLanguage("python", python);
-hljs.registerLanguage("markdown", markdown);
-hljs.registerLanguage("yaml", yaml);
-hljs.registerLanguage("ini", ini);
-hljs.registerLanguage("diff", diff);
-hljs.registerLanguage("bash", bash);
+// highlight.js and its grammars live in highlightEngine.ts, loaded on demand the
+// first time a text preview needs highlighting, so the initial bundle (and app
+// startup) never pays for them. Do not import highlightEngine statically.
 
-const LANG_BY_EXT: Record<string, string> = {
-  TS: "typescript", TSX: "typescript",
-  JS: "javascript", JSX: "javascript",
-  JSON: "json",
-  HTML: "xml", SVG: "xml", XML: "xml",
-  CSS: "css",
-  RS: "rust",
-  PY: "python",
-  MD: "markdown",
-  YML: "yaml", YAML: "yaml",
-  TOML: "ini",
-  PATCH: "diff", DIFF: "diff",
-  SH: "bash", BASH: "bash", FISH: "bash",
-};
+type Engine = typeof import("./highlightEngine");
 
-function langForExt(ext: string): string | null {
-  return LANG_BY_EXT[ext] || null;
+let enginePromise: Promise<Engine> | null = null;
+
+function loadEngine(): Promise<Engine> {
+  if (!enginePromise) enginePromise = import("./highlightEngine");
+  return enginePromise;
 }
 
-/** Highlight `code` for the given uppercase extension. Returns escaped HTML, or null if the language is unknown. */
-export function highlightCode(code: string, ext: string): string | null {
-  const lang = langForExt(ext);
-  if (!lang) return null;
-  try {
-    return hljs.highlight(code, { language: lang }).value;
-  } catch {
-    return null;
-  }
+/**
+ * Highlighted HTML for `code`, or null while the engine loads / when the
+ * extension has no grammar — callers render the plain text in the meantime.
+ */
+export function useHighlight(code: string | null, ext: string): string | null {
+  const [html, setHtml] = useState<string | null>(null);
+  useEffect(() => {
+    if (code == null) {
+      setHtml(null);
+      return;
+    }
+    let cancelled = false;
+    loadEngine().then(
+      (engine) => {
+        if (!cancelled) setHtml(engine.highlightCode(code, ext));
+      },
+      () => {
+        if (!cancelled) setHtml(null);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [code, ext]);
+  return html;
 }
 
 function hexToHsl(hex: string): [number, number, number] | null {

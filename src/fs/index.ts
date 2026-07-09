@@ -1,5 +1,4 @@
 import type { FsBackend } from "./types";
-import { mockBackend } from "./mockBackend";
 
 export * from "./types";
 
@@ -11,9 +10,12 @@ let backendPromise: Promise<FsBackend> | null = null;
 
 export function getFsBackend(): Promise<FsBackend> {
   if (!backendPromise) {
+    // Both backends load on demand: inside Tauri the mock (demo tree and all)
+    // never ships in the executed bundle, and in a plain browser the Tauri IPC
+    // glue never loads.
     backendPromise = isTauri()
       ? import("./tauriBackend").then((m) => m.tauriBackend)
-      : Promise.resolve(mockBackend);
+      : import("./mockBackend").then((m) => m.mockBackend);
   }
   return backendPromise;
 }

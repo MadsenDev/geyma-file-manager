@@ -451,9 +451,13 @@ export const useStore = create<AppState>()((set, get) => ({
   async init() {
     const backend = await getFsBackend();
     const persisted = loadPersisted();
-    const home = await backend.homeDir();
-    const trashDir = await backend.trashDirPath();
-    const devices = await backend.listDevices();
+    // Independent IPC calls — issue them together so startup pays one round
+    // trip, not three in a row.
+    const [home, trashDir, devices] = await Promise.all([
+      backend.homeDir(),
+      backend.trashDirPath(),
+      backend.listDevices(),
+    ]);
     const startupMode = persisted.startupMode || "resume";
     const tabs = startupMode === "resume" && persisted.tabs && persisted.tabs.length
       ? persisted.tabs
@@ -505,8 +509,7 @@ export const useStore = create<AppState>()((set, get) => ({
       aiRenameEnabled: persisted.aiRenameEnabled ?? false,
       aiSummaryEnabled: persisted.aiSummaryEnabled ?? false,
     });
-    await get().loadDir(get().path);
-    await get().loadDir(get().path2);
+    await Promise.all([get().loadDir(get().path), get().loadDir(get().path2)]);
     void get().refreshAiStatus();
   },
 

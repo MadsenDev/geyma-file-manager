@@ -22,6 +22,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty("--gy-rowhover", hexA(theme.ink, theme.isDark ? 0.06 : 0.035));
     document.body.style.background = theme.bg;
     document.body.style.colorScheme = theme.isDark ? "dark" : "light";
+    // Read by the inline script in index.html so the next launch first-paints
+    // in this skin's colors instead of flashing the default.
+    try {
+      localStorage.setItem("geyma-bg", theme.bg);
+      localStorage.setItem("geyma-ink", hexA(theme.ink, 0.4));
+    } catch {
+      // localStorage unavailable — the splash keeps its default colors.
+    }
   }, [theme]);
 
   return <ThemeCtx.Provider value={theme}>{children}</ThemeCtx.Provider>;
