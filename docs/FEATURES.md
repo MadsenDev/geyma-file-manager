@@ -214,8 +214,17 @@ files.
   failure): Trash (remote delete is permanent, with the same double-press confirm),
   symlinks, permissions, archive extraction.
 - Remote text previews are size-capped so a hostile server can't OOM the app.
+- **SMB device discovery** — the Network sidebar's "Nearby devices" section scans the
+  local network (mDNS/DNS-SD, `_smb._tcp`) and shows what it finds as a tree: expand a
+  device, sign in (or browse as guest), and its disk shares list as children; clicking
+  a share saves a connection, connects, and opens the share in a new tab. Hidden
+  administrative shares (`C$`, `ADMIN$`, …) and printer/IPC shares are filtered out.
+  Devices that only announce over WS-Discovery (stock Windows) won't appear in the
+  scan — manual entry still covers those.
 - In dev mode (plain browser), two simulated demo connections exist so the whole
-  connect/browse/copy flow is clickable without a real server (password: `demo`).
+  connect/browse/copy flow is clickable without a real server (password: `demo`), and
+  the device scan finds two simulated devices ("Office NAS", "Studio Pi") whose shares
+  enumerate with any username and password `demo`.
 
 ## Local AI (optional, via Ollama)
 

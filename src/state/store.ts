@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { tr, trEventAction } from "@/i18n";
-import type { FsBackend, FsEntry } from "../fs/types";
+import type { FsBackend, FsEntry, SmbDevice, SmbShare } from "../fs/types";
 import { getFsBackend } from "../fs";
 import {
   ALL_MODULES,
@@ -39,6 +39,23 @@ import { explainError } from "../lib/explainError";
 import { aiDeleteModel, aiListModels, aiStartServer, aiStatus, aiStopServer, type AiModel } from "../ai/ollama";
 
 const STORAGE_KEY = "geyma-v1";
+
+/** Key for per-device SMB discovery state (share listings, in-memory credentials). */
+export function smbDeviceKey(device: SmbDevice): string {
+  return `${device.host}:${device.port}`;
+}
+
+export interface SmbShareListing {
+  status: "loading" | "loaded" | "error";
+  shares: SmbShare[];
+  error: string | null;
+  /** The credentials the listing was made with, kept only in memory so clicking a
+   *  listed share connects without prompting again. Empty username means guest. */
+  username: string;
+  password: string;
+  /** Whether a connection made from this listing should keep its password in the OS keyring. */
+  remember: boolean;
+}
 
 interface ModOptionValue {
   [key: string]: string | number | boolean;
@@ -235,6 +252,11 @@ interface AppState {
   remoteStatus: Record<string, RemoteStatus>;
   pendingRemotePasswordPromptId: string | null;
 
+  // SMB discovery (ephemeral — devices found by the last scan, never persisted)
+  smbDevices: SmbDevice[];
+  smbScan: "idle" | "scanning" | "done" | "error";
+  smbShares: Record<string, SmbShareListing>;
+
   // local AI (Ollama) — status/models reflect the real daemon, refreshed on demand;
   // the three "enabled" flags are the per-capability opt-ins each feature checks
   aiInstalled: boolean;
@@ -278,6 +300,10 @@ interface AppState {
   connectRemoteConnection(id: string, password?: string): Promise<void>;
   disconnectRemoteConnection(id: string): Promise<void>;
   dismissRemotePasswordPrompt(): void;
+  discoverSmbDevices(): Promise<void>;
+  loadSmbShares(device: SmbDevice, username: string, password: string, remember: boolean): Promise<boolean>;
+  forgetSmbShares(device: SmbDevice): void;
+  connectDiscoveredShare(device: SmbDevice, shareName: string): Promise<void>;
 
   refreshAiStatus(): Promise<void>;
   startAiServer(): Promise<void>;
@@ -490,6 +516,9 @@ export const useStore = create<AppState>()((set, get) => ({
   remoteConnections: [],
   remoteStatus: {},
   pendingRemotePasswordPromptId: null,
+  smbDevices: [],
+  smbScan: "idle",
+  smbShares: {},
 
   aiInstalled: false,
   aiRunning: false,
@@ -877,11 +906,13 @@ export const useStore = create<AppState>()((set, get) => ({
     if (!backend || !conn) return;
     set({ remoteStatus: { ...get().remoteStatus, [id]: "connecting" }, pendingRemotePasswordPromptId: null });
     try {
+      // An explicitly-passed empty string is a real credential (guest login from the
+      // discovery tree); only a missing password falls back to keyring/prompt.
       let usedPassword = password;
-      if (!usedPassword && conn.savePassword) {
+      if (usedPassword == null && conn.savePassword) {
         usedPassword = (await backend.keyringLoadPassword(id)) ?? undefined;
       }
-      if (!usedPassword) {
+      if (usedPassword == null) {
         set({ remoteStatus: { ...get().remoteStatus, [id]: "disconnected" }, pendingRemotePasswordPromptId: id });
         return;
       }
@@ -914,6 +945,66 @@ export const useStore = create<AppState>()((set, get) => ({
   },
   dismissRemotePasswordPrompt() {
     set({ pendingRemotePasswordPromptId: null });
+  },
+  async discoverSmbDevices() {
+    const { backend } = get();
+    if (!backend || get().smbScan === "scanning") return;
+    set({ smbScan: "scanning" });
+    try {
+      const devices = await backend.discoverSmbDevices();
+      set({ smbDevices: devices, smbScan: "done" });
+    } catch (e) {
+      set({ smbScan: "error" });
+      get().showToast(tr("toast.smb_scan_failed", { error: explainError(e) }));
+    }
+  },
+  async loadSmbShares(device, username, password, remember) {
+    const { backend } = get();
+    if (!backend) return false;
+    const key = smbDeviceKey(device);
+    set({ smbShares: { ...get().smbShares, [key]: { status: "loading", shares: [], error: null, username, password, remember } } });
+    try {
+      const shares = await backend.listSmbShares(device.host, device.port, username, password);
+      set({ smbShares: { ...get().smbShares, [key]: { status: "loaded", shares, error: null, username, password, remember } } });
+      return true;
+    } catch (e) {
+      set({ smbShares: { ...get().smbShares, [key]: { status: "error", shares: [], error: explainError(e), username, password, remember } } });
+      return false;
+    }
+  },
+  forgetSmbShares(device) {
+    const next = { ...get().smbShares };
+    delete next[smbDeviceKey(device)];
+    set({ smbShares: next });
+  },
+  async connectDiscoveredShare(device, shareName) {
+    const listing = get().smbShares[smbDeviceKey(device)];
+    if (!listing || listing.status !== "loaded") return;
+    const savePassword = listing.remember;
+    // Mirrors smb_list_shares on the Rust side: an empty username browsed as guest, so
+    // the saved connection authenticates the same way.
+    const username = listing.username.trim() || "Guest";
+    const existing = get().remoteConnections.find(
+      (c) =>
+        c.protocol === "smb" &&
+        c.host === device.host &&
+        c.port === device.port &&
+        c.share === shareName &&
+        c.username === username
+    );
+    const id = existing
+      ? existing.id
+      : get().addRemoteConnection({
+          protocol: "smb",
+          label: `${device.name} · ${shareName}`,
+          host: device.host,
+          port: device.port,
+          username,
+          share: shareName,
+          savePassword,
+        });
+    if (existing && savePassword && !existing.savePassword) get().updateRemoteConnection(id, { savePassword: true });
+    await get().connectRemoteConnection(id, listing.password);
   },
 
   async refreshAiStatus() {

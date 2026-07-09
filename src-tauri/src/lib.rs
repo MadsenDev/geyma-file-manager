@@ -62,6 +62,8 @@ pub fn run() {
             remote::remote_copy_path,
             remote::upload_to_remote,
             remote::download_from_remote,
+            remote::discovery::smb_discover,
+            remote::discovery::smb_list_shares,
             remote::keyring_save_password,
             remote::keyring_load_password,
             remote::keyring_delete_password,

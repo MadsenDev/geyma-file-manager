@@ -80,6 +80,18 @@ SFTP, the pure-Rust `smb` crate for SMB2/3) — but there is no host-key verific
 are noted in `src-tauri/src/remote/sftp.rs` and worth revisiting before treating this as
 hardened against a hostile network.
 
+SMB devices on the LAN are discoverable: `src-tauri/src/remote/discovery.rs` has
+`smb_discover` (an mDNS/DNS-SD browse of `_smb._tcp` via the pure-Rust `mdns-sd` crate —
+finds macOS/Samba/NAS boxes, not stock Windows, which only announces over WS-Discovery) and
+`smb_list_shares` (srvsvc `NetShareEnum` through the `smb` crate's `ipc_connect` +
+`list_shares`, filtered to non-special disk shares; an empty username maps to guest). The
+Network panel's "Nearby devices" section renders the result as a device → shares tree
+(`smbDevices`/`smbShares` in the store — ephemeral, never persisted, including the in-memory
+credentials a listing was made with). Clicking a share funnels into the ordinary
+saved-connection flow (`connectDiscoveredShare` creates or reuses a `RemoteConnection`), so
+status dots, keyring opt-in, and reconnect prompts behave identically to a manually-added
+connection.
+
 Saved connections (`RemoteConnection` in `state/types.ts`) persist like everything else in
 `store.ts`, but never with a plaintext password — `keyring_save_password`/`keyring_load_password`
 (Rust, via the `keyring` crate's async-secret-service backend, so no libdbus/libsecret build
