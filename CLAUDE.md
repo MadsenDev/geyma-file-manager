@@ -49,7 +49,9 @@ Arch Linux packaging lives in `packaging/arch/PKGBUILD` (a `-git` VCS package, b
   `preview.rs` for archive/text preview).
 - `src/fs/mockBackend.ts` — an in-memory filesystem, used automatically whenever the app runs
   outside the Tauri webview (i.e. `npm run dev` in a plain browser). This is what lets the UI be
-  developed/screenshotted without a Rust toolchain.
+  developed/screenshotted without a Rust toolchain. The backend methods live here; the tree
+  engine + local demo content are in `src/fs/mockTree.ts`, and the SFTP/SMB demo fixtures
+  (simulated connections, discovery, seeded remote TREE entries) in `src/fs/mockRemote.ts`.
 
 `src/fs/index.ts` picks the backend at runtime by checking for `__TAURI_INTERNALS__` on
 `window`. Never branch on "are we in Tauri" elsewhere — go through `getFsBackend()` and code
@@ -71,8 +73,8 @@ clickable from a plain browser.
 Scope is deliberately narrower than local: browse, rename, copy/move within a connection, and
 permanent delete (there's no remote Trash) all work; symlinks, chmod/ownership, and archive
 extract-in-place don't — `tauriBackend.ts` throws a clear "not available for network locations"
-for those, and `Files.tsx`'s context menu hides them for remote entries (checked via
-`isRemotePath(entry.path)`) and swaps "Trash" for "Delete permanently" (reusing
+for those, and the Files context menu (`src/modules/files/menus.ts`) hides them for remote
+entries (checked via `isRemotePath(entry.path)`) and swaps "Trash" for "Delete permanently" (reusing
 `requestPermanentDelete`, the same double-press-to-confirm flow the Trash view uses). RAR-style
 "no good option" tradeoffs don't apply here since the crates are mature (`russh`+`russh-sftp` for
 SFTP, the pure-Rust `smb` crate for SMB2/3) — but there is no host-key verification for SFTP
@@ -100,10 +102,20 @@ user opts in via "Remember password".
 
 ### Single Zustand store drives everything
 
-`src/state/store.ts` is one large `useStore` (Zustand) holding navigation, selection, view/sort,
+`src/state/store.ts` composes one `useStore` (Zustand) holding navigation, selection, view/sort,
 search, starring, trash, clipboard, undo stack, working sets, appearance, and layout state, plus
 every action that mutates it (file ops, selection, layout editing, etc.). There's no separate
-service/controller layer — modules call store actions directly.
+service/controller layer — modules call store actions directly, and always import from
+`./store`, never from a slice file.
+
+The implementation is split into domain slices under `src/state/slices/` (`core` init/dir-cache/
+`visibleEntries`/persist, `nav` path+history+tabs+trash-view, `view` selection/sort/search/
+preview, `fileOps` rename/create/clipboard/move/copy/archive, `trash`, `journal` undo+fileEvents+
+ghosts, `sets`, `remote`, `ai`, `ui` toasts/menus/settings, `appearance` skin+layout editing).
+All slices share the single flat `AppState`, so cross-domain actions can `set()` any field.
+Cross-slice helper functions (`updateSetRefs`, `logEvent`, `syncActiveTab`, …) live in
+`src/state/helpers.ts`; the localStorage schema (`PersistedShape`, `buildPersistPayload`) in
+`src/state/persistence.ts`.
 
 Key invariants enforced in the store, not obvious from any single function:
 - **`visibleEntries()` is the single source of truth** for what the Files module currently shows
@@ -129,8 +141,9 @@ Key invariants enforced in the store, not obvious from any single function:
   different UI surfaces.
 - State is persisted to `localStorage` (`geyma-v1`) via `persist()`, called explicitly after
   every mutation that should survive reload (skin, layout, columns, sets, starred, trash origin
-  maps, etc.) — it is not automatic middleware, so new persisted fields need both an entry in
-  `PersistedShape` and a `get().persist()` call at the mutation site.
+  maps, etc.) — it is not automatic middleware, so new persisted fields need an entry in
+  `PersistedShape` *and* `buildPersistPayload` (both in `state/persistence.ts`) and a
+  `get().persist()` call at the mutation site.
 
 ### Modular chrome: zones, modules, layout
 

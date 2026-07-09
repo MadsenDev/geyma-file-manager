@@ -23,14 +23,6 @@ about, left for a deliberate follow-up.
   man-in-the-middle. Acceptable for trusted home/office networks; needs a real host-key
   trust store before treating network places as hardened.
 
-### Dead code / cleanup
-
-- Largest files, not urgent but worth knowing before adding more to them:
-  `src/state/store.ts` (~2000 lines, single Zustand store by design per CLAUDE.md),
-  `src/modules/Files.tsx` (~600 lines), `src/overlays/QuickLook.tsx` (~500 lines),
-  `src/fs/mockBackend.ts` (~490 lines, mixes the in-memory FS engine with SFTP/SMB demo
-  fixtures — those could split cleanly).
-
 ### Feature parity vs. `archive/pyside6-legacy`
 
 The rewrite is at parity or a strict superset for the file-manager core, and a strict
@@ -67,3 +59,12 @@ superset overall for network places (SFTP/SMB didn't exist in the legacy app).
 - **Dead code** — dropped the unused `trash` crate dependency, `isTextLike()`,
   and the dead `FsBackend.readTextFile()` method; internalized `splitBaseExt`,
   `applyRenameTemplate`, `langForExt`, and the mock remote-root constants.
+- **Oversized files** — the four files the audit flagged were split without behavior
+  changes: `src/state/store.ts` (~2400 lines) into domain slices under
+  `src/state/slices/` plus `helpers.ts`/`persistence.ts` (still one `useStore`);
+  `src/modules/Files.tsx` (~1570 lines) into `src/modules/files/` (tile, list view,
+  ghosts, missing-items banner, context menus, search walker); `src/overlays/
+  QuickLook.tsx` (~1190 lines) into `src/overlays/quicklook/` (content-loading hook +
+  per-preview renderers); and `src/fs/mockBackend.ts` into the tree engine
+  (`mockTree.ts`) and the SFTP/SMB demo fixtures (`mockRemote.ts`). The unused
+  `ALL_MODULE_IDS`/`isPanelModule` re-exports from `store.ts` were dropped along the way.
