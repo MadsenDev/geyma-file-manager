@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::error::CmdError;
 use crate::fsops::FsEntry;
 
 pub mod discovery;
@@ -101,47 +102,48 @@ fn smb_child_uri(host: &str, port: u16, username: &str, share: &str, parent_path
 
 const KEYRING_SERVICE: &str = "geyma-remote";
 
-fn keyring_entry(connection_id: &str) -> Result<keyring::Entry, String> {
-    keyring::Entry::new(KEYRING_SERVICE, connection_id).map_err(|error| error.to_string())
+fn keyring_entry(connection_id: &str) -> Result<keyring::Entry, CmdError> {
+    keyring::Entry::new(KEYRING_SERVICE, connection_id)
+        .map_err(|error| CmdError::new("keyring_failed", error.to_string()))
 }
 
 /// Runs a blocking keyring call off the async runtime thread — matches the
 /// `spawn_blocking` pattern already used for archive/extraction work in fsops.rs.
-async fn keyring_blocking<F, T>(f: F) -> Result<T, String>
+async fn keyring_blocking<F, T>(f: F) -> Result<T, CmdError>
 where
-    F: FnOnce() -> Result<T, String> + Send + 'static,
+    F: FnOnce() -> Result<T, CmdError> + Send + 'static,
     T: Send + 'static,
 {
     tauri::async_runtime::spawn_blocking(f)
         .await
-        .map_err(|error| format!("Keyring task failed: {error}"))?
+        .map_err(|error| CmdError::new("internal", format!("Keyring task failed: {error}")))?
 }
 
 #[tauri::command]
-pub async fn keyring_save_password(connection_id: String, password: String) -> Result<(), String> {
+pub async fn keyring_save_password(connection_id: String, password: String) -> Result<(), CmdError> {
     keyring_blocking(move || {
         keyring_entry(&connection_id)?
             .set_password(&password)
-            .map_err(|error| error.to_string())
+            .map_err(|error| CmdError::new("keyring_failed", error.to_string()))
     })
     .await
 }
 
 #[tauri::command]
-pub async fn keyring_load_password(connection_id: String) -> Result<Option<String>, String> {
+pub async fn keyring_load_password(connection_id: String) -> Result<Option<String>, CmdError> {
     keyring_blocking(move || match keyring_entry(&connection_id)?.get_password() {
         Ok(password) => Ok(Some(password)),
         Err(keyring::Error::NoEntry) => Ok(None),
-        Err(error) => Err(error.to_string()),
+        Err(error) => Err(CmdError::new("keyring_failed", error.to_string())),
     })
     .await
 }
 
 #[tauri::command]
-pub async fn keyring_delete_password(connection_id: String) -> Result<(), String> {
+pub async fn keyring_delete_password(connection_id: String) -> Result<(), CmdError> {
     keyring_blocking(move || match keyring_entry(&connection_id)?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-        Err(error) => Err(error.to_string()),
+        Err(error) => Err(CmdError::new("keyring_failed", error.to_string())),
     })
     .await
 }
@@ -162,11 +164,15 @@ fn to_ms(t: std::time::SystemTime) -> i64 {
         .unwrap_or(0)
 }
 
-fn not_connected(addr: &RemoteAddr) -> String {
-    format!(
-        "Not connected to {} — reconnect from the Network panel",
-        addr.connection_key()
+fn not_connected(addr: &RemoteAddr) -> CmdError {
+    CmdError::new(
+        "remote_not_connected",
+        format!("Not connected to {} — reconnect from the Network panel", addr.connection_key()),
     )
+}
+
+fn not_remote(path: &str) -> CmdError {
+    CmdError::new("invalid_path", format!("Not a remote path: {path}"))
 }
 
 #[tauri::command]
@@ -178,7 +184,7 @@ pub async fn remote_connect(
     share: Option<String>,
     password: String,
     sessions: tauri::State<'_, RemoteSessions>,
-) -> Result<String, String> {
+) -> Result<String, CmdError> {
     match protocol.as_str() {
         "sftp" => {
             let addr = RemoteAddr::Sftp { host: host.clone(), port, username: username.clone(), path: "/".to_string() };
@@ -187,13 +193,13 @@ pub async fn remote_connect(
             Ok(format!("sftp://{username}@{host}:{port}/"))
         }
         "smb" => {
-            let share = share.ok_or("SMB connections require a share name")?;
+            let share = share.ok_or_else(|| CmdError::new("invalid_input", "SMB connections require a share name"))?;
             let addr = RemoteAddr::Smb { host: host.clone(), port, username: username.clone(), share: share.clone(), path: String::new() };
             let conn = smb::connect(&host, port, &username, &password, &share).await?;
             sessions.smb.lock().await.insert(addr.connection_key(), Arc::new(conn));
             Ok(format!("smb://{username}@{host}:{port}/{share}"))
         }
-        other => Err(format!("Unknown protocol: {other}")),
+        other => Err(CmdError::new("invalid_input", format!("Unknown protocol: {other}"))),
     }
 }
 
@@ -205,7 +211,7 @@ pub async fn remote_disconnect(
     username: String,
     share: Option<String>,
     sessions: tauri::State<'_, RemoteSessions>,
-) -> Result<(), String> {
+) -> Result<(), CmdError> {
     match protocol.as_str() {
         "sftp" => {
             let addr = RemoteAddr::Sftp { host, port, username, path: "/".to_string() };
@@ -216,14 +222,14 @@ pub async fn remote_disconnect(
             let addr = RemoteAddr::Smb { host, port, username, share, path: String::new() };
             sessions.smb.lock().await.remove(&addr.connection_key());
         }
-        other => return Err(format!("Unknown protocol: {other}")),
+        other => return Err(CmdError::new("invalid_input", format!("Unknown protocol: {other}"))),
     }
     Ok(())
 }
 
 #[tauri::command]
-pub async fn remote_list_dir(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<Vec<FsEntry>, String> {
-    let addr = parse(&path).ok_or_else(|| format!("Not a remote path: {path}"))?;
+pub async fn remote_list_dir(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<Vec<FsEntry>, CmdError> {
+    let addr = parse(&path).ok_or_else(|| not_remote(&path))?;
     match &addr {
         RemoteAddr::Sftp { host, port, username, path: remote_path } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
@@ -237,8 +243,8 @@ pub async fn remote_list_dir(path: String, sessions: tauri::State<'_, RemoteSess
 }
 
 #[tauri::command]
-pub async fn remote_stat(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<FsEntry, String> {
-    let addr = parse(&path).ok_or_else(|| format!("Not a remote path: {path}"))?;
+pub async fn remote_stat(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<FsEntry, CmdError> {
+    let addr = parse(&path).ok_or_else(|| not_remote(&path))?;
     match &addr {
         RemoteAddr::Sftp { path: remote_path, .. } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
@@ -252,9 +258,9 @@ pub async fn remote_stat(path: String, sessions: tauri::State<'_, RemoteSessions
 }
 
 #[tauri::command]
-pub async fn remote_create_folder(parent: String, name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+pub async fn remote_create_folder(parent: String, name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, CmdError> {
     crate::fsops::validate_name(&name)?;
-    let addr = parse(&parent).ok_or_else(|| format!("Not a remote path: {parent}"))?;
+    let addr = parse(&parent).ok_or_else(|| not_remote(&parent))?;
     match &addr {
         RemoteAddr::Sftp { host, port, username, path: remote_path } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
@@ -270,9 +276,9 @@ pub async fn remote_create_folder(parent: String, name: String, sessions: tauri:
 }
 
 #[tauri::command]
-pub async fn remote_create_file(parent: String, name: String, contents: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+pub async fn remote_create_file(parent: String, name: String, contents: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, CmdError> {
     crate::fsops::validate_name(&name)?;
-    let addr = parse(&parent).ok_or_else(|| format!("Not a remote path: {parent}"))?;
+    let addr = parse(&parent).ok_or_else(|| not_remote(&parent))?;
     match &addr {
         RemoteAddr::Sftp { host, port, username, path: remote_path } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
@@ -288,9 +294,9 @@ pub async fn remote_create_file(parent: String, name: String, contents: String, 
 }
 
 #[tauri::command]
-pub async fn remote_rename_path(from: String, to_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+pub async fn remote_rename_path(from: String, to_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, CmdError> {
     crate::fsops::validate_name(&to_name)?;
-    let addr = parse(&from).ok_or_else(|| format!("Not a remote path: {from}"))?;
+    let addr = parse(&from).ok_or_else(|| not_remote(&from))?;
     match &addr {
         RemoteAddr::Sftp { host, port, username, path: remote_path } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
@@ -313,32 +319,32 @@ pub async fn remote_rename_path(from: String, to_name: String, sessions: tauri::
 /// between local disk and a remote one, goes through copy+delete instead — see
 /// `remote_copy_path`/`upload_to_remote`/`download_from_remote`.
 #[tauri::command]
-pub async fn remote_move_path(from: String, to_dir: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
-    let from_addr = parse(&from).ok_or_else(|| format!("Not a remote path: {from}"))?;
-    let to_addr = parse(&to_dir).ok_or_else(|| format!("Not a remote path: {to_dir}"))?;
+pub async fn remote_move_path(from: String, to_dir: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, CmdError> {
+    let from_addr = parse(&from).ok_or_else(|| not_remote(&from))?;
+    let to_addr = parse(&to_dir).ok_or_else(|| not_remote(&to_dir))?;
     if from_addr.connection_key() != to_addr.connection_key() {
-        return Err("Source and destination are on different connections".to_string());
+        return Err(CmdError::new("move_between_locations", "Source and destination are on different connections"));
     }
     match (&from_addr, &to_addr) {
         (RemoteAddr::Sftp { host, port, username, path: from_path, .. }, RemoteAddr::Sftp { path: to_parent, .. }) => {
             let conn = sessions.sftp.lock().await.get(&from_addr.connection_key()).cloned().ok_or_else(|| not_connected(&from_addr))?;
-            let name = from_path.rsplit('/').next().filter(|s| !s.is_empty()).ok_or_else(|| format!("Bad source path: {from}"))?;
+            let name = from_path.rsplit('/').next().filter(|s| !s.is_empty()).ok_or_else(|| CmdError::new("invalid_path", format!("Bad source path: {from}")))?;
             sftp::rename(&conn, from_path, to_parent, name).await?;
             Ok(sftp_child_uri(host, *port, username, to_parent, name))
         }
         (RemoteAddr::Smb { host, port, username, share, path: from_path, .. }, RemoteAddr::Smb { path: to_parent, .. }) => {
             let conn = sessions.smb.lock().await.get(&from_addr.connection_key()).cloned().ok_or_else(|| not_connected(&from_addr))?;
-            let name = from_path.rsplit('/').next().filter(|s| !s.is_empty()).ok_or_else(|| format!("Bad source path: {from}"))?;
+            let name = from_path.rsplit('/').next().filter(|s| !s.is_empty()).ok_or_else(|| CmdError::new("invalid_path", format!("Bad source path: {from}")))?;
             smb::rename(&conn, from_path, to_parent, name).await?;
             Ok(smb_child_uri(host, *port, username, share, to_parent, name))
         }
-        _ => Err("Source and destination use different protocols".to_string()),
+        _ => Err(CmdError::new("move_between_locations", "Source and destination use different protocols")),
     }
 }
 
 #[tauri::command]
-pub async fn remote_delete_permanently(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<(), String> {
-    let addr = parse(&path).ok_or_else(|| format!("Not a remote path: {path}"))?;
+pub async fn remote_delete_permanently(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<(), CmdError> {
+    let addr = parse(&path).ok_or_else(|| not_remote(&path))?;
     match &addr {
         RemoteAddr::Sftp { path: remote_path, .. } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
@@ -360,19 +366,20 @@ pub async fn remote_delete_permanently(path: String, sessions: tauri::State<'_, 
 const MAX_REMOTE_TEXT_BYTES: u64 = 1024 * 1024;
 
 #[tauri::command]
-pub async fn remote_read_text_file(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+pub async fn remote_read_text_file(path: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, CmdError> {
     let size = remote_stat(path.clone(), sessions.clone()).await?.size;
     if size > MAX_REMOTE_TEXT_BYTES {
-        return Err(format!(
-            "File is too large to preview ({size} bytes; the limit is {MAX_REMOTE_TEXT_BYTES} bytes)"
+        return Err(CmdError::new(
+            "preview_too_large",
+            format!("File is too large to preview ({size} bytes; the limit is {MAX_REMOTE_TEXT_BYTES} bytes)"),
         ));
     }
     let bytes = read_remote_bytes(&path, &sessions).await?;
-    String::from_utf8(bytes).map_err(|error| error.to_string())
+    String::from_utf8(bytes).map_err(|error| CmdError::new("not_text", format!("File is not UTF-8 text: {error}")))
 }
 
-async fn read_remote_bytes(path: &str, sessions: &tauri::State<'_, RemoteSessions>) -> Result<Vec<u8>, String> {
-    let addr = parse(path).ok_or_else(|| format!("Not a remote path: {path}"))?;
+async fn read_remote_bytes(path: &str, sessions: &tauri::State<'_, RemoteSessions>) -> Result<Vec<u8>, CmdError> {
+    let addr = parse(path).ok_or_else(|| not_remote(&path))?;
     match &addr {
         RemoteAddr::Sftp { path: remote_path, .. } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
@@ -388,10 +395,10 @@ async fn read_remote_bytes(path: &str, sessions: &tauri::State<'_, RemoteSession
 /// Copies a file from local disk to a remote directory (used for uploads and for the
 /// "copy into a remote folder" side of drag-and-drop / paste).
 #[tauri::command]
-pub async fn upload_to_remote(local_path: String, remote_dest_dir: String, remote_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+pub async fn upload_to_remote(local_path: String, remote_dest_dir: String, remote_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, CmdError> {
     crate::fsops::validate_name(&remote_name)?;
-    let bytes = tokio::fs::read(&local_path).await.map_err(|error| format!("Could not read local file: {error}"))?;
-    let addr = parse(&remote_dest_dir).ok_or_else(|| format!("Not a remote path: {remote_dest_dir}"))?;
+    let bytes = tokio::fs::read(&local_path).await.map_err(|error| CmdError::from(error).context("Could not read local file"))?;
+    let addr = parse(&remote_dest_dir).ok_or_else(|| not_remote(&remote_dest_dir))?;
     match &addr {
         RemoteAddr::Sftp { host, port, username, path: remote_path } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;
@@ -409,11 +416,11 @@ pub async fn upload_to_remote(local_path: String, remote_dest_dir: String, remot
 /// Copies a file from a remote server to local disk (downloads, and the "copy out of a
 /// remote folder" side of drag-and-drop / paste).
 #[tauri::command]
-pub async fn download_from_remote(remote_path: String, local_dest_dir: String, local_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+pub async fn download_from_remote(remote_path: String, local_dest_dir: String, local_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, CmdError> {
     crate::fsops::validate_name(&local_name)?;
     let bytes = read_remote_bytes(&remote_path, &sessions).await?;
     let target = std::path::PathBuf::from(&local_dest_dir).join(&local_name);
-    tokio::fs::write(&target, bytes).await.map_err(|error| format!("Could not write local file: {error}"))?;
+    tokio::fs::write(&target, bytes).await.map_err(|error| CmdError::from(error).context("Could not write local file"))?;
     Ok(target.to_string_lossy().to_string())
 }
 
@@ -422,10 +429,10 @@ pub async fn download_from_remote(remote_path: String, local_dest_dir: String, l
 /// (SFTP has no portable server-side copy; keeping one code path for both protocols
 /// keeps this simple) — fine for the file sizes a file manager's copy/paste deals with.
 #[tauri::command]
-pub async fn remote_copy_path(from: String, to_dir: String, to_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, String> {
+pub async fn remote_copy_path(from: String, to_dir: String, to_name: String, sessions: tauri::State<'_, RemoteSessions>) -> Result<String, CmdError> {
     crate::fsops::validate_name(&to_name)?;
     let bytes = read_remote_bytes(&from, &sessions).await?;
-    let addr = parse(&to_dir).ok_or_else(|| format!("Not a remote path: {to_dir}"))?;
+    let addr = parse(&to_dir).ok_or_else(|| not_remote(&to_dir))?;
     match &addr {
         RemoteAddr::Sftp { host, port, username, path: remote_path } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;

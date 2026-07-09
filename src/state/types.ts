@@ -154,3 +154,14 @@ export interface RemoteConnection {
 }
 
 export type RemoteStatus = "disconnected" | "connecting" | "connected" | "error";
+
+export type ToastKind = "info" | "success" | "error";
+
+/** One entry in the toast queue. `message` is the headline; `detail` is the optional
+ * classified explanation rendered underneath (see `showError` in store.ts). */
+export interface ToastItem {
+  id: number;
+  kind: ToastKind;
+  message: string;
+  detail?: string;
+}

@@ -151,6 +151,30 @@ The entire UI chrome is built from **modules** (one per feature: `Nav`, `Files`,
   `applyPreset`, `resetLayout`) which call `mergeLayout` to filter out unknown/duplicate module
   ids before persisting — don't hand-edit the `layout` object.
 
+### Error handling
+
+One pipeline, end to end. Every Rust `#[tauri::command]` rejects with `CmdError { code,
+message }` (`src-tauri/src/error.rs`): `code` is a stable snake_case identifier
+(`permission_denied`, `already_exists`, `auth_failed`, ...) mapped from errno/`ErrorKind`
+for io errors or set explicitly at named-error sites; `message` is the raw English detail.
+The frontend normalizes *anything* thrown (coded objects, strings with an "(os error N)"
+suffix, fetch TypeErrors) through `classifyError()` in `src/lib/errors.ts` into
+`AppError { code, message, detail }`, where `message` is the translated `errors.<code>`
+copy when the code is known. The errno table exists in both `error.rs` and `errors.ts` —
+keep them in sync, and give a new error family a new code + `errors.*` key rather than
+matching on message text. `codedError()` lets frontend-raised errors (backend guards,
+`mockBackend`) carry codes so dev mode classifies identically.
+
+Surfacing rules: operation failures go through `showError(title, raw)` (store), which
+renders a stacked, deduped, click-to-dismiss error toast — short translated headline,
+classified explanation as the detail line, both line-clamped so no message can distort
+the layout. In-place failures use the shared `ErrorNotice` (`modules/common.tsx`):
+directory listings that fail record an entry in `dirErrors` (so Files shows
+"couldn't load" + Retry instead of an empty folder), every module is wrapped in
+`ModuleErrorBoundary` (a crash degrades to that one panel), and `main.tsx` catches
+unhandled rejections/errors as a final toast net. Don't add new `showToast(raw error)`
+or `String(error)` sinks — `{ code, message }` objects stringify as `[object Object]`.
+
 ### Localization
 
 All user-facing strings live in `src/i18n/en.json`, served through react-i18next
@@ -166,9 +190,9 @@ Things that are deliberately NOT translated:
   and compared for undo eligibility/dispatch — they're stable identifiers, not copy. Translate
   only at display time via `trEventAction()` from `@/i18n`. Event `detail` fragments
   (`` `from ${dir}` ``) are stored as recorded and stay untranslated.
-- **`kindOf()` kinds** and **errno keys in `explainError.ts`** reach `tr()` through variables
-  (`` tr(`kind.${kind}`) ``, `CODE_EXPLANATION_KEYS`), so the `kind.*` / `errors.*` / `event.*`
-  groups look unused to a grep — don't remove them in an "orphan key" cleanup.
+- **`kindOf()` kinds** and **error codes in `errors.ts`** reach `tr()` through variables
+  (`` tr(`kind.${kind}`) ``, `` tr(`errors.${code}`) ``), so the `kind.*` / `errors.*` /
+  `event.*` groups look unused to a grep — don't remove them in an "orphan key" cleanup.
 - **`Places` `sub` values** are filesystem path segments, **AI prompt text** in `Details.tsx` is
   model instructions, and **mockBackend demo content** is dev-only — all stay hardcoded.
 

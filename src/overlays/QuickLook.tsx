@@ -1,6 +1,7 @@
 import { tr } from "@/i18n";
 import { useEffect, useState } from "react";
 import { useStore } from "../state/store";
+import { explainError } from "../lib/errors";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA, itemColors } from "../theme/skins";
 import { Icon } from "../icons/Icon";
@@ -90,7 +91,7 @@ export function QuickLook() {
           status: "unavailable",
           support: loadFailure(
             tr("ui.quick_look.folder_inspect_failed"),
-            String(error)
+            explainError(error)
           )
         });
       });
@@ -117,7 +118,7 @@ export function QuickLook() {
           status: "unavailable",
           support: loadFailure(
             tr("ui.quick_look.archive_uninspectable"),
-            String(error)
+            explainError(error)
           )
         });
       });
@@ -168,7 +169,7 @@ export function QuickLook() {
             status: "unavailable",
             support: loadFailure(
               tr("ui.quick_look.media_prepare_failed"),
-              String(error)
+              explainError(error)
             )
           });
         }

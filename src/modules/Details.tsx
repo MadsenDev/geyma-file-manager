@@ -16,7 +16,6 @@ import { panelTitleStyle } from "./common";
 import { openReferencedPathMenu } from "../lib/contextMenus";
 import { getFsBackend, type FsEntry } from "../fs";
 import { aiGenerate } from "../ai/ollama";
-import { explainError } from "../lib/explainError";
 import type { FileEvent } from "../state/types";
 function buildSummaryPrompt(entries: FsEntry[]): string {
   const lines = entries.
@@ -290,7 +289,7 @@ function AiFolderSummary({
   const aiSummaryEnabled = useStore((s) => s.aiSummaryEnabled);
   const aiRunning = useStore((s) => s.aiRunning);
   const aiSelectedModel = useStore((s) => s.aiSelectedModel);
-  const showToast = useStore((s) => s.showToast);
+  const showError = useStore((s) => s.showError);
   const [summary, setSummary] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
@@ -312,7 +311,7 @@ function AiFolderSummary({
       );
       setSummary(text.trim());
     } catch (e) {
-      showToast(tr("toast.ai_summary_failed", { error: explainError(e) }));
+      showError(tr("toast.ai_summary_failed"), e);
     } finally {
       setLoading(false);
     }

@@ -11,6 +11,7 @@
 //! unrar source and needs a C++ toolchain at build time. Revisit if RAR turns out to
 //! matter enough to users to justify one of those tradeoffs.
 
+use crate::error::CmdError;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::{Component, Path, PathBuf};
@@ -97,8 +98,8 @@ pub struct ListedEntry {
     pub size: u64,
 }
 
-fn tar_reader(kind: ArchiveKind, path: &str) -> Result<Box<dyn Read>, String> {
-    let file = File::open(path).map_err(|error| format!("Could not open archive: {error}"))?;
+fn tar_reader(kind: ArchiveKind, path: &str) -> Result<Box<dyn Read>, CmdError> {
+    let file = File::open(path).map_err(|error| CmdError::from(error).context("Could not open archive"))?;
     let reader: Box<dyn Read> = match kind {
         ArchiveKind::Tar => Box::new(file),
         ArchiveKind::TarGz => Box::new(flate2::read::GzDecoder::new(file)),
@@ -113,7 +114,7 @@ fn tar_reader(kind: ArchiveKind, path: &str) -> Result<Box<dyn Read>, String> {
                 limit: MAX_XZ_DECOMPRESSED_BYTES,
             };
             lzma_rs::xz_decompress(&mut BufReader::new(file), &mut decompressed)
-                .map_err(|error| format!("Could not decompress XZ stream: {error}"))?;
+                .map_err(|error| CmdError::new("archive_damaged", format!("Could not decompress XZ stream: {error}")))?;
             Box::new(std::io::Cursor::new(decompressed.data))
         }
         ArchiveKind::SevenZ => unreachable!("7z has its own reader path, not the tar one"),
@@ -138,7 +139,7 @@ fn safe_join(target_root: &Path, entry_path: &Path) -> Option<PathBuf> {
     Some(out)
 }
 
-pub fn list(kind: ArchiveKind, path: &str, cap: usize) -> Result<(Vec<ListedEntry>, usize), String> {
+pub fn list(kind: ArchiveKind, path: &str, cap: usize) -> Result<(Vec<ListedEntry>, usize), CmdError> {
     if kind == ArchiveKind::SevenZ {
         return list_7z(path, cap);
     }
@@ -149,9 +150,9 @@ pub fn list(kind: ArchiveKind, path: &str, cap: usize) -> Result<(Vec<ListedEntr
     let mut total = 0usize;
     for entry in archive
         .entries()
-        .map_err(|error| format!("Could not read TAR directory: {error}"))?
+        .map_err(|error| CmdError::new("archive_damaged", format!("Could not read TAR directory: {error}")))?
     {
-        let entry = entry.map_err(|error| format!("Could not read TAR entry: {error}"))?;
+        let entry = entry.map_err(|error| CmdError::new("archive_damaged", format!("Could not read TAR entry: {error}")))?;
         total += 1;
         if entries.len() < cap {
             let name = entry
@@ -168,11 +169,11 @@ pub fn list(kind: ArchiveKind, path: &str, cap: usize) -> Result<(Vec<ListedEntr
     Ok((entries, total))
 }
 
-fn list_7z(path: &str, cap: usize) -> Result<(Vec<ListedEntry>, usize), String> {
-    let file = File::open(path).map_err(|error| format!("Could not open archive: {error}"))?;
-    let len = file.metadata().map_err(|error| error.to_string())?.len();
+fn list_7z(path: &str, cap: usize) -> Result<(Vec<ListedEntry>, usize), CmdError> {
+    let file = File::open(path).map_err(|error| CmdError::from(error).context("Could not open archive"))?;
+    let len = file.metadata()?.len();
     let reader = SevenZReader::new(file, len, Password::empty())
-        .map_err(|error| format!("Could not read 7z directory: {error}"))?;
+        .map_err(|error| CmdError::new("archive_damaged", format!("Could not read 7z directory: {error}")))?;
     let files = &reader.archive().files;
     let total = files.len();
     let entries = files
@@ -187,12 +188,12 @@ fn list_7z(path: &str, cap: usize) -> Result<(Vec<ListedEntry>, usize), String> 
     Ok((entries, total))
 }
 
-pub fn extract(kind: ArchiveKind, path: &str, dest_dir: &str, folder_name: &str) -> Result<String, String> {
+pub fn extract(kind: ArchiveKind, path: &str, dest_dir: &str, folder_name: &str) -> Result<String, CmdError> {
     let target_root = PathBuf::from(dest_dir).join(folder_name);
     if target_root.exists() {
-        return Err("A file or folder with that name already exists".to_string());
+        return Err(CmdError::new("already_exists", "A file or folder with that name already exists"));
     }
-    std::fs::create_dir_all(&target_root).map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&target_root)?;
 
     if kind == ArchiveKind::SevenZ {
         extract_7z(path, &target_root)?;
@@ -202,39 +203,44 @@ pub fn extract(kind: ArchiveKind, path: &str, dest_dir: &str, folder_name: &str)
     Ok(target_root.to_string_lossy().to_string())
 }
 
-fn extract_tar(kind: ArchiveKind, path: &str, target_root: &Path) -> Result<(), String> {
+fn extract_tar(kind: ArchiveKind, path: &str, target_root: &Path) -> Result<(), CmdError> {
     let reader = tar_reader(kind, path)?;
     let mut archive = tar::Archive::new(reader);
     let mut remaining_budget = MAX_EXTRACT_TOTAL_BYTES;
     let mut entry_count = 0usize;
     for entry in archive
         .entries()
-        .map_err(|error| format!("Could not read TAR directory: {error}"))?
+        .map_err(|error| CmdError::new("archive_damaged", format!("Could not read TAR directory: {error}")))?
     {
         entry_count += 1;
         if entry_count > MAX_EXTRACT_ENTRIES {
-            return Err(format!(
-                "Archive has too many entries to extract (the limit is {MAX_EXTRACT_ENTRIES})"
+            return Err(CmdError::new(
+                "archive_too_large",
+                format!("Archive has too many entries to extract (the limit is {MAX_EXTRACT_ENTRIES})"),
             ));
         }
-        let mut entry = entry.map_err(|error| format!("Could not read TAR entry: {error}"))?;
-        let entry_path = entry.path().map_err(|error| error.to_string())?.to_path_buf();
-        let out_path = safe_join(target_root, &entry_path)
-            .ok_or_else(|| format!("Refusing to extract unsafe entry path: {}", entry_path.display()))?;
+        let mut entry = entry.map_err(|error| CmdError::new("archive_damaged", format!("Could not read TAR entry: {error}")))?;
+        let entry_path = entry
+            .path()
+            .map_err(|error| CmdError::new("archive_damaged", format!("Could not read TAR entry path: {error}")))?
+            .to_path_buf();
+        let out_path = safe_join(target_root, &entry_path).ok_or_else(|| {
+            CmdError::new("unsafe_archive_path", format!("Refusing to extract unsafe entry path: {}", entry_path.display()))
+        })?;
 
         if entry.header().entry_type().is_dir() {
-            std::fs::create_dir_all(&out_path).map_err(|error| error.to_string())?;
+            std::fs::create_dir_all(&out_path)?;
         } else {
             if let Some(parent) = out_path.parent() {
-                std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+                std::fs::create_dir_all(parent)?;
             }
-            let mut out_file = std::fs::File::create(&out_path).map_err(|error| error.to_string())?;
+            let mut out_file = std::fs::File::create(&out_path)?;
             // Bounded by actual bytes written, not the header's (attacker-controlled)
             // declared size, so a lying header can't smuggle a bomb past this check.
             let mut limited = (&mut entry).take(remaining_budget.saturating_add(1));
-            let copied = std::io::copy(&mut limited, &mut out_file).map_err(|error| error.to_string())?;
+            let copied = std::io::copy(&mut limited, &mut out_file)?;
             if copied > remaining_budget {
-                return Err("Archive exceeds the maximum supported extraction size".to_string());
+                return Err(CmdError::new("archive_too_large", "Archive exceeds the maximum supported extraction size"));
             }
             remaining_budget -= copied;
         }
@@ -242,16 +248,19 @@ fn extract_tar(kind: ArchiveKind, path: &str, target_root: &Path) -> Result<(), 
     Ok(())
 }
 
-fn extract_7z(path: &str, target_root: &Path) -> Result<(), String> {
-    let file = File::open(path).map_err(|error| format!("Could not open archive: {error}"))?;
-    let len = file.metadata().map_err(|error| error.to_string())?.len();
+fn extract_7z(path: &str, target_root: &Path) -> Result<(), CmdError> {
+    let file = File::open(path).map_err(|error| CmdError::from(error).context("Could not open archive"))?;
+    let len = file.metadata()?.len();
     let mut reader = SevenZReader::new(file, len, Password::empty())
-        .map_err(|error| format!("Could not read 7z directory: {error}"))?;
+        .map_err(|error| CmdError::new("archive_damaged", format!("Could not read 7z directory: {error}")))?;
 
     if reader.archive().files.len() > MAX_EXTRACT_ENTRIES {
-        return Err(format!(
-            "Archive has too many entries to extract ({} entries; the limit is {MAX_EXTRACT_ENTRIES})",
-            reader.archive().files.len()
+        return Err(CmdError::new(
+            "archive_too_large",
+            format!(
+                "Archive has too many entries to extract ({} entries; the limit is {MAX_EXTRACT_ENTRIES})",
+                reader.archive().files.len()
+            ),
         ));
     }
 
@@ -283,7 +292,7 @@ fn extract_7z(path: &str, target_root: &Path) -> Result<(), String> {
             }
             Ok(true)
         })
-        .map_err(|error| format!("Could not extract 7z archive: {error}"))?;
+        .map_err(|error| CmdError::from(format!("Could not extract 7z archive: {error}")))?;
     Ok(())
 }
 

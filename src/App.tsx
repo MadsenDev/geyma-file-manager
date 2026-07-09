@@ -359,7 +359,7 @@ openMenu: ReturnType<typeof useStore.getState>["openMenu"])
       readText().
       then(replaceSelection).
       catch(() =>
-      useStore.getState().showToast(tr("ui.app.clipboard_access_was_denied"))
+      useStore.getState().showToast(tr("ui.app.clipboard_access_was_denied"), "error")
       )
     } :
     undefined,

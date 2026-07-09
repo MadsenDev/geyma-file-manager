@@ -4,6 +4,7 @@
 //! keeps large or hostile files from producing unbounded frontend payloads and
 //! gives future formats a single place to add native inspection.
 
+use crate::error::CmdError;
 use serde::Serialize;
 use std::fs::File;
 use std::io::Read;
@@ -38,19 +39,19 @@ pub struct TextPreview {
 }
 
 #[tauri::command]
-pub async fn preview_text_file(path: String) -> Result<Option<TextPreview>, String> {
+pub async fn preview_text_file(path: String) -> Result<Option<TextPreview>, CmdError> {
     tauri::async_runtime::spawn_blocking(move || inspect_text(&path))
         .await
-        .map_err(|error| format!("Text inspection failed: {error}"))?
+        .map_err(|error| CmdError::new("internal", format!("Text inspection failed: {error}")))?
 }
 
-fn inspect_text(path: &str) -> Result<Option<TextPreview>, String> {
-    let mut file = File::open(path).map_err(|error| format!("Could not open file: {error}"))?;
+fn inspect_text(path: &str) -> Result<Option<TextPreview>, CmdError> {
+    let mut file = File::open(path).map_err(|error| CmdError::from(error).context("Could not open file"))?;
     let mut bytes = Vec::with_capacity(MAX_TEXT_BYTES + 1);
     file.by_ref()
         .take((MAX_TEXT_BYTES + 1) as u64)
         .read_to_end(&mut bytes)
-        .map_err(|error| format!("Could not read file: {error}"))?;
+        .map_err(|error| CmdError::from(error).context("Could not read file"))?;
 
     if bytes.contains(&0) {
         return Ok(None);
@@ -77,13 +78,13 @@ fn inspect_text(path: &str) -> Result<Option<TextPreview>, String> {
 }
 
 #[tauri::command]
-pub async fn preview_archive(path: String) -> Result<ArchivePreview, String> {
+pub async fn preview_archive(path: String) -> Result<ArchivePreview, CmdError> {
     tauri::async_runtime::spawn_blocking(move || inspect_archive(&path))
         .await
-        .map_err(|error| format!("Archive inspection failed: {error}"))?
+        .map_err(|error| CmdError::new("internal", format!("Archive inspection failed: {error}")))?
 }
 
-fn inspect_archive(path: &str) -> Result<ArchivePreview, String> {
+fn inspect_archive(path: &str) -> Result<ArchivePreview, CmdError> {
     if let Some(kind) = crate::archives::detect(path) {
         return preview_other(kind, path);
     }
@@ -96,13 +97,14 @@ fn inspect_archive(path: &str) -> Result<ArchivePreview, String> {
 
     match extension.as_str() {
         "zip" => preview_zip(path),
-        _ => Err(format!(
-            "{extension} archive previews are not supported yet; ZIP, TAR (plain/.gz/.bz2/.xz), and 7z are supported."
+        _ => Err(CmdError::new(
+            "unsupported_archive",
+            format!("{extension} archive previews are not supported yet; ZIP, TAR (plain/.gz/.bz2/.xz), and 7z are supported."),
         )),
     }
 }
 
-fn preview_other(kind: crate::archives::ArchiveKind, path: &str) -> Result<ArchivePreview, String> {
+fn preview_other(kind: crate::archives::ArchiveKind, path: &str) -> Result<ArchivePreview, CmdError> {
     let (listed, total_entries) = crate::archives::list(kind, path, MAX_ARCHIVE_ENTRIES)?;
     let entries = listed
         .into_iter()
@@ -125,10 +127,10 @@ fn preview_other(kind: crate::archives::ArchiveKind, path: &str) -> Result<Archi
     })
 }
 
-fn preview_zip(path: &str) -> Result<ArchivePreview, String> {
-    let file = File::open(path).map_err(|error| format!("Could not open archive: {error}"))?;
+fn preview_zip(path: &str) -> Result<ArchivePreview, CmdError> {
+    let file = File::open(path).map_err(|error| CmdError::from(error).context("Could not open archive"))?;
     let mut archive = zip::ZipArchive::new(file)
-        .map_err(|error| format!("Could not read ZIP directory: {error}"))?;
+        .map_err(|error| CmdError::new("archive_damaged", format!("Could not read ZIP directory: {error}")))?;
     let total_entries = archive.len();
     let listed_entries = total_entries.min(MAX_ARCHIVE_ENTRIES);
     let mut entries = Vec::with_capacity(listed_entries);
@@ -136,7 +138,7 @@ fn preview_zip(path: &str) -> Result<ArchivePreview, String> {
     for index in 0..listed_entries {
         let entry = archive
             .by_index(index)
-            .map_err(|error| format!("Could not read ZIP entry {index}: {error}"))?;
+            .map_err(|error| CmdError::new("archive_damaged", format!("Could not read ZIP entry {index}: {error}")))?;
         entries.push(ArchiveEntry {
             path: entry.name().to_string(),
             is_dir: entry.is_dir(),

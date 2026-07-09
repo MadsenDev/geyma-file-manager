@@ -1,6 +1,6 @@
 import { useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
-import { hexA } from "../theme/skins";
+import { hexA, DANGER } from "../theme/skins";
 export function ContextMenu() {
   const t = useTheme();
   const menu = useStore((s) => s.menu);
@@ -70,7 +70,7 @@ export function ContextMenu() {
             cursor: "pointer",
             fontFamily: "inherit",
             fontSize: 12.5,
-            color: item.danger ? "#C6427A" : t.ink
+            color: item.danger ? DANGER : t.ink
           }}>
           
               {item.label}

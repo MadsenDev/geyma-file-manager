@@ -13,6 +13,7 @@
 //! Every model download and generate call only ever talks to `http://127.0.0.1:11434`,
 //! so the `reqwest` dependency below is built with no TLS backend at all.
 
+use crate::error::CmdError;
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
@@ -98,13 +99,14 @@ async fn is_root() -> bool {
 /// `pkexec` fails fast with a clear error instead of hanging, which still surfaces in the
 /// install log below rather than silently stalling.
 #[tauri::command]
-pub async fn ai_install(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn ai_install(app: tauri::AppHandle) -> Result<(), CmdError> {
     #[cfg(not(target_os = "linux"))]
     {
         let _ = app;
-        return Err(
-            "Automatic install is only supported on Linux. Download Ollama from https://ollama.com/download and try again.".to_string(),
-        );
+        return Err(CmdError::new(
+            "unsupported",
+            "Automatic install is only supported on Linux. Download Ollama from https://ollama.com/download and try again.",
+        ));
     }
 
     #[cfg(target_os = "linux")]
@@ -125,9 +127,12 @@ pub async fn ai_install(app: tauri::AppHandle) -> Result<(), String> {
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|error| {
-                format!(
-                    "Could not start installer via {program}: {error}. If PolicyKit (pkexec) isn't \
-                     installed, install Ollama manually from https://ollama.com/download instead."
+                CmdError::new(
+                    "ai_install_failed",
+                    format!(
+                        "Could not start installer via {program}: {error}. If PolicyKit (pkexec) isn't \
+                         installed, install Ollama manually from https://ollama.com/download instead."
+                    ),
                 )
             })?;
 
@@ -149,20 +154,20 @@ pub async fn ai_install(app: tauri::AppHandle) -> Result<(), String> {
             }
         });
 
-        let status = child.wait().await.map_err(|error| format!("Installer failed: {error}"))?;
+        let status = child.wait().await.map_err(|error| CmdError::new("ai_install_failed", format!("Installer failed: {error}")))?;
         let _ = out_task.await;
         let _ = err_task.await;
 
         if status.success() {
             Ok(())
         } else {
-            Err(format!("Installer exited with status {status}"))
+            Err(CmdError::new("ai_install_failed", format!("Installer exited with status {status}")))
         }
     }
 }
 
 #[tauri::command]
-pub async fn ai_start_server(state: tauri::State<'_, AiState>) -> Result<(), String> {
+pub async fn ai_start_server(state: tauri::State<'_, AiState>) -> Result<(), CmdError> {
     if ping().await {
         return Ok(()); // already running, ours or external — nothing to do
     }
@@ -178,7 +183,7 @@ pub async fn ai_start_server(state: tauri::State<'_, AiState>) -> Result<(), Str
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|error| format!("Could not start Ollama: {error}"))?;
+            .map_err(|error| CmdError::new("ai_start_failed", format!("Could not start Ollama: {error}")))?;
         *guard = Some(child);
     }
     drop(guard);
@@ -189,14 +194,14 @@ pub async fn ai_start_server(state: tauri::State<'_, AiState>) -> Result<(), Str
         }
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     }
-    Err("Ollama did not respond after starting".to_string())
+    Err(CmdError::new("ai_start_failed", "Ollama did not respond after starting"))
 }
 
 #[tauri::command]
-pub async fn ai_stop_server(state: tauri::State<'_, AiState>) -> Result<(), String> {
+pub async fn ai_stop_server(state: tauri::State<'_, AiState>) -> Result<(), CmdError> {
     let mut guard = state.server.lock().await;
     if let Some(mut child) = guard.take() {
-        child.kill().await.map_err(|error| error.to_string())?;
+        child.kill().await.map_err(|error| CmdError::new("internal", format!("Could not stop Ollama: {error}")))?;
     }
     Ok(())
 }
@@ -214,22 +219,22 @@ struct TagModel {
 }
 
 #[tauri::command]
-pub async fn ai_list_models() -> Result<Vec<AiModel>, String> {
+pub async fn ai_list_models() -> Result<Vec<AiModel>, CmdError> {
     let resp = client()
         .get(format!("{OLLAMA_BASE_URL}/api/tags"))
         .send()
         .await
-        .map_err(|error| format!("Could not reach Ollama: {error}"))?
+        .map_err(|error| CmdError::new("ai_unreachable", format!("Could not reach Ollama: {error}")))?
         .json::<TagsResponse>()
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| CmdError::new("ai_failed", format!("Unexpected response from Ollama: {error}")))?;
     Ok(resp.models.into_iter().map(|m| AiModel { name: m.name, size: m.size }).collect())
 }
 
 /// Streams Ollama's newline-delimited pull progress back as `ai-pull-progress` events —
 /// model pulls are multi-GB, so Settings needs live progress rather than a spinner.
 #[tauri::command]
-pub async fn ai_pull_model(app: tauri::AppHandle, name: String) -> Result<(), String> {
+pub async fn ai_pull_model(app: tauri::AppHandle, name: String) -> Result<(), CmdError> {
     use futures_util::StreamExt;
     use tauri::Emitter;
 
@@ -238,16 +243,16 @@ pub async fn ai_pull_model(app: tauri::AppHandle, name: String) -> Result<(), St
         .json(&serde_json::json!({ "name": name, "stream": true }))
         .send()
         .await
-        .map_err(|error| format!("Could not reach Ollama: {error}"))?;
+        .map_err(|error| CmdError::new("ai_unreachable", format!("Could not reach Ollama: {error}")))?;
 
     if !resp.status().is_success() {
-        return Err(format!("Pull failed with status {}", resp.status()));
+        return Err(CmdError::new("ai_failed", format!("Pull failed with status {}", resp.status())));
     }
 
     let mut stream = resp.bytes_stream();
     let mut buf: Vec<u8> = Vec::new();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|error| error.to_string())?;
+        let chunk = chunk.map_err(|error| CmdError::new("ai_failed", format!("Pull stream failed: {error}")))?;
         buf.extend_from_slice(&chunk);
         while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
             let line: Vec<u8> = buf.drain(..=pos).collect();
@@ -257,7 +262,7 @@ pub async fn ai_pull_model(app: tauri::AppHandle, name: String) -> Result<(), St
             }
             if let Ok(value) = serde_json::from_slice::<serde_json::Value>(line) {
                 if let Some(err) = value.get("error").and_then(|e| e.as_str()) {
-                    return Err(err.to_string());
+                    return Err(CmdError::new("ai_failed", err));
                 }
                 let _ = app.emit("ai-pull-progress", &value);
             }
@@ -267,17 +272,17 @@ pub async fn ai_pull_model(app: tauri::AppHandle, name: String) -> Result<(), St
 }
 
 #[tauri::command]
-pub async fn ai_delete_model(name: String) -> Result<(), String> {
+pub async fn ai_delete_model(name: String) -> Result<(), CmdError> {
     let resp = client()
         .delete(format!("{OLLAMA_BASE_URL}/api/delete"))
         .json(&serde_json::json!({ "name": name }))
         .send()
         .await
-        .map_err(|error| format!("Could not reach Ollama: {error}"))?;
+        .map_err(|error| CmdError::new("ai_unreachable", format!("Could not reach Ollama: {error}")))?;
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(format!("Delete failed with status {}", resp.status()))
+        Err(CmdError::new("ai_failed", format!("Delete failed with status {}", resp.status())))
     }
 }
 
@@ -290,16 +295,19 @@ struct GenerateResponse {
 /// rename suggestions, folder summaries) — each builds its own prompt and parses the
 /// result on the frontend; there's no per-feature logic on this side.
 #[tauri::command]
-pub async fn ai_generate(model: String, prompt: String) -> Result<String, String> {
+pub async fn ai_generate(model: String, prompt: String) -> Result<String, CmdError> {
     let resp = client()
         .post(format!("{OLLAMA_BASE_URL}/api/generate"))
         .json(&serde_json::json!({ "model": model, "prompt": prompt, "stream": false }))
         .send()
         .await
-        .map_err(|error| format!("Could not reach Ollama: {error}"))?;
+        .map_err(|error| CmdError::new("ai_unreachable", format!("Could not reach Ollama: {error}")))?;
     if !resp.status().is_success() {
-        return Err(format!("Generate failed with status {}", resp.status()));
+        return Err(CmdError::new("ai_failed", format!("Generate failed with status {}", resp.status())));
     }
-    let parsed = resp.json::<GenerateResponse>().await.map_err(|error| error.to_string())?;
+    let parsed = resp
+        .json::<GenerateResponse>()
+        .await
+        .map_err(|error| CmdError::new("ai_failed", format!("Unexpected response from Ollama: {error}")))?;
     Ok(parsed.response)
 }

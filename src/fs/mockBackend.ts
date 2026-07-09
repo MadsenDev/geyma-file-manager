@@ -1,4 +1,5 @@
 import type { DeviceEntry, FsBackend, FsEntry, PathPermissions, RemoteConnectInput, RemoteDisconnectInput, SmbDevice, SmbShare } from "./types";
+import { codedError } from "../lib/errors";
 import { basenamePosix, dirnamePosix, joinPosix } from "./pathUtil";
 import { isRemotePath, parseRemotePath, remoteBasename, remoteDirname, remoteJoin } from "./remotePath";
 
@@ -236,7 +237,7 @@ function removeFromTree(path: string): MockNode {
   const name = baseOf(path);
   const list = TREE[dir] || [];
   const idx = list.findIndex((n) => n.name === name);
-  if (idx < 0) throw new Error(`not found: ${path}`);
+  if (idx < 0) throw codedError("gone", `not found: ${path}`);
   const [node] = list.splice(idx, 1);
   return node;
 }
@@ -259,7 +260,7 @@ function requireConnected(path: string) {
   if (!isRemotePath(path)) return;
   const key = connectionKeyForPath(path);
   if (!key || !connectedKeys.has(key)) {
-    throw new Error("Not connected — reconnect from the Network panel");
+    throw codedError("remote_not_connected", "Not connected — reconnect from the Network panel");
   }
 }
 
@@ -281,7 +282,7 @@ export const mockBackend: FsBackend = {
   async stat(path: string) {
     requireConnected(path);
     const found = findNode(path);
-    if (!found) throw new Error(`not found: ${path}`);
+    if (!found) throw codedError("gone", `not found: ${path}`);
     return delay(toEntry(found.dir, found.node));
   },
   async fileUrl() {
@@ -297,7 +298,7 @@ export const mockBackend: FsBackend = {
     };
   },
   async previewArchive(path: string) {
-    if (isRemotePath(path)) throw new Error("Archive previews aren't available for network locations yet");
+    if (isRemotePath(path)) throw codedError("archive_preview_remote");
     const format = archiveFormatLabel(path);
     const compressed = format === "ZIP";
     return {
@@ -312,10 +313,10 @@ export const mockBackend: FsBackend = {
     };
   },
   async extractArchive(path: string, destDir: string, folderName: string) {
-    if (isRemotePath(path) || isRemotePath(destDir)) throw new Error("Extracting archives isn't available for network locations yet");
+    if (isRemotePath(path) || isRemotePath(destDir)) throw codedError("extract_remote");
     ensureDir(destDir);
     if ((TREE[destDir] || []).some((n) => n.name === folderName)) {
-      throw new Error("A file or folder with that name already exists");
+      throw codedError("already_exists", "A file or folder with that name already exists");
     }
     insertNode(destDir, folder(folderName, Date.now()));
     const target = joinPosix(destDir, folderName);
@@ -325,11 +326,11 @@ export const mockBackend: FsBackend = {
     return delay(target);
   },
   async createArchive(paths: string[], destDir: string, archiveName: string) {
-    if (isRemotePath(destDir) || paths.some(isRemotePath)) throw new Error("Compressing to an archive isn't available for network locations yet");
+    if (isRemotePath(destDir) || paths.some(isRemotePath)) throw codedError("compress_remote");
     ensureDir(destDir);
     const name = archiveName.toLowerCase().endsWith(".zip") ? archiveName : `${archiveName}.zip`;
     if ((TREE[destDir] || []).some((n) => n.name === name)) {
-      throw new Error("A file or folder with that name already exists");
+      throw codedError("already_exists", "A file or folder with that name already exists");
     }
     const totalSize = paths.reduce((sum, p) => {
       const found = findNode(p);
@@ -396,14 +397,14 @@ export const mockBackend: FsBackend = {
     requireConnected(from);
     requireConnected(toDir);
     const found = findNode(from);
-    if (!found) throw new Error(`not found: ${from}`);
+    if (!found) throw codedError("gone", `not found: ${from}`);
     const clone: MockNode = { ...found.node, name: toName, modifiedMs: Date.now() };
     insertNode(toDir, clone);
     if (clone.isDir) cloneSubtree(joinOf(found.dir, found.node.name), joinOf(toDir, toName));
     return delay(joinOf(toDir, toName));
   },
   async trashPath(path: string) {
-    if (isRemotePath(path)) throw new Error("Network locations have no Trash — delete permanently instead");
+    if (isRemotePath(path)) throw codedError("no_remote_trash");
     const node = removeFromTree(path);
     const id = `${node.name}.${trashCounter++}`;
     trashNodes.set(id, { origin: dirnamePosix(path), node });
@@ -424,7 +425,7 @@ export const mockBackend: FsBackend = {
     return delay(TRASH_DIR);
   },
   async diskUsage(path: string) {
-    if (isRemotePath(path)) throw new Error("Disk usage isn't available for network locations");
+    if (isRemotePath(path)) throw codedError("disk_usage_remote");
     const total = 512 * 1024 * 1024 * 1024;
     return delay({ total, available: Math.round(total * 0.42) });
   },
@@ -433,9 +434,9 @@ export const mockBackend: FsBackend = {
     return delay(devices);
   },
   async getPathPermissions(path: string) {
-    if (isRemotePath(path)) throw new Error("Permissions aren't available for network locations");
+    if (isRemotePath(path)) throw codedError("permissions_remote");
     const found = findNode(path);
-    if (!found) throw new Error(`not found: ${path}`);
+    if (!found) throw codedError("gone", `not found: ${path}`);
     const mode = modeOverrides.get(path) ?? (found.node.isDir ? 0o755 : 0o644);
     return delay({
       mode,
@@ -448,15 +449,15 @@ export const mockBackend: FsBackend = {
     } satisfies PathPermissions);
   },
   async setPathMode(path: string, mode: number) {
-    if (isRemotePath(path)) throw new Error("Permissions aren't available for network locations");
+    if (isRemotePath(path)) throw codedError("permissions_remote");
     modeOverrides.set(path, mode & 0o777);
     return delay(undefined);
   },
   async createSymlink(target: string, linkDir: string, linkName: string) {
-    if (isRemotePath(target) || isRemotePath(linkDir)) throw new Error("Symlinks aren't available for network locations");
+    if (isRemotePath(target) || isRemotePath(linkDir)) throw codedError("symlinks_remote");
     ensureDir(linkDir);
     if ((TREE[linkDir] || []).some((n) => n.name === linkName)) {
-      throw new Error("A file or folder with that name already exists");
+      throw codedError("already_exists", "A file or folder with that name already exists");
     }
     insertNode(linkDir, {
       name: linkName,
@@ -487,16 +488,16 @@ export const mockBackend: FsBackend = {
   async listSmbShares(host: string, _port: number, _username: string, password: string) {
     await delay(undefined);
     if (password !== MOCK_REMOTE_PASSWORD) {
-      throw new Error("Authentication failed: incorrect username or password");
+      throw codedError("auth_failed", "Authentication failed: incorrect username or password");
     }
     const shares = MOCK_SMB_SHARES[host];
-    if (!shares) throw new Error(`Could not connect to ${host}`);
+    if (!shares) throw codedError("connect_failed", `Could not connect to ${host}`);
     return shares.map((s) => ({ ...s }));
   },
   async connectRemote(input: RemoteConnectInput) {
     await delay(undefined);
     if (input.password !== MOCK_REMOTE_PASSWORD) {
-      throw new Error("Authentication failed: incorrect username or password");
+      throw codedError("auth_failed", "Authentication failed: incorrect username or password");
     }
     connectedKeys.add(connectionKeyForInput(input));
     if (input.protocol === "sftp") return `sftp://${input.username}@${input.host}:${input.port}/`;

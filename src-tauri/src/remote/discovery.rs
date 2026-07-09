@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 
 use mdns_sd::{ServiceDaemon, ServiceEvent};
 use serde::Serialize;
+
+use crate::error::CmdError;
 use smb::{Client, ClientConfig};
 use smb_rpc::interface::ShareKind;
 
@@ -51,13 +53,13 @@ fn trim_host(hostname: &str) -> String {
 }
 
 #[tauri::command]
-pub async fn smb_discover(timeout_ms: Option<u64>) -> Result<Vec<DiscoveredSmbServer>, String> {
+pub async fn smb_discover(timeout_ms: Option<u64>) -> Result<Vec<DiscoveredSmbServer>, CmdError> {
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(DEFAULT_SCAN_MS).clamp(500, 15_000));
     tauri::async_runtime::spawn_blocking(move || {
-        let daemon = ServiceDaemon::new().map_err(|error| format!("Could not start mDNS discovery: {error}"))?;
+        let daemon = ServiceDaemon::new().map_err(|error| CmdError::new("discovery_failed", format!("Could not start mDNS discovery: {error}")))?;
         let receiver = daemon
             .browse(SMB_SERVICE)
-            .map_err(|error| format!("Could not browse for SMB services: {error}"))?;
+            .map_err(|error| CmdError::new("discovery_failed", format!("Could not browse for SMB services: {error}")))?;
 
         // Keyed by fullname so a service resolved on several interfaces collapses to one
         // entry (preferring a resolution that carries an IPv4 address).
@@ -99,7 +101,7 @@ pub async fn smb_discover(timeout_ms: Option<u64>) -> Result<Vec<DiscoveredSmbSe
         Ok(found.into_values().collect())
     })
     .await
-    .map_err(|error| format!("Discovery task failed: {error}"))?
+    .map_err(|error| CmdError::new("internal", format!("Discovery task failed: {error}")))?
 }
 
 #[tauri::command]
@@ -108,7 +110,7 @@ pub async fn smb_list_shares(
     port: u16,
     username: String,
     password: String,
-) -> Result<Vec<SmbShareInfo>, String> {
+) -> Result<Vec<SmbShareInfo>, CmdError> {
     // An empty username means "browse as guest" — many NAS boxes allow share
     // enumeration for the guest account with no password.
     let username = if username.trim().is_empty() { "Guest".to_string() } else { username };
@@ -117,11 +119,11 @@ pub async fn smb_list_shares(
     client
         .ipc_connect(&server, &username, password)
         .await
-        .map_err(|error| format!("Could not connect to {host}: {error}"))?;
+        .map_err(|error| CmdError::new("connect_failed", format!("Could not connect to {host}: {error}")))?;
     let shares = client
         .list_shares(&server)
         .await
-        .map_err(|error| format!("Could not list shares on {host}: {error}"))?;
+        .map_err(|error| CmdError::from(format!("Could not list shares on {host}: {error}")))?;
     client.close().await.ok();
 
     let mut out: Vec<SmbShareInfo> = shares

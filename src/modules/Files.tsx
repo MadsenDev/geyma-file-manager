@@ -1,4 +1,5 @@
 import { tr } from "@/i18n";
+import { ErrorNotice } from "./common";
 import { useEffect, useState } from "react";
 import { compareEntries, useStore } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
@@ -19,7 +20,6 @@ import type { Ghost, SetItemRef, WorkingSet } from "../state/types";
 import { basenamePosix, joinPosix } from "../fs/pathUtil";
 import { openWithDefaultApp } from "../lib/openDefault";
 import { isGysetFileName } from "../lib/gyset";
-import { explainError } from "../lib/explainError";
 import { BatchRenameModal } from "../overlays/BatchRenameModal";
 import { PropertiesModal } from "../overlays/PropertiesModal";
 async function searchAll(
@@ -68,6 +68,9 @@ export function Files() {
   const path = useStore((s) => s.path);
   const home = useStore((s) => s.home);
   const trashView = useStore((s) => s.trashView);
+  const trashDir = useStore((s) => s.trashDir);
+  const loadDir = useStore((s) => s.loadDir);
+  const dirError = useStore((s) => s.dirErrors[s.trashView ? s.trashDir : s.path]);
   const activeSetId = useStore((s) => s.activeSetId);
   const setDefs = useStore((s) => s.setDefs);
   const query = useStore((s) => s.query);
@@ -94,6 +97,7 @@ export function Files() {
     null
   );
   const showToast = useStore((s) => s.showToast);
+  const showError = useStore((s) => s.showError);
   const trashEntries = useStore((s) => s.trashEntries);
   const restoreEntries = useStore((s) => s.restoreEntries);
   const requestPermanentDelete = useStore((s) => s.requestPermanentDelete);
@@ -176,7 +180,7 @@ export function Files() {
       const name = text && !text.truncated ? st.importSetFromText(text.content) : null;
       showToast(name ? tr("ui.sets.imported", { name }) : tr("ui.sets.bad_code"));
     } catch (e) {
-      showToast(explainError(e));
+      showError(tr("ui.sets.import_failed"), e);
     }
   }
   function itemMenu(entry: FsEntry, e: React.MouseEvent) {
@@ -433,6 +437,29 @@ export function Files() {
     onClose={() => setPropertiesTarget(null)} />;
 
 
+  // A failed listing must not masquerade as an empty folder: when the current dir's
+  // load errored, the "empty" slot shows what went wrong and offers a retry instead.
+  if (dirError && !activeSet && sorted.length === 0) {
+    const dir = trashView ? trashDir : path;
+    return (
+      <div
+        onContextMenu={onBlankMenu}
+        style={{
+          flex: 1,
+          display: "grid",
+          placeItems: "center",
+          padding: 40
+        }}>
+        <ErrorNotice
+          t={t}
+          message={tr("ui.files.load_failed")}
+          detail={dirError.message}
+          onRetry={() => void loadDir(dir, true)}
+        />
+        {batchModal}
+        {propertiesModal}
+      </div>);
+  }
   if (sorted.length === 0 && showGhosts && ghostsForDir.length === 0) {
     return (
       <div
