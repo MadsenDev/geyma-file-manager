@@ -37,7 +37,7 @@ import { buildGysetPayload, encodeGysetFile, parseGysetText } from "../lib/gyset
 import type { SkinOverrides } from "../theme/skins";
 import { archiveStem, extOf, kindOf } from "../lib/format";
 import { computeBatchNames } from "../lib/batchRename";
-import { classifyError, explainError, type AppError } from "../lib/errors";
+import { classifyError, type AppError } from "../lib/errors";
 import { aiDeleteModel, aiListModels, aiStartServer, aiStatus, aiStopServer, type AiModel } from "../ai/ollama";
 
 const STORAGE_KEY = "geyma-v1";
@@ -73,7 +73,9 @@ export function smbDeviceKey(device: SmbDevice): string {
 export interface SmbShareListing {
   status: "loading" | "loaded" | "error";
   shares: SmbShare[];
-  error: string | null;
+  /** Classified listing failure — kept whole (not just the message) so the modal and
+   *  device tree can show the translated headline with the raw cause underneath. */
+  error: AppError | null;
   /** The credentials the listing was made with, kept only in memory so clicking a
    *  listed share connects without prompting again. Empty username means guest. */
   username: string;
@@ -1009,7 +1011,7 @@ export const useStore = create<AppState>()((set, get) => ({
       set({ smbShares: { ...get().smbShares, [key]: { status: "loaded", shares, error: null, username, password, remember } } });
       return true;
     } catch (e) {
-      set({ smbShares: { ...get().smbShares, [key]: { status: "error", shares: [], error: explainError(e), username, password, remember } } });
+      set({ smbShares: { ...get().smbShares, [key]: { status: "error", shares: [], error: classifyError(e), username, password, remember } } });
       return false;
     }
   },

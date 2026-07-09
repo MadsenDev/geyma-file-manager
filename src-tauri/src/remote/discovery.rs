@@ -119,11 +119,11 @@ pub async fn smb_list_shares(
     client
         .ipc_connect(&server, &username, password)
         .await
-        .map_err(|error| CmdError::new("connect_failed", format!("Could not connect to {host}: {error}")))?;
+        .map_err(|error| CmdError::from(format!("Could not connect to {host}: {error}")).or_code("connect_failed"))?;
     let shares = client
         .list_shares(&server)
         .await
-        .map_err(|error| CmdError::from(format!("Could not list shares on {host}: {error}")))?;
+        .map_err(|error| CmdError::from(format!("Could not list shares on {host}: {error}")).or_code("connect_failed"))?;
     client.close().await.ok();
 
     let mut out: Vec<SmbShareInfo> = shares

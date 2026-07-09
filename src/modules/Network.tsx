@@ -2,6 +2,7 @@ import { tr } from "@/i18n";
 import { useEffect, useState } from "react";
 import { useStore, smbDeviceKey } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
+import { DANGER } from "../theme/skins";
 import { Icon } from "../icons/Icon";
 import { ICONS } from "../icons/paths";
 import { navItemStyle, panelTitleStyle, iconButtonStyle } from "./common";
@@ -328,7 +329,12 @@ export function Network() {
                 }
                   {listing?.status === "error" &&
                 <div style={{ padding: "4px 9px", fontSize: 11.5 }}>
-                      <div style={{ color: "#C24444", marginBottom: 4 }}>{listing.error}</div>
+                      <div style={{ color: DANGER, marginBottom: 2, overflowWrap: "anywhere" }}>{listing.error?.message}</div>
+                      {listing.error?.detail &&
+                  <div style={{ color: t.inkFaint, fontFamily: t.mono, fontSize: 10, marginBottom: 4, overflowWrap: "anywhere" }}>
+                          {listing.error.detail}
+                        </div>
+                  }
                       <button
                     onClick={() => setBrowseTarget(device)}
                     className="gy-soft"

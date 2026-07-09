@@ -1,5 +1,7 @@
 import { tr } from "@/i18n";
 import { useState } from "react";
+import { DANGER } from "../theme/skins";
+import type { AppError } from "../lib/errors";
 import { useStore, smbDeviceKey } from "../state/store";
 import { useTheme } from "../theme/ThemeContext";
 import { Modal } from "./Modal";
@@ -21,7 +23,7 @@ export function SmbBrowseModal({ device, onClose }: SmbBrowseModalProps) {
   const [username, setUsername] = useState(listing?.username ?? "");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(listing?.remember ?? true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
   const busy = listing?.status === "loading";
 
   async function submit(asGuest: boolean) {
@@ -75,7 +77,14 @@ export function SmbBrowseModal({ device, onClose }: SmbBrowseModalProps) {
         {tr("ui.smb_browse_modal.remember_password")}
       </label>
       {error && (
-        <div style={{ marginTop: 10, fontSize: 12, color: "#C24444" }}>{error}</div>
+        <div style={{ marginTop: 10, fontSize: 12 }}>
+          <div style={{ color: DANGER, overflowWrap: "anywhere" }}>{error.message}</div>
+          {error.detail && (
+            <div style={{ marginTop: 3, fontSize: 10.5, color: t.inkFaint, fontFamily: t.mono, overflowWrap: "anywhere" }}>
+              {error.detail}
+            </div>
+          )}
+        </div>
       )}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
         <button
