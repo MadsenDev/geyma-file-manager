@@ -202,6 +202,12 @@ real local `sshd`/`smbd` instances during development (not part of the committed
 since that would need live servers in CI too) — the parsing/routing logic in `remote.rs` itself
 has ordinary `#[cfg(test)]` unit tests that need no network.
 
+## Docs to keep in sync
+
+`docs/FEATURES.md` is the user-facing feature reference — the complete "what can Geyma
+do" list. Whenever a feature is added, changed, or removed, update it in the same
+change (and this file too, if the architecture notes above are affected).
+
 ## Known gaps
 
 `docs/AUDIT.md` tracks unresolved findings from a full-codebase audit (security,
