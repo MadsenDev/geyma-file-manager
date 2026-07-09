@@ -8,6 +8,7 @@ use russh::keys::ssh_key::PublicKey;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 
+use crate::error::CmdError;
 use crate::fsops::FsEntry;
 
 use super::{sftp_child_uri, to_ms};
@@ -33,29 +34,29 @@ pub struct SftpConnection {
     sftp: SftpSession,
 }
 
-pub async fn connect(host: &str, port: u16, username: &str, password: &str) -> Result<SftpConnection, String> {
+pub async fn connect(host: &str, port: u16, username: &str, password: &str) -> Result<SftpConnection, CmdError> {
     let config = Arc::new(Config::default());
     let mut session = russh::client::connect(config, (host, port), SshHandler)
         .await
-        .map_err(|error| format!("Could not connect to {host}:{port}: {error}"))?;
+        .map_err(|error| CmdError::new("connect_failed", format!("Could not connect to {host}:{port}: {error}")))?;
     let authed = session
         .authenticate_password(username, password)
         .await
-        .map_err(|error| format!("Authentication failed: {error}"))?;
+        .map_err(|error| CmdError::new("auth_failed", format!("Authentication failed: {error}")))?;
     if !authed.success() {
-        return Err("Authentication failed: incorrect username or password".to_string());
+        return Err(CmdError::new("auth_failed", "Authentication failed: incorrect username or password"));
     }
     let channel = session
         .channel_open_session()
         .await
-        .map_err(|error| format!("Could not open channel: {error}"))?;
+        .map_err(|error| CmdError::from(format!("Could not open channel: {error}")))?;
     channel
         .request_subsystem(true, "sftp")
         .await
-        .map_err(|error| format!("Could not start the SFTP subsystem: {error}"))?;
+        .map_err(|error| CmdError::from(format!("Could not start the SFTP subsystem: {error}")))?;
     let sftp = SftpSession::new(channel.into_stream())
         .await
-        .map_err(|error| format!("Could not start SFTP session: {error}"))?;
+        .map_err(|error| CmdError::from(format!("Could not start SFTP session: {error}")))?;
     Ok(SftpConnection { _session: session, sftp })
 }
 
@@ -74,12 +75,12 @@ fn entry_from_metadata(name: String, path: String, metadata: &russh_sftp::protoc
     }
 }
 
-pub async fn list_dir(conn: &SftpConnection, host: &str, port: u16, username: &str, remote_path: &str) -> Result<Vec<FsEntry>, String> {
+pub async fn list_dir(conn: &SftpConnection, host: &str, port: u16, username: &str, remote_path: &str) -> Result<Vec<FsEntry>, CmdError> {
     let entries = conn
         .sftp
         .read_dir(remote_path)
         .await
-        .map_err(|error| format!("Could not list directory: {error}"))?;
+        .map_err(|error| CmdError::from(format!("Could not list directory: {error}")))?;
     Ok(entries
         .map(|entry| {
             let name = entry.file_name();
@@ -89,54 +90,54 @@ pub async fn list_dir(conn: &SftpConnection, host: &str, port: u16, username: &s
         .collect())
 }
 
-pub async fn stat(conn: &SftpConnection, full_path: &str, remote_path: &str) -> Result<FsEntry, String> {
-    let metadata = conn.sftp.metadata(remote_path).await.map_err(|error| format!("Could not stat {remote_path}: {error}"))?;
+pub async fn stat(conn: &SftpConnection, full_path: &str, remote_path: &str) -> Result<FsEntry, CmdError> {
+    let metadata = conn.sftp.metadata(remote_path).await.map_err(|error| CmdError::from(format!("Could not stat {remote_path}: {error}")))?;
     let name = remote_path.rsplit('/').next().filter(|s| !s.is_empty()).unwrap_or(remote_path).to_string();
     Ok(entry_from_metadata(name, full_path.to_string(), &metadata))
 }
 
-pub async fn create_folder(conn: &SftpConnection, parent: &str, name: &str) -> Result<(), String> {
+pub async fn create_folder(conn: &SftpConnection, parent: &str, name: &str) -> Result<(), CmdError> {
     let target = join(parent, name);
-    conn.sftp.create_dir(&target).await.map_err(|error| format!("Could not create folder: {error}"))
+    conn.sftp.create_dir(&target).await.map_err(|error| CmdError::from(format!("Could not create folder: {error}")))
 }
 
-pub async fn write_file(conn: &SftpConnection, parent: &str, name: &str, contents: Vec<u8>) -> Result<(), String> {
+pub async fn write_file(conn: &SftpConnection, parent: &str, name: &str, contents: Vec<u8>) -> Result<(), CmdError> {
     let target = join(parent, name);
     let mut file = conn
         .sftp
         .open_with_flags(&target, OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE)
         .await
-        .map_err(|error| format!("Could not open {target} for writing: {error}"))?;
+        .map_err(|error| CmdError::from(format!("Could not open {target} for writing: {error}")))?;
     use tokio::io::AsyncWriteExt;
-    file.write_all(&contents).await.map_err(|error| format!("Could not write {target}: {error}"))?;
-    file.shutdown().await.map_err(|error| format!("Could not finish writing {target}: {error}"))
+    file.write_all(&contents).await.map_err(|error| CmdError::from(format!("Could not write {target}: {error}")))?;
+    file.shutdown().await.map_err(|error| CmdError::from(format!("Could not finish writing {target}: {error}")))
 }
 
-pub async fn read_file(conn: &SftpConnection, remote_path: &str) -> Result<Vec<u8>, String> {
-    conn.sftp.read(remote_path).await.map_err(|error| format!("Could not read {remote_path}: {error}"))
+pub async fn read_file(conn: &SftpConnection, remote_path: &str) -> Result<Vec<u8>, CmdError> {
+    conn.sftp.read(remote_path).await.map_err(|error| CmdError::from(format!("Could not read {remote_path}: {error}")))
 }
 
-pub async fn rename(conn: &SftpConnection, from: &str, parent: &str, to_name: &str) -> Result<(), String> {
+pub async fn rename(conn: &SftpConnection, from: &str, parent: &str, to_name: &str) -> Result<(), CmdError> {
     let target = join(parent, to_name);
-    conn.sftp.rename(from, &target).await.map_err(|error| format!("Could not rename: {error}"))
+    conn.sftp.rename(from, &target).await.map_err(|error| CmdError::from(format!("Could not rename: {error}")))
 }
 
-pub async fn delete(conn: &SftpConnection, remote_path: &str) -> Result<(), String> {
-    let metadata = conn.sftp.metadata(remote_path).await.map_err(|error| format!("Could not stat {remote_path}: {error}"))?;
+pub async fn delete(conn: &SftpConnection, remote_path: &str) -> Result<(), CmdError> {
+    let metadata = conn.sftp.metadata(remote_path).await.map_err(|error| CmdError::from(format!("Could not stat {remote_path}: {error}")))?;
     if metadata.is_dir() {
         delete_dir_recursive(conn, remote_path).await
     } else {
-        conn.sftp.remove_file(remote_path).await.map_err(|error| format!("Could not delete {remote_path}: {error}"))
+        conn.sftp.remove_file(remote_path).await.map_err(|error| CmdError::from(format!("Could not delete {remote_path}: {error}")))
     }
 }
 
-fn delete_dir_recursive<'a>(conn: &'a SftpConnection, remote_path: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>> {
+fn delete_dir_recursive<'a>(conn: &'a SftpConnection, remote_path: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), CmdError>> + Send + 'a>> {
     Box::pin(async move {
         let entries = conn
             .sftp
             .read_dir(remote_path)
             .await
-            .map_err(|error| format!("Could not list {remote_path}: {error}"))?;
+            .map_err(|error| CmdError::from(format!("Could not list {remote_path}: {error}")))?;
         for entry in entries {
             let name = entry.file_name();
             if name == "." || name == ".." {
@@ -146,10 +147,10 @@ fn delete_dir_recursive<'a>(conn: &'a SftpConnection, remote_path: &'a str) -> s
             if entry.metadata().is_dir() {
                 delete_dir_recursive(conn, &child).await?;
             } else {
-                conn.sftp.remove_file(&child).await.map_err(|error| format!("Could not delete {child}: {error}"))?;
+                conn.sftp.remove_file(&child).await.map_err(|error| CmdError::from(format!("Could not delete {child}: {error}")))?;
             }
         }
-        conn.sftp.remove_dir(remote_path).await.map_err(|error| format!("Could not remove directory {remote_path}: {error}"))
+        conn.sftp.remove_dir(remote_path).await.map_err(|error| CmdError::from(format!("Could not remove directory {remote_path}: {error}")))
     })
 }
 

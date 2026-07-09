@@ -1,6 +1,7 @@
 import { tr } from "@/i18n";
 import { useState } from "react";
 import { useStore } from "../state/store";
+import { ErrorNotice } from "./common";
 import { useTheme } from "../theme/ThemeContext";
 import { hexA, itemColors } from "../theme/skins";
 import { Icon } from "../icons/Icon";
@@ -14,6 +15,8 @@ export function Files2() {
   const backend = useStore((s) => s.backend);
   const showHidden = useStore((s) => s.showHidden);
   const rawEntries = useStore((s) => s.entriesFor(path2));
+  const dirError = useStore((s) => s.dirErrors[s.path2]);
+  const loadDir = useStore((s) => s.loadDir);
   const entries = rawEntries.
   filter((e) => showHidden || !e.isHidden).
   slice().
@@ -124,7 +127,14 @@ export function Files2() {
           background: dragOver ? hexA(t.accent, 0.06) : "transparent"
         }}>
         
-        {entries.length === 0 ?
+        {entries.length === 0 && dirError ?
+        <ErrorNotice
+          t={t}
+          message={tr("ui.files.load_failed")}
+          detail={dirError.message}
+          onRetry={() => void loadDir(path2, true)} /> :
+
+        entries.length === 0 ?
         <span
           style={{
             fontSize: 12,

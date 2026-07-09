@@ -1,5 +1,6 @@
 mod ai;
 mod archives;
+mod error;
 mod fsops;
 mod media;
 mod preview;

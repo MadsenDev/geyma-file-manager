@@ -1,6 +1,7 @@
 import { tr } from "@/i18n";
 import { Fragment, useEffect, useState } from "react";
 import { useStore } from "../state/store";
+import { explainError } from "../lib/errors";
 import { useTheme } from "../theme/ThemeContext";
 import { itemColors, type ResolvedTheme } from "../theme/skins";
 import { Icon } from "../icons/Icon";
@@ -51,7 +52,7 @@ export function PropertiesModal({ entry, onClose }: PropertiesModalProps) {
         if (!cancelled) setPerms(p);
       })
       .catch((e) => {
-        if (!cancelled) setError(String(e));
+        if (!cancelled) setError(explainError(e));
       });
     return () => {
       cancelled = true;

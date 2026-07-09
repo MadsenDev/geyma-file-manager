@@ -1,5 +1,80 @@
+import { tr } from "@/i18n";
 import type { ResolvedTheme } from "../theme/skins";
-import { hexA } from "../theme/skins";
+import { DANGER, hexA } from "../theme/skins";
+import { Icon } from "../icons/Icon";
+import { ICONS } from "../icons/paths";
+
+/**
+ * The one inline error presentation: warning icon, translated headline, optional raw
+ * detail, optional Retry. Used anywhere a panel shows a failure in place (folder
+ * listings, properties, previews, crashed modules) so errors read the same everywhere
+ * and long messages wrap inside the panel instead of stretching it.
+ */
+export function ErrorNotice({
+  message,
+  detail,
+  onRetry,
+  retryLabel,
+  t,
+}: {
+  message: string;
+  detail?: string;
+  onRetry?: () => void;
+  retryLabel?: string;
+  t: ResolvedTheme;
+}) {
+  return (
+    <div
+      role="alert"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 8,
+        padding: "18px 16px",
+        maxWidth: 360,
+        margin: "0 auto",
+        textAlign: "center",
+      }}>
+      <span
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          display: "grid",
+          placeItems: "center",
+          color: DANGER,
+          background: hexA(DANGER, t.isDark ? 0.18 : 0.1),
+        }}>
+        <Icon d={ICONS.warning} size={17} />
+      </span>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: t.ink, overflowWrap: "anywhere" }}>{message}</span>
+      {detail && (
+        <span style={{ fontSize: 11, color: t.inkFaint, fontFamily: t.mono, overflowWrap: "anywhere" }}>
+          {detail}
+        </span>
+      )}
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="gy-soft"
+          style={{
+            marginTop: 2,
+            padding: "5px 14px",
+            borderRadius: 8,
+            border: `1px solid ${t.border}`,
+            background: "transparent",
+            color: t.inkSoft,
+            fontSize: 11.5,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}>
+          {retryLabel ?? tr("common.retry")}
+        </button>
+      )}
+    </div>
+  );
+}
 export function ToggleRow({
   label,
   value,

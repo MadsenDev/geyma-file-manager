@@ -27,6 +27,8 @@ import type {
   SortDir,
   SortKey,
   TabState,
+  ToastItem,
+  ToastKind,
   UndoAction,
   ViewMode,
   WorkingSet,
@@ -35,10 +37,33 @@ import { buildGysetPayload, encodeGysetFile, parseGysetText } from "../lib/gyset
 import type { SkinOverrides } from "../theme/skins";
 import { archiveStem, extOf, kindOf } from "../lib/format";
 import { computeBatchNames } from "../lib/batchRename";
-import { explainError } from "../lib/explainError";
+import { classifyError, explainError, type AppError } from "../lib/errors";
 import { aiDeleteModel, aiListModels, aiStartServer, aiStatus, aiStopServer, type AiModel } from "../ai/ollama";
 
 const STORAGE_KEY = "geyma-v1";
+
+// Toasts: a small queue instead of a single replaceable string, so an error isn't
+// wiped out by the next info toast. Errors linger long enough to read; identical
+// messages refresh in place instead of stacking duplicates.
+const TOAST_LIMIT = 3;
+const TOAST_DURATION_MS: Record<ToastKind, number> = { info: 2600, success: 2600, error: 7000 };
+let toastSeq = 0;
+
+function pushToast(
+  set: (partial: Partial<AppState>) => void,
+  get: () => AppState,
+  input: { kind: ToastKind; message: string; detail?: string },
+) {
+  const duplicate = get().toasts.find(
+    (t) => t.kind === input.kind && t.message === input.message && t.detail === input.detail,
+  );
+  const kept = duplicate ? get().toasts.filter((t) => t.id !== duplicate.id) : get().toasts;
+  const id = ++toastSeq;
+  set({ toasts: [...kept, { id, ...input }].slice(-TOAST_LIMIT) });
+  setTimeout(() => {
+    set({ toasts: get().toasts.filter((t) => t.id !== id) });
+  }, TOAST_DURATION_MS[input.kind]);
+}
 
 /** Key for per-device SMB discovery state (share listings, in-memory credentials). */
 export function smbDeviceKey(device: SmbDevice): string {
@@ -240,10 +265,14 @@ interface AppState {
   newTabAtHome: boolean;
   startupMode: "resume" | "home";
 
+  // per-path listing failures (cleared on a successful reload) — what lets the Files
+  // module distinguish "empty folder" from "couldn't read this folder"
+  dirErrors: Record<string, AppError>;
+
   // ui chrome
   menu: ContextMenuState | null;
   modMenu: { id: ModuleId; x: number; y: number } | null;
-  toast: string;
+  toasts: ToastItem[];
   showHidden: boolean;
   pendingConfirm: { kind: "trash" | "permanent"; key: string; at: number } | null;
 
@@ -373,7 +402,9 @@ interface AppState {
   setConfirmWindowMs(ms: number): void;
   toggleNewTabAtHome(): void;
   setStartupMode(mode: AppState["startupMode"]): void;
-  showToast(msg: string): void;
+  showToast(msg: string, kind?: ToastKind): void;
+  showError(context: string, raw?: unknown): void;
+  dismissToast(id: number): void;
 
   createManualSet(name: string): void;
   createSmartSet(name: string, rule: WorkingSet["rule"]): void;
@@ -507,9 +538,11 @@ export const useStore = create<AppState>()((set, get) => ({
   newTabAtHome: true,
   startupMode: "resume",
 
+  dirErrors: {},
+
   menu: null,
   modMenu: null,
-  toast: "",
+  toasts: [],
   showHidden: false,
   pendingConfirm: null,
 
@@ -602,9 +635,17 @@ export const useStore = create<AppState>()((set, get) => ({
       const entries = path === get().trashDir
         ? await backend.listDir(path)
         : await backend.listDir(path);
-      set({ dirs: { ...get().dirs, [path]: entries } });
-    } catch {
-      set({ dirs: { ...get().dirs, [path]: [] } });
+      const dirErrors = { ...get().dirErrors };
+      delete dirErrors[path];
+      set({ dirs: { ...get().dirs, [path]: entries }, dirErrors });
+    } catch (e) {
+      // The listing still becomes [] so counts and navigation stay sane, but the
+      // failure is recorded so Files can show "couldn't load" + Retry instead of
+      // passing the folder off as empty.
+      set({
+        dirs: { ...get().dirs, [path]: [] },
+        dirErrors: { ...get().dirErrors, [path]: classifyError(e) },
+      });
     } finally {
       set({ loading: { ...get().loading, [path]: false } });
     }
@@ -924,12 +965,12 @@ export const useStore = create<AppState>()((set, get) => ({
         share: conn.share,
         password: usedPassword,
       });
-      if (conn.savePassword) await backend.keyringSavePassword(id, usedPassword).catch(() => {});
+      if (conn.savePassword) await backend.keyringSavePassword(id, usedPassword).catch((e) => get().showError(tr("toast.keyring_save_failed"), e));
       set({ remoteStatus: { ...get().remoteStatus, [id]: "connected" } });
       get().newTab(root);
     } catch (e) {
       set({ remoteStatus: { ...get().remoteStatus, [id]: "error" }, pendingRemotePasswordPromptId: id });
-      get().showToast(tr("toast.connection_failed", { error: explainError(e) }));
+      get().showError(tr("toast.connection_failed"), e);
     }
   },
   async disconnectRemoteConnection(id) {
@@ -939,7 +980,7 @@ export const useStore = create<AppState>()((set, get) => ({
     try {
       await backend.disconnectRemote({ protocol: conn.protocol, host: conn.host, port: conn.port, username: conn.username, share: conn.share });
     } catch (e) {
-      get().showToast(tr("toast.disconnect_failed", { error: explainError(e) }));
+      get().showError(tr("toast.disconnect_failed"), e);
     }
     set({ remoteStatus: { ...get().remoteStatus, [id]: "disconnected" } });
   },
@@ -955,7 +996,7 @@ export const useStore = create<AppState>()((set, get) => ({
       set({ smbDevices: devices, smbScan: "done" });
     } catch (e) {
       set({ smbScan: "error" });
-      get().showToast(tr("toast.smb_scan_failed", { error: explainError(e) }));
+      get().showError(tr("toast.smb_scan_failed"), e);
     }
   },
   async loadSmbShares(device, username, password, remember) {
@@ -1023,14 +1064,14 @@ export const useStore = create<AppState>()((set, get) => ({
       await aiStartServer();
       await get().refreshAiStatus();
     } catch (e) {
-      get().showToast(tr("toast.ollama_start_failed", { error: explainError(e) }));
+      get().showError(tr("toast.ollama_start_failed"), e);
     }
   },
   async stopAiServer() {
     try {
       await aiStopServer();
     } catch (e) {
-      get().showToast(tr("toast.ollama_stop_failed", { error: explainError(e) }));
+      get().showError(tr("toast.ollama_stop_failed"), e);
     }
     await get().refreshAiStatus();
   },
@@ -1039,7 +1080,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await aiDeleteModel(name);
       await get().refreshAiStatus();
     } catch (e) {
-      get().showToast(tr("toast.ollama_delete_model_failed", { error: explainError(e) }));
+      get().showError(tr("toast.ollama_delete_model_failed"), e);
     }
   },
   setAiSelectedModel(name) {
@@ -1194,7 +1235,7 @@ export const useStore = create<AppState>()((set, get) => ({
       set({ renaming: null, selected: [newPath] });
       await get().loadDir(path, true);
     } catch (e) {
-      get().showToast(tr("toast.rename_failed", { error: explainError(e) }));
+      get().showError(tr("toast.rename_failed"), e);
       set({ renaming: null });
     }
   },
@@ -1258,7 +1299,7 @@ export const useStore = create<AppState>()((set, get) => ({
         logEvent(get, set, newPath, "Copied here", origDir !== destDir ? `from ${origDir}` : undefined, "video");
         await get().loadDir(destDir, true);
       } catch (e) {
-        get().showToast(tr("toast.copy_failed", { error: explainError(e) }));
+        get().showError(tr("toast.copy_failed"), e);
       }
     }
     if (copied.length) {
@@ -1269,7 +1310,7 @@ export const useStore = create<AppState>()((set, get) => ({
             try {
               await backend.trashPath(c);
             } catch (e) {
-              get().showToast(tr("toast.undo_failed", { error: explainError(e) }));
+              get().showError(tr("toast.undo_failed"), e);
             }
           }
           await get().loadDir(destDir, true);
@@ -1297,7 +1338,7 @@ export const useStore = create<AppState>()((set, get) => ({
         updateSetRefs(get, set, srcDir, name, destDir);
         migrateFileEvents(get, set, p, to);
       } catch (e) {
-        get().showToast(tr("toast.move_failed", { error: explainError(e) }));
+        get().showError(tr("toast.move_failed"), e);
       }
     }
     if (moved.length) {
@@ -1334,7 +1375,7 @@ export const useStore = create<AppState>()((set, get) => ({
         logEvent(get, set, newPath, "Duplicated", `from "${origName}"`, "video");
         await get().loadDir(dir, true);
       } catch (e) {
-        get().showToast(tr("toast.duplicate_failed", { error: explainError(e) }));
+        get().showError(tr("toast.duplicate_failed"), e);
       }
     }
     if (copied.length) {
@@ -1346,7 +1387,7 @@ export const useStore = create<AppState>()((set, get) => ({
             try {
               await backend.trashPath(c);
             } catch (e) {
-              get().showToast(tr("toast.undo_failed", { error: explainError(e) }));
+              get().showError(tr("toast.undo_failed"), e);
             }
           }
           for (const d of dirs) await get().loadDir(d, true);
@@ -1376,7 +1417,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await get().loadDir(dir, true);
       set({ selected: [newPath] });
     } catch (e) {
-      get().showToast(tr("toast.extract_failed", { error: explainError(e) }));
+      get().showError(tr("toast.extract_failed"), e);
     }
   },
 
@@ -1400,7 +1441,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await get().loadDir(dir, true);
       set({ selected: [newPath] });
     } catch (e) {
-      get().showToast(tr("toast.compress_failed", { error: explainError(e) }));
+      get().showError(tr("toast.compress_failed"), e);
     }
   },
 
@@ -1424,7 +1465,7 @@ export const useStore = create<AppState>()((set, get) => ({
       await get().loadDir(dir, true);
       set({ selected: [newPath] });
     } catch (e) {
-      get().showToast(tr("toast.symlink_failed", { error: explainError(e) }));
+      get().showError(tr("toast.symlink_failed"), e);
     }
   },
 
@@ -1442,7 +1483,7 @@ export const useStore = create<AppState>()((set, get) => ({
         },
       });
     } catch (e) {
-      get().showToast(tr("toast.permission_change_failed", { error: explainError(e) }));
+      get().showError(tr("toast.permission_change_failed"), e);
     }
   },
 
@@ -1455,7 +1496,7 @@ export const useStore = create<AppState>()((set, get) => ({
       .map((p) => dirEntries.find((e) => e.path === p))
       .filter((e): e is FsEntry => !!e);
     if (targets.length !== paths.length) {
-      get().showToast(tr("toast.batch_rename_selection_changed"));
+      get().showToast(tr("toast.batch_rename_selection_changed"), "error");
       return;
     }
 
@@ -1465,7 +1506,7 @@ export const useStore = create<AppState>()((set, get) => ({
     const seen = new Set<string>();
     for (const name of newNames) {
       if (!name.trim() || staticNames.has(name) || seen.has(name)) {
-        get().showToast(tr("toast.batch_rename_collision", { name: name || tr("names.empty_name") }));
+        get().showToast(tr("toast.batch_rename_collision", { name: name || tr("names.empty_name") }), "error");
         return;
       }
       seen.add(name);
@@ -1483,7 +1524,7 @@ export const useStore = create<AppState>()((set, get) => ({
         logEvent(get, set, newPath, "Renamed", `from "${entry.name}"`, "archive", entry.path);
         renamed.push({ from: entry.path, to: newPath, oldName: entry.name, newName });
       } catch (e) {
-        get().showToast(tr("toast.rename_failed_for", { name: entry.name, error: explainError(e) }));
+        get().showError(tr("toast.rename_failed_for", { name: entry.name }), e);
       }
     }
     if (renamed.length) {
@@ -1542,7 +1583,7 @@ export const useStore = create<AppState>()((set, get) => ({
         delete originNames[p];
         await get().loadDir(toDir, true);
       } catch (e) {
-        get().showToast(tr("toast.restore_failed", { error: explainError(e) }));
+        get().showError(tr("toast.restore_failed"), e);
       }
     }
     if (restored.length) {
@@ -1600,9 +1641,9 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ undoStack: stack });
     try {
       await action.undo();
-      get().showToast(tr("toast.undid", { action: action.label }));
+      get().showToast(tr("toast.undid", { action: action.label }), "success");
     } catch (e) {
-      get().showToast(tr("toast.undo_failed", { error: explainError(e) }));
+      get().showError(tr("toast.undo_failed"), e);
     }
   },
   // Undoes a single past Journey entry independent of the global undo stack — resolves
@@ -1647,9 +1688,9 @@ export const useStore = create<AppState>()((set, get) => ({
         get().showToast(tr("toast.step_not_undoable"));
         return;
       }
-      get().showToast(tr("toast.undid", { action: trEventAction(ev.action).toLowerCase() }));
+      get().showToast(tr("toast.undid", { action: trEventAction(ev.action).toLowerCase() }), "success");
     } catch (e) {
-      get().showToast(tr("toast.undo_failed", { error: explainError(e) }));
+      get().showError(tr("toast.undo_failed"), e);
     }
   },
 
@@ -1694,11 +1735,21 @@ export const useStore = create<AppState>()((set, get) => ({
     set({ startupMode: mode });
     get().persist();
   },
-  showToast(msg) {
-    set({ toast: msg });
-    setTimeout(() => {
-      if (get().toast === msg) set({ toast: "" });
-    }, 2600);
+  showToast(msg, kind = "info") {
+    pushToast(set, get, { kind, message: msg });
+  },
+  // One consistent shape for every failure toast: `context` is the short, translated
+  // headline ("Rename failed"), and the classified explanation of `raw` becomes the
+  // detail line underneath. Errors stay up longer than info toasts and can be clicked
+  // away; Toast.tsx clamps both lines so an unexpected message can't distort the layout.
+  showError(context, raw) {
+    const err = raw === undefined ? null : classifyError(raw);
+    const detail = err && err.message !== context ? err.message : undefined;
+    pushToast(set, get, { kind: "error", message: context, detail });
+    if (err) console.error(`[geyma] ${context}:`, raw);
+  },
+  dismissToast(id) {
+    set({ toasts: get().toasts.filter((t) => t.id !== id) });
   },
 
   createManualSet(name) {
@@ -1760,9 +1811,9 @@ export const useStore = create<AppState>()((set, get) => ({
     try {
       await backend.createFile(home, fileName, encodeGysetFile(payload));
       await get().loadDir(home, true);
-      get().showToast(tr("toast.set_exported", { name: fileName }));
+      get().showToast(tr("toast.set_exported", { name: fileName }), "success");
     } catch (e) {
-      get().showToast(explainError(e));
+      get().showError(tr("toast.export_failed"), e);
     }
   },
   addToSet(setId, refs) {
@@ -2148,7 +2199,7 @@ async function doTrash(get: () => AppState, set: (partial: Partial<AppState>) =>
       });
       get().persist();
     } catch (e) {
-      get().showToast(tr("toast.trash_failed", { error: explainError(e) }));
+      get().showError(tr("toast.trash_failed"), e);
     }
   }
   if (trashed.length) {
@@ -2194,7 +2245,7 @@ async function doPermanentDelete(get: () => AppState, set: (partial: Partial<App
       delete origins[p];
       delete originNames[p];
     } catch (e) {
-      get().showToast(tr("toast.delete_failed", { error: explainError(e) }));
+      get().showError(tr("toast.delete_failed"), e);
     }
   }
   set({ trashOrigins: origins, trashOriginNames: originNames });

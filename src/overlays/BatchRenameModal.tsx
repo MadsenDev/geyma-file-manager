@@ -5,7 +5,6 @@ import { Modal } from "./Modal";
 import { computeBatchNames } from "../lib/batchRename";
 import { useStore } from "../state/store";
 import { aiGenerate } from "../ai/ollama";
-import { explainError } from "../lib/explainError";
 import type { FsEntry } from "../fs/types";
 interface BatchRenameModalProps {
   entries: FsEntry[];
@@ -32,7 +31,7 @@ export function BatchRenameModal({
   const aiRenameEnabled = useStore((s) => s.aiRenameEnabled);
   const aiRunning = useStore((s) => s.aiRunning);
   const aiSelectedModel = useStore((s) => s.aiSelectedModel);
-  const showToast = useStore((s) => s.showToast);
+  const showError = useStore((s) => s.showError);
   const [suggesting, setSuggesting] = useState(false);
   const aiAvailable = aiRenameEnabled && aiRunning && !!aiSelectedModel;
   async function handleSuggest() {
@@ -51,7 +50,7 @@ export function BatchRenameModal({
       throw new Error(tr("ui.batch_rename_modal.empty_suggestion"));
       setTemplate(suggestion);
     } catch (e) {
-      showToast(tr("toast.ai_suggestion_failed", { error: explainError(e) }));
+      showError(tr("toast.ai_suggestion_failed"), e);
     } finally {
       setSuggesting(false);
     }

@@ -52,12 +52,12 @@ pub fn media_server_info(state: tauri::State<'_, MediaServer>) -> MediaServerInf
 /// receives an error event, so this must be a preflight rather than an
 /// after-the-fact playback error handler.
 #[tauri::command]
-pub async fn media_playback_support() -> Result<MediaPlaybackSupport, String> {
+pub async fn media_playback_support() -> Result<MediaPlaybackSupport, crate::error::CmdError> {
     #[cfg(target_os = "linux")]
     {
         tauri::async_runtime::spawn_blocking(check_linux_media_playback)
             .await
-            .map_err(|error| format!("Media support check failed: {error}"))
+            .map_err(|error| crate::error::CmdError::new("internal", format!("Media support check failed: {error}")))
     }
     #[cfg(not(target_os = "linux"))]
     {

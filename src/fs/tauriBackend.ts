@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { tr } from "@/i18n";
+import { codedError } from "../lib/errors";
 import type {
   ArchivePreview,
   DeviceEntry,
@@ -95,15 +95,15 @@ export const tauriBackend: FsBackend = {
     return invoke<MediaPlaybackSupport>("media_playback_support");
   },
   async previewArchive(path: string) {
-    if (isRemotePath(path)) throw new Error(tr("errors.archive_preview_remote"));
+    if (isRemotePath(path)) throw codedError("archive_preview_remote");
     return invoke<ArchivePreview>("preview_archive", { path });
   },
   async extractArchive(path: string, destDir: string, folderName: string) {
-    if (isRemotePath(path) || isRemotePath(destDir)) throw new Error(tr("errors.extract_remote"));
+    if (isRemotePath(path) || isRemotePath(destDir)) throw codedError("extract_remote");
     return invoke<string>("extract_archive", { path, destDir, folderName });
   },
   async createArchive(paths: string[], destDir: string, archiveName: string) {
-    if (isRemotePath(destDir) || paths.some(isRemotePath)) throw new Error(tr("errors.compress_remote"));
+    if (isRemotePath(destDir) || paths.some(isRemotePath)) throw codedError("compress_remote");
     return invoke<string>("create_archive", { paths, destDir, archiveName });
   },
   async previewTextFile(path: string) {
@@ -136,7 +136,7 @@ export const tauriBackend: FsBackend = {
     if (fromRemote && toRemote && sameRemoteConnection(from, toDir)) {
       return invoke<string>("remote_move_path", { from, toDir });
     }
-    throw new Error(tr("errors.move_between_locations"));
+    throw codedError("move_between_locations");
   },
   async copyPath(from: string, toDir: string, toName: string) {
     const fromRemote = isRemotePath(from);
@@ -147,7 +147,7 @@ export const tauriBackend: FsBackend = {
     return invoke<string>("upload_to_remote", { localPath: from, remoteDestDir: toDir, remoteName: toName });
   },
   async trashPath(path: string) {
-    if (isRemotePath(path)) throw new Error(tr("errors.no_remote_trash"));
+    if (isRemotePath(path)) throw codedError("no_remote_trash");
     return invoke<string>("trash_path", { path });
   },
   async restorePath(trashedPath: string, toDir: string) {
@@ -164,14 +164,14 @@ export const tauriBackend: FsBackend = {
     return invoke<string>("trash_dir_path");
   },
   async diskUsage(path: string) {
-    if (isRemotePath(path)) throw new Error(tr("errors.disk_usage_remote"));
+    if (isRemotePath(path)) throw codedError("disk_usage_remote");
     return invoke<DiskUsage>("disk_usage", { path });
   },
   async listDevices() {
     return invoke<DeviceEntry[]>("list_devices");
   },
   async getPathPermissions(path: string) {
-    if (isRemotePath(path)) throw new Error(tr("errors.permissions_remote"));
+    if (isRemotePath(path)) throw codedError("permissions_remote");
     const raw = await invoke<RawPathPermissions>("get_path_permissions", { path });
     return {
       mode: raw.mode,
@@ -184,11 +184,11 @@ export const tauriBackend: FsBackend = {
     } satisfies PathPermissions;
   },
   async setPathMode(path: string, mode: number) {
-    if (isRemotePath(path)) throw new Error(tr("errors.permissions_remote"));
+    if (isRemotePath(path)) throw codedError("permissions_remote");
     await invoke<void>("set_path_mode", { path, mode });
   },
   async createSymlink(target: string, linkDir: string, linkName: string) {
-    if (isRemotePath(target) || isRemotePath(linkDir)) throw new Error(tr("errors.symlinks_remote"));
+    if (isRemotePath(target) || isRemotePath(linkDir)) throw codedError("symlinks_remote");
     return invoke<string>("create_symlink", { target, linkDir, linkName });
   },
   join(...parts: string[]) {

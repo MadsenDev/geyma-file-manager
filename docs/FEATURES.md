@@ -307,9 +307,21 @@ restarts (localStorage under the `geyma-v1` key).
 
 ## Feedback & resilience
 
-- **Explain errors** — raw backend errors ("EACCES", "os error 13"…) are translated
-  into plain-language toasts ("You don't have permission to…").
-- **Toasts** for operation failures and confirmations.
+- **Structured errors end to end** — every backend operation reports a stable error code
+  (`permission_denied`, `disk_full`, `already_exists`, `auth_failed`, …) that's translated
+  into a plain-language explanation; the raw technical message is kept as a smaller detail
+  line, never the headline.
+- **Error toasts that don't fight you** — failures show as a short headline ("Rename
+  failed") with the explanation underneath, stay up longer than info toasts, stack (up to
+  three) instead of overwriting each other, dedupe repeats, and can be clicked away. Long
+  messages wrap and clamp, so a noisy error can never stretch or break the layout.
+- **Failed folder loads look like failures** — a folder that can't be read shows
+  "This folder couldn't be loaded" with the reason and a Retry button, instead of
+  pretending to be empty.
+- **Panels degrade, the app survives** — if a module crashes, only that panel shows an
+  error state (with "Reload panel"); the rest of the app keeps working. Unhandled errors
+  anywhere still surface as an error toast rather than dying silently.
+- **Toasts** for operation successes and confirmations.
 
 ## Keyboard shortcuts (summary)
 

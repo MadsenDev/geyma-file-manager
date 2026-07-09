@@ -88,6 +88,10 @@ export const ACCENTS = ["#2C6E49", "#2C7DD6", "#B4562E", "#7A4B8C", "#C6427A", "
 
 export const DUPE_BADGE = "#D9773F";
 
+/** The one red-ish tone for destructive/error affordances (danger menu items, error
+ * toasts, inline error notices) — matches the raspberry accent so it fits every skin. */
+export const DANGER = "#C6427A";
+
 export const KIND_COLORS: Record<string, string> = {
   folder: "#7A7264",
   document: "#E4572E",

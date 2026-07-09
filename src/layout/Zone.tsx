@@ -11,6 +11,7 @@ import {
 } from "../state/layout";
 import { ModuleShell } from "./ModuleShell";
 import { MODULE_COMPONENTS } from "../modules/registry";
+import { ModuleErrorBoundary } from "../lib/ErrorBoundary";
 const MODULE_DRAG_TYPE = "application/x-geyma-module";
 interface ZoneProps {
   zoneId: ZoneId;
@@ -250,7 +251,9 @@ function ModuleShellFor({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <Comp />
+      <ModuleErrorBoundary>
+        <Comp />
+      </ModuleErrorBoundary>
     </ModuleShell>
   );
 }

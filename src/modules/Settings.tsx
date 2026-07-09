@@ -5,7 +5,6 @@ import { useTheme } from "../theme/ThemeContext";
 import { panelTitleStyle, ToggleRow } from "./common";
 import type { SortKey } from "../state/types";
 import { formatSize } from "../lib/format";
-import { explainError } from "../lib/explainError";
 import { aiInstall, aiPullModel, type AiPullProgress } from "../ai/ollama";
 const SORT_KEYS: {
   key: SortKey;
@@ -294,7 +293,7 @@ export function AiSettings() {
   const stopAiServer = useStore((s) => s.stopAiServer);
   const deleteAiModel = useStore((s) => s.deleteAiModel);
   const refreshAiStatus = useStore((s) => s.refreshAiStatus);
-  const showToast = useStore((s) => s.showToast);
+  const showError = useStore((s) => s.showError);
   const searchEnabled = useStore((s) => s.aiSearchEnabled);
   const toggleSearchEnabled = useStore((s) => s.toggleAiSearchEnabled);
   const renameEnabled = useStore((s) => s.aiRenameEnabled);
@@ -348,7 +347,7 @@ export function AiSettings() {
       );
       await refreshAiStatus();
     } catch (e) {
-      showToast(tr("toast.install_failed", { error: explainError(e) }));
+      showError(tr("toast.install_failed"), e);
     } finally {
       setInstalling(false);
     }
@@ -371,7 +370,7 @@ export function AiSettings() {
       setPullName("");
       await refreshAiStatus();
     } catch (e) {
-      showToast(tr("toast.pull_failed", { error: explainError(e) }));
+      showError(tr("toast.pull_failed"), e);
     } finally {
       setPulling(null);
       setPullProgress(null);

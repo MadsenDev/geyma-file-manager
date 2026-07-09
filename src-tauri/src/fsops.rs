@@ -1,3 +1,4 @@
+use crate::error::CmdError;
 use serde::Serialize;
 use std::fs;
 use std::io::Read;
@@ -43,11 +44,11 @@ fn entry_from_path(path: &Path) -> Option<FsEntry> {
 }
 
 #[tauri::command]
-pub fn list_dir(path: String) -> Result<Vec<FsEntry>, String> {
-    let dir = fs::read_dir(&path).map_err(|e| e.to_string())?;
+pub fn list_dir(path: String) -> Result<Vec<FsEntry>, CmdError> {
+    let dir = fs::read_dir(&path)?;
     let mut out = vec![];
     for item in dir {
-        let item = item.map_err(|e| e.to_string())?;
+        let item = item?;
         if let Some(entry) = entry_from_path(&item.path()) {
             out.push(entry);
         }
@@ -56,69 +57,77 @@ pub fn list_dir(path: String) -> Result<Vec<FsEntry>, String> {
 }
 
 #[tauri::command]
-pub fn stat_path(path: String) -> Result<FsEntry, String> {
-    entry_from_path(Path::new(&path)).ok_or_else(|| "not found".to_string())
+pub fn stat_path(path: String) -> Result<FsEntry, CmdError> {
+    entry_from_path(Path::new(&path)).ok_or_else(|| CmdError::new("gone", format!("Not found: {path}")))
 }
 
 #[tauri::command]
-pub fn home_dir() -> Result<String, String> {
+pub fn home_dir() -> Result<String, CmdError> {
     dirs::home_dir()
         .map(|p| p.to_string_lossy().to_string())
-        .ok_or_else(|| "no home directory".to_string())
+        .ok_or_else(|| CmdError::new("internal", "Could not determine the home directory"))
 }
 
 /// Rejects name parameters that could escape the directory they're joined onto.
 /// Every IPC command that takes a bare file/folder name (as opposed to a full path)
 /// must call this before joining it — the UI only ever sends plain names, so anything
 /// with a separator or `..` in it is a forged `invoke()` call, not a user action.
-pub(crate) fn validate_name(name: &str) -> Result<(), String> {
+pub(crate) fn validate_name(name: &str) -> Result<(), CmdError> {
     if name.is_empty() || name == "." || name == ".." {
-        return Err("Invalid name".to_string());
+        return Err(CmdError::new("invalid_name", format!("Invalid name: {name:?}")));
     }
     if name.contains('/') || name.contains('\\') || name.contains('\0') {
-        return Err("Names cannot contain path separators".to_string());
+        return Err(CmdError::new("invalid_name", "Names cannot contain path separators"));
     }
     Ok(())
 }
 
+fn already_exists() -> CmdError {
+    CmdError::new("already_exists", "A file or folder with that name already exists")
+}
+
 #[tauri::command]
-pub fn create_folder(parent: String, name: String) -> Result<String, String> {
+pub fn create_folder(parent: String, name: String) -> Result<String, CmdError> {
     validate_name(&name)?;
     let target = PathBuf::from(&parent).join(&name);
-    fs::create_dir(&target).map_err(|e| e.to_string())?;
+    fs::create_dir(&target)?;
     Ok(target.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-pub fn create_file(parent: String, name: String, contents: String) -> Result<String, String> {
+pub fn create_file(parent: String, name: String, contents: String) -> Result<String, CmdError> {
     validate_name(&name)?;
     let target = PathBuf::from(&parent).join(&name);
-    fs::write(&target, contents).map_err(|e| e.to_string())?;
+    fs::write(&target, contents)?;
     Ok(target.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-pub fn rename_path(from: String, to_name: String) -> Result<String, String> {
+pub fn rename_path(from: String, to_name: String) -> Result<String, CmdError> {
     validate_name(&to_name)?;
     let from_path = PathBuf::from(&from);
-    let parent = from_path.parent().ok_or("no parent")?;
+    let parent = from_path
+        .parent()
+        .ok_or_else(|| CmdError::new("invalid_path", format!("No parent directory: {from}")))?;
     let target = parent.join(&to_name);
     if target != from_path && fs::symlink_metadata(&target).is_ok() {
-        return Err("A file or folder with that name already exists".to_string());
+        return Err(already_exists());
     }
-    fs::rename(&from_path, &target).map_err(|e| e.to_string())?;
+    fs::rename(&from_path, &target)?;
     Ok(target.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-pub fn move_path(from: String, to_dir: String) -> Result<String, String> {
+pub fn move_path(from: String, to_dir: String) -> Result<String, CmdError> {
     let from_path = PathBuf::from(&from);
-    let name = from_path.file_name().ok_or("bad source name")?;
+    let name = from_path
+        .file_name()
+        .ok_or_else(|| CmdError::new("invalid_path", format!("Bad source path: {from}")))?;
     let target = PathBuf::from(&to_dir).join(name);
     if target != from_path && fs::symlink_metadata(&target).is_ok() {
-        return Err("A file or folder with that name already exists".to_string());
+        return Err(already_exists());
     }
-    fs::rename(&from_path, &target).map_err(|e| e.to_string())?;
+    fs::rename(&from_path, &target)?;
     Ok(target.to_string_lossy().to_string())
 }
 
@@ -141,16 +150,16 @@ fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 }
 
 #[tauri::command]
-pub fn copy_path(from: String, to_dir: String, to_name: String) -> Result<String, String> {
+pub fn copy_path(from: String, to_dir: String, to_name: String) -> Result<String, CmdError> {
     validate_name(&to_name)?;
     let src = PathBuf::from(&from);
     let target = PathBuf::from(&to_dir).join(&to_name);
-    copy_recursive(&src, &target).map_err(|e| e.to_string())?;
+    copy_recursive(&src, &target)?;
     Ok(target.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-pub async fn extract_archive(path: String, dest_dir: String, folder_name: String) -> Result<String, String> {
+pub async fn extract_archive(path: String, dest_dir: String, folder_name: String) -> Result<String, CmdError> {
     validate_name(&folder_name)?;
     tauri::async_runtime::spawn_blocking(move || {
         if let Some(kind) = crate::archives::detect(&path) {
@@ -160,7 +169,7 @@ pub async fn extract_archive(path: String, dest_dir: String, folder_name: String
         }
     })
     .await
-    .map_err(|error| format!("Extraction failed: {error}"))?
+    .map_err(|error| CmdError::new("internal", format!("Extraction failed: {error}")))?
 }
 
 // Extraction has no legitimate reason to write out more than this — it exists purely
@@ -170,61 +179,65 @@ pub async fn extract_archive(path: String, dest_dir: String, folder_name: String
 const MAX_EXTRACT_ENTRIES: usize = 100_000;
 const MAX_EXTRACT_TOTAL_BYTES: u64 = 10 * 1024 * 1024 * 1024;
 
-fn extract_zip(path: &str, dest_dir: &str, folder_name: &str) -> Result<String, String> {
+fn extract_zip(path: &str, dest_dir: &str, folder_name: &str) -> Result<String, CmdError> {
     let extension = Path::new(path)
         .extension()
         .and_then(|value| value.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
     if extension != "zip" {
-        return Err(format!(
-            "{extension} archives are not supported yet; ZIP, TAR (plain/.gz/.bz2/.xz), and 7z can be extracted."
+        return Err(CmdError::new(
+            "unsupported_archive",
+            format!("{extension} archives are not supported yet; ZIP, TAR (plain/.gz/.bz2/.xz), and 7z can be extracted."),
         ));
     }
 
     let target_root = PathBuf::from(dest_dir).join(folder_name);
     if target_root.exists() {
-        return Err("A file or folder with that name already exists".to_string());
+        return Err(already_exists());
     }
 
-    let file = fs::File::open(path).map_err(|error| format!("Could not open archive: {error}"))?;
+    let file = fs::File::open(path).map_err(|error| CmdError::from(error).context("Could not open archive"))?;
     let mut archive = zip::ZipArchive::new(file)
-        .map_err(|error| format!("Could not read ZIP directory: {error}"))?;
+        .map_err(|error| CmdError::new("archive_damaged", format!("Could not read ZIP directory: {error}")))?;
 
     if archive.len() > MAX_EXTRACT_ENTRIES {
-        return Err(format!(
-            "Archive has too many entries to extract ({} entries; the limit is {MAX_EXTRACT_ENTRIES})",
-            archive.len()
+        return Err(CmdError::new(
+            "archive_too_large",
+            format!(
+                "Archive has too many entries to extract ({} entries; the limit is {MAX_EXTRACT_ENTRIES})",
+                archive.len()
+            ),
         ));
     }
 
-    fs::create_dir_all(&target_root).map_err(|error| error.to_string())?;
+    fs::create_dir_all(&target_root)?;
 
     let mut remaining_budget = MAX_EXTRACT_TOTAL_BYTES;
     for index in 0..archive.len() {
         let mut entry = archive
             .by_index(index)
-            .map_err(|error| format!("Could not read ZIP entry {index}: {error}"))?;
+            .map_err(|error| CmdError::new("archive_damaged", format!("Could not read ZIP entry {index}: {error}")))?;
         // enclosed_name() rejects absolute paths and ".." components, which is what
         // stops a hostile archive (zip-slip) from writing outside target_root.
-        let enclosed = entry
-            .enclosed_name()
-            .ok_or_else(|| format!("Refusing to extract unsafe entry path: {}", entry.name()))?;
+        let enclosed = entry.enclosed_name().ok_or_else(|| {
+            CmdError::new("unsafe_archive_path", format!("Refusing to extract unsafe entry path: {}", entry.name()))
+        })?;
         let out_path = target_root.join(&enclosed);
 
         if entry.is_dir() {
-            fs::create_dir_all(&out_path).map_err(|error| error.to_string())?;
+            fs::create_dir_all(&out_path)?;
         } else {
             if let Some(parent) = out_path.parent() {
-                fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+                fs::create_dir_all(parent)?;
             }
-            let mut out_file = fs::File::create(&out_path).map_err(|error| error.to_string())?;
+            let mut out_file = fs::File::create(&out_path)?;
             // Bounded by actual bytes written, not the entry's (attacker-controlled)
             // declared size, so a lying header can't smuggle a bomb past this check.
             let mut limited = (&mut entry).take(remaining_budget.saturating_add(1));
-            let copied = std::io::copy(&mut limited, &mut out_file).map_err(|error| error.to_string())?;
+            let copied = std::io::copy(&mut limited, &mut out_file)?;
             if copied > remaining_budget {
-                return Err("Archive exceeds the maximum supported extraction size".to_string());
+                return Err(CmdError::new("archive_too_large", "Archive exceeds the maximum supported extraction size"));
             }
             remaining_budget -= copied;
         }
@@ -233,19 +246,21 @@ fn extract_zip(path: &str, dest_dir: &str, folder_name: &str) -> Result<String, 
     Ok(target_root.to_string_lossy().to_string())
 }
 
-fn app_trash_dir() -> Result<PathBuf, String> {
-    let base = dirs::data_dir().ok_or("no data dir")?;
+fn app_trash_dir() -> Result<PathBuf, CmdError> {
+    let base = dirs::data_dir().ok_or_else(|| CmdError::new("internal", "Could not determine the user data directory"))?;
     let dir = base.join("geyma").join("trash");
-    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&dir)?;
     Ok(dir)
 }
 
 /// Soft-delete: move into Geyma's own recoverable trash folder (not the OS trash),
 /// so the app can offer a first-class Trash view with reliable restore semantics.
 #[tauri::command]
-pub fn trash_path(path: String) -> Result<String, String> {
+pub fn trash_path(path: String) -> Result<String, CmdError> {
     let src = PathBuf::from(&path);
-    let name = src.file_name().ok_or("bad source name")?;
+    let name = src
+        .file_name()
+        .ok_or_else(|| CmdError::new("invalid_path", format!("Bad source path: {path}")))?;
     let trash_dir = app_trash_dir()?;
     let mut target = trash_dir.join(name);
     if target.exists() {
@@ -259,28 +274,29 @@ pub fn trash_path(path: String) -> Result<String, String> {
         );
         target = trash_dir.join(stamped);
     }
-    fs::rename(&src, &target).map_err(|e| e.to_string())?;
+    fs::rename(&src, &target)?;
     Ok(target.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-pub fn restore_path(trashed_path: String, to_dir: String) -> Result<String, String> {
+pub fn restore_path(trashed_path: String, to_dir: String) -> Result<String, CmdError> {
     move_path(trashed_path, to_dir)
 }
 
 #[tauri::command]
-pub fn delete_permanently(path: String) -> Result<(), String> {
+pub fn delete_permanently(path: String) -> Result<(), CmdError> {
     let p = PathBuf::from(&path);
-    let meta = fs::metadata(&p).map_err(|e| e.to_string())?;
+    let meta = fs::metadata(&p)?;
     if meta.is_dir() {
-        fs::remove_dir_all(&p).map_err(|e| e.to_string())
+        fs::remove_dir_all(&p)?;
     } else {
-        fs::remove_file(&p).map_err(|e| e.to_string())
+        fs::remove_file(&p)?;
     }
+    Ok(())
 }
 
 #[tauri::command]
-pub fn trash_dir_path() -> Result<String, String> {
+pub fn trash_dir_path() -> Result<String, CmdError> {
     app_trash_dir().map(|p| p.to_string_lossy().to_string())
 }
 
@@ -291,10 +307,10 @@ pub struct DiskUsage {
 }
 
 #[tauri::command]
-pub fn disk_usage(path: String) -> Result<DiskUsage, String> {
+pub fn disk_usage(path: String) -> Result<DiskUsage, CmdError> {
     let p = Path::new(&path);
-    let total = fs4::total_space(p).map_err(|e| e.to_string())?;
-    let available = fs4::available_space(p).map_err(|e| e.to_string())?;
+    let total = fs4::total_space(p)?;
+    let available = fs4::available_space(p)?;
     Ok(DiskUsage { total, available })
 }
 
@@ -322,16 +338,16 @@ fn id_to_name(passwd_like_file: &str, id: u32) -> Option<String> {
 }
 
 #[tauri::command]
-pub fn get_path_permissions(path: String) -> Result<PathPermissions, String> {
+pub fn get_path_permissions(path: String) -> Result<PathPermissions, CmdError> {
     let p = Path::new(&path);
-    let symlink_meta = fs::symlink_metadata(p).map_err(|e| e.to_string())?;
+    let symlink_meta = fs::symlink_metadata(p)?;
     let is_symlink = symlink_meta.file_type().is_symlink();
     let symlink_target = if is_symlink {
         fs::read_link(p).ok().map(|t| t.to_string_lossy().to_string())
     } else {
         None
     };
-    let meta = fs::metadata(p).map_err(|e| e.to_string())?;
+    let meta = fs::metadata(p)?;
 
     #[cfg(unix)]
     {
@@ -363,49 +379,50 @@ pub fn get_path_permissions(path: String) -> Result<PathPermissions, String> {
 }
 
 #[tauri::command]
-pub fn set_path_mode(path: String, mode: u32) -> Result<(), String> {
+pub fn set_path_mode(path: String, mode: u32) -> Result<(), CmdError> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&path, fs::Permissions::from_mode(mode & 0o777)).map_err(|e| e.to_string())
+        fs::set_permissions(&path, fs::Permissions::from_mode(mode & 0o777))?;
+        Ok(())
     }
     #[cfg(not(unix))]
     {
         let _ = (path, mode);
-        Err("Changing permissions is only supported on Unix".to_string())
+        Err(CmdError::new("unsupported", "Changing permissions is only supported on Unix"))
     }
 }
 
 #[tauri::command]
-pub fn create_symlink(target: String, link_dir: String, link_name: String) -> Result<String, String> {
+pub fn create_symlink(target: String, link_dir: String, link_name: String) -> Result<String, CmdError> {
     validate_name(&link_name)?;
     let link_path = PathBuf::from(&link_dir).join(&link_name);
     if fs::symlink_metadata(&link_path).is_ok() {
-        return Err("A file or folder with that name already exists".to_string());
+        return Err(already_exists());
     }
     #[cfg(unix)]
     {
-        std::os::unix::fs::symlink(&target, &link_path).map_err(|e| e.to_string())?;
+        std::os::unix::fs::symlink(&target, &link_path)?;
     }
     #[cfg(not(unix))]
     {
         let _ = target;
-        return Err("Creating symlinks is only supported on Unix".to_string());
+        return Err(CmdError::new("unsupported", "Creating symlinks is only supported on Unix"));
     }
     Ok(link_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-pub async fn create_archive(paths: Vec<String>, dest_dir: String, archive_name: String) -> Result<String, String> {
+pub async fn create_archive(paths: Vec<String>, dest_dir: String, archive_name: String) -> Result<String, CmdError> {
     validate_name(&archive_name)?;
     tauri::async_runtime::spawn_blocking(move || zip_paths(&paths, &dest_dir, &archive_name))
         .await
-        .map_err(|error| format!("Compression failed: {error}"))?
+        .map_err(|error| CmdError::new("internal", format!("Compression failed: {error}")))?
 }
 
-fn zip_paths(paths: &[String], dest_dir: &str, archive_name: &str) -> Result<String, String> {
+fn zip_paths(paths: &[String], dest_dir: &str, archive_name: &str) -> Result<String, CmdError> {
     if paths.is_empty() {
-        return Err("Nothing selected to compress".to_string());
+        return Err(CmdError::new("nothing_selected", "Nothing selected to compress"));
     }
     let name = if archive_name.to_ascii_lowercase().ends_with(".zip") {
         archive_name.to_string()
@@ -414,10 +431,10 @@ fn zip_paths(paths: &[String], dest_dir: &str, archive_name: &str) -> Result<Str
     };
     let target = PathBuf::from(dest_dir).join(&name);
     if target.exists() {
-        return Err("A file or folder with that name already exists".to_string());
+        return Err(already_exists());
     }
 
-    let file = fs::File::create(&target).map_err(|error| error.to_string())?;
+    let file = fs::File::create(&target)?;
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
@@ -425,13 +442,14 @@ fn zip_paths(paths: &[String], dest_dir: &str, archive_name: &str) -> Result<Str
         let src = PathBuf::from(raw);
         let root_name = src
             .file_name()
-            .ok_or("bad source name")?
+            .ok_or_else(|| CmdError::new("invalid_path", format!("Bad source path: {raw}")))?
             .to_string_lossy()
             .to_string();
         add_to_zip(&mut zip, &src, Path::new(&root_name), options)?;
     }
 
-    zip.finish().map_err(|error| error.to_string())?;
+    zip.finish()
+        .map_err(|error| CmdError::from(error.to_string()).context("Could not finish writing the archive"))?;
     Ok(target.to_string_lossy().to_string())
 }
 
@@ -440,19 +458,20 @@ fn add_to_zip<W: std::io::Write + std::io::Seek>(
     src: &Path,
     rel: &Path,
     options: zip::write::SimpleFileOptions,
-) -> Result<(), String> {
+) -> Result<(), CmdError> {
     let rel_str = rel.to_string_lossy().replace('\\', "/");
     if src.is_dir() {
         zip.add_directory(format!("{rel_str}/"), options)
-            .map_err(|error| error.to_string())?;
-        for entry in fs::read_dir(src).map_err(|error| error.to_string())? {
-            let entry = entry.map_err(|error| error.to_string())?;
+            .map_err(|error| CmdError::from(error.to_string()).context("Could not write archive entry"))?;
+        for entry in fs::read_dir(src)? {
+            let entry = entry?;
             add_to_zip(zip, &entry.path(), &rel.join(entry.file_name()), options)?;
         }
     } else {
-        zip.start_file(rel_str, options).map_err(|error| error.to_string())?;
-        let mut f = fs::File::open(src).map_err(|error| error.to_string())?;
-        std::io::copy(&mut f, zip).map_err(|error| error.to_string())?;
+        zip.start_file(rel_str, options)
+            .map_err(|error| CmdError::from(error.to_string()).context("Could not write archive entry"))?;
+        let mut f = fs::File::open(src)?;
+        std::io::copy(&mut f, zip)?;
     }
     Ok(())
 }

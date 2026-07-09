@@ -7,7 +7,6 @@ import { ICONS } from "../icons/paths";
 import { chipStyle } from "./common";
 import type { Filters } from "../state/types";
 import { aiGenerate, extractJson } from "../ai/ollama";
-import { explainError } from "../lib/explainError";
 import { SetRuleModal } from "../overlays/SetRuleModal";
 const KIND_CHIPS: {
   key: NonNullable<Filters["kind"]>;
@@ -50,6 +49,7 @@ export function Search() {
   const aiSelectedModel = useStore((s) => s.aiSelectedModel);
   const applyAiSearch = useStore((s) => s.applyAiSearch);
   const showToast = useStore((s) => s.showToast);
+  const showError = useStore((s) => s.showError);
   const createSmartSet = useStore((s) => s.createSmartSet);
   const path = useStore((s) => s.path);
   const home = useStore((s) => s.home);
@@ -78,7 +78,7 @@ export function Search() {
         starred: !!parsed.starred
       });
     } catch (e) {
-      showToast(tr("toast.ai_search_failed", { error: explainError(e) }));
+      showError(tr("toast.ai_search_failed"), e);
     } finally {
       setAsking(false);
     }
