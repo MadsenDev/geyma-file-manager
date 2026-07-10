@@ -1,0 +1,72 @@
+name: Build release packages
+
+# Pushing a version tag (v0.7.0, v0.8.0-rc1, ...) builds the Linux packages and attaches
+# them to a DRAFT GitHub release — write the release notes, then publish by hand. Nothing
+# ships without that manual step.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Oldest still-supported runner on purpose: AppImages (and .debs) inherit the glibc
+    # of the build machine, so building on 22.04 keeps them runnable on older distros.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Tauri v2 Linux build deps (see CLAUDE.md); libxdo for tauri-plugin-opener.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            build-essential curl wget file libssl-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # Runs `npm run tauri build` (typecheck + vite build + cargo build + bundling)
+      # and uploads the bundles to a draft release for the pushed tag.
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Geyma ${{ github.ref_name }}"
+          releaseDraft: true
+          releaseBody: |
+            > **Early access.** Geyma is pre-1.0 software. The core file-management
+            > features work, but keep backups of anything irreplaceable and please
+            > report anything strange via the issue templates.
+
+            ## Packages
+            - `.deb` — Debian, Ubuntu, Mint and derivatives
+            - `.rpm` — Fedora, openSUSE and derivatives
+            - `.AppImage` — any distro; `chmod +x` and run
+
+            Arch users: build from the AUR-style PKGBUILD in `packaging/arch/`.
+          # AppImage isn't in tauri.conf.json's default target list — ask for all three.
+          args: --bundles deb,rpm,appimage

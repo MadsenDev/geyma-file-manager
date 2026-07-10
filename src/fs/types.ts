@@ -134,4 +134,7 @@ export interface FsBackend {
   keyringSavePassword(connectionId: string, password: string): Promise<void>;
   keyringLoadPassword(connectionId: string): Promise<string | null>;
   keyringDeletePassword(connectionId: string): Promise<void>;
+  /** Drops the pinned SFTP server key for host:port so the next connect re-pins it
+   *  (trust-on-first-use — the explicit "trust the new key" action after a mismatch). */
+  sftpForgetHostKey(host: string, port: number): Promise<void>;
 }

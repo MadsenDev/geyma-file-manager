@@ -65,6 +65,7 @@ pub fn run() {
             remote::download_from_remote,
             remote::discovery::smb_discover,
             remote::discovery::smb_list_shares,
+            remote::sftp_forget_host_key,
             remote::keyring_save_password,
             remote::keyring_load_password,
             remote::keyring_delete_password,

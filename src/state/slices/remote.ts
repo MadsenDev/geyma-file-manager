@@ -28,6 +28,10 @@ export interface RemoteSlice {
   remoteConnections: RemoteConnection[];
   remoteStatus: Record<string, RemoteStatus>;
   pendingRemotePasswordPromptId: string | null;
+  /** Set when an SFTP connect failed because the server's pinned key changed — drives
+   *  the "server identity changed" prompt instead of the generic error toast. `detail`
+   *  is the raw backend message carrying both fingerprints. */
+  pendingHostKeyMismatch: { connectionId: string; detail?: string } | null;
 
   // SMB discovery (ephemeral — devices found by the last scan, never persisted)
   smbDevices: SmbDevice[];
@@ -40,6 +44,10 @@ export interface RemoteSlice {
   connectRemoteConnection(id: string, password?: string): Promise<void>;
   disconnectRemoteConnection(id: string): Promise<void>;
   dismissRemotePasswordPrompt(): void;
+  dismissHostKeyMismatch(): void;
+  /** Forgets the pinned server key for the connection's host and reconnects — the
+   *  explicit consent step behind the host-key-mismatch prompt. */
+  trustNewHostKey(id: string): Promise<void>;
   discoverSmbDevices(): Promise<void>;
   loadSmbShares(device: SmbDevice, username: string, password: string, remember: boolean): Promise<boolean>;
   forgetSmbShares(device: SmbDevice): void;
@@ -50,6 +58,7 @@ export const createRemoteSlice: StateCreator<AppState, [], [], RemoteSlice> = (s
   remoteConnections: [],
   remoteStatus: {},
   pendingRemotePasswordPromptId: null,
+  pendingHostKeyMismatch: null,
 
   smbDevices: [],
   smbScan: "idle",
@@ -105,6 +114,11 @@ export const createRemoteSlice: StateCreator<AppState, [], [], RemoteSlice> = (s
       set({ remoteStatus: { ...get().remoteStatus, [id]: "connected" } });
       get().newTab(root);
     } catch (e) {
+      const classified = classifyError(e);
+      if (classified.code === "host_key_mismatch") {
+        set({ remoteStatus: { ...get().remoteStatus, [id]: "error" }, pendingHostKeyMismatch: { connectionId: id, detail: classified.detail } });
+        return;
+      }
       set({ remoteStatus: { ...get().remoteStatus, [id]: "error" }, pendingRemotePasswordPromptId: id });
       get().showError(tr("toast.connection_failed"), e);
     }
@@ -122,6 +136,22 @@ export const createRemoteSlice: StateCreator<AppState, [], [], RemoteSlice> = (s
   },
   dismissRemotePasswordPrompt() {
     set({ pendingRemotePasswordPromptId: null });
+  },
+  dismissHostKeyMismatch() {
+    set({ pendingHostKeyMismatch: null });
+  },
+  async trustNewHostKey(id) {
+    const { backend } = get();
+    const conn = get().remoteConnections.find((c) => c.id === id);
+    set({ pendingHostKeyMismatch: null });
+    if (!backend || !conn) return;
+    try {
+      await backend.sftpForgetHostKey(conn.host, conn.port);
+    } catch (e) {
+      get().showError(tr("toast.connection_failed"), e);
+      return;
+    }
+    await get().connectRemoteConnection(id);
   },
   async discoverSmbDevices() {
     const { backend } = get();

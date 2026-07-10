@@ -1,0 +1,38 @@
+name: "Packaging / install problem"
+description: "A package won't install, won't start, or is missing something on your distro."
+title: "[packaging] "
+labels: ["packaging"]
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - .deb
+        - .rpm
+        - .AppImage
+        - Arch PKGBUILD
+        - Built from source
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Paste the package manager or terminal output — dependency errors, missing libraries, "nothing happens on launch", etc.
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and version
+      placeholder: "openSUSE Tumbleweed (2026-07 snapshot)"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Geyma version
+      placeholder: "0.7.0"
+    validations:
+      required: true

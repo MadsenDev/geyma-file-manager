@@ -1,0 +1,59 @@
+name: "Network place problem (SFTP/SMB)"
+description: "Connecting to, browsing, or transferring with an SFTP or SMB location misbehaves."
+title: "[remote] "
+labels: ["bug", "remote"]
+body:
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protocol
+      options:
+        - SFTP
+        - SMB
+        - SMB discovery ("Nearby devices")
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: What fails
+      options:
+        - Connecting / signing in
+        - Server identity / host key prompt
+        - Browsing folders
+        - Copying or moving files
+        - Renaming or deleting
+        - Disconnect / reconnect behavior
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the exact error text Geyma showed (click the toast to keep it open) — the detail line matters.
+    validations:
+      required: true
+  - type: input
+    id: server
+    attributes:
+      label: What's on the other end
+      description: Server software and where it runs, as far as you know.
+      placeholder: "OpenSSH on a Raspberry Pi / Samba 4.20 on TrueNAS / Windows 11 share"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Geyma version
+      placeholder: "0.7.0"
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and install method
+      placeholder: "Arch, PKGBUILD from packaging/arch"
+    validations:
+      required: true

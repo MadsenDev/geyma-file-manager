@@ -14,6 +14,7 @@ import { ModuleOptions } from "./overlays/ModuleOptions";
 import { SettingsModal } from "./overlays/SettingsModal";
 import { Toast } from "./overlays/Toast";
 import { RemotePasswordPrompt } from "./overlays/RemotePasswordPrompt";
+import { HostKeyMismatchPrompt } from "./overlays/HostKeyMismatchPrompt";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts";
 export function App() {
   const t = useTheme();
@@ -305,6 +306,7 @@ export function App() {
       <ModuleOptions />
       <Toast />
       <RemotePasswordPrompt />
+      <HostKeyMismatchPrompt />
     </div>);
 
 }

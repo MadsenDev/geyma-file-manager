@@ -140,7 +140,7 @@ The full list — every shortcut, module, and setting — lives in
 - **React 18 + TypeScript + Vite** for the UI, one **Zustand** store split into domain
   slices, all user-facing strings in an **i18n catalog** (react-i18next).
 - **Tauri 2** as the desktop shell — filesystem, archive, media, network, and AI
-  operations are 49 Rust commands with unit test coverage.
+  operations are 50 Rust commands with unit test coverage.
 - **Two filesystem backends behind one interface**: the real Rust one, and a **mock
   in-memory filesystem** (including simulated SFTP/SMB servers) that kicks in
   automatically in a plain browser — `npm run dev` needs no Rust toolchain, and it's
@@ -148,10 +148,18 @@ The full list — every shortcut, module, and setting — lives in
 - **Security posture**: IPC name params validated against path traversal, archive
   extraction sandboxed against zip-slip and bombs, the preview media server locked to a
   constant-time token + anti-DNS-rebinding host check, remote passwords only in the OS
-  keyring. Known gaps are tracked honestly in [docs/AUDIT.md](docs/AUDIT.md) — currently
-  the webview CSP and SFTP host-key verification.
+  keyring, SFTP host keys pinned on first use (a changed server identity blocks the
+  connection until explicitly re-trusted). Known gaps are tracked honestly in
+  [docs/AUDIT.md](docs/AUDIT.md) — currently the webview CSP.
 
 ## Getting started
+
+Packaged early-access builds (`.deb` / `.rpm` / AppImage) are published on the
+[releases page](https://github.com/MadsenDev/geyma-file-manager/releases). Geyma is
+pre-1.0: keep backups of anything irreplaceable, and use the issue templates to report
+anything strange.
+
+To run from source:
 
 ```bash
 npm install
@@ -203,8 +211,8 @@ design/        the v3.2 design handoff this rewrite implements
 
 Still open, per the design spec and [audit](docs/AUDIT.md): workspace snapshots, binding
 a look/layout snapshot to a working set, a user-editable bookmarks group in the sidebar,
-SFTP host-key verification, and a real webview CSP. RAR stays deliberately unsupported
-until a mature pure-Rust reader exists.
+and a real webview CSP. RAR stays deliberately unsupported until a mature pure-Rust
+reader exists.
 
 <p align="center">
   <img src="docs/readme/footer.png" alt="Geyma — to keep, to guard, to remember" width="100%">

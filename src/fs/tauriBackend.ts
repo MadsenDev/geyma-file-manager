@@ -224,4 +224,7 @@ export const tauriBackend: FsBackend = {
   async keyringDeletePassword(connectionId: string) {
     await invoke<void>("keyring_delete_password", { connectionId });
   },
+  async sftpForgetHostKey(host: string, port: number) {
+    await invoke<void>("sftp_forget_host_key", { host, port });
+  },
 };
