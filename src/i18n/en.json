@@ -529,6 +529,12 @@
       "cancel": "Cancel",
       "connect": "Connect"
     },
+    "host_key_prompt": {
+      "title": "Server identity changed",
+      "explanation": "The key {{host}}:{{port}} presented doesn't match the one saved when Geyma first connected. If the server was reinstalled or its key was rotated, you can trust the new key. If you didn't expect this, cancel — someone may be intercepting the connection.",
+      "cancel": "Cancel",
+      "trust": "Trust new key & reconnect"
+    },
     "settings_modal": {
       "appearance": "Appearance",
       "confirmations": "Confirmations",
@@ -747,6 +753,7 @@
     "remote_not_connected": "Not connected to this network location — reconnect from the Network panel.",
     "auth_failed": "Sign-in failed — check the username and password.",
     "connect_failed": "Could not connect — check the address, port, and your network.",
+    "host_key_mismatch": "The server's identity has changed since Geyma last connected — this can mean the server was reinstalled, or that the connection is being intercepted.",
     "keyring_failed": "The system keyring isn't available, so passwords can't be remembered on this system.",
     "unsupported_archive": "This archive format isn't supported — ZIP, TAR (plain/.gz/.bz2/.xz), and 7z work.",
     "archive_damaged": "The archive can't be read — it may be damaged, incomplete, or not really an archive.",

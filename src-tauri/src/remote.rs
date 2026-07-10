@@ -18,6 +18,7 @@ use crate::error::CmdError;
 use crate::fsops::FsEntry;
 
 pub mod discovery;
+pub mod hostkeys;
 pub mod sftp;
 pub mod smb;
 
@@ -107,21 +108,22 @@ fn keyring_entry(connection_id: &str) -> Result<keyring::Entry, CmdError> {
         .map_err(|error| CmdError::new("keyring_failed", error.to_string()))
 }
 
-/// Runs a blocking keyring call off the async runtime thread — matches the
-/// `spawn_blocking` pattern already used for archive/extraction work in fsops.rs.
-async fn keyring_blocking<F, T>(f: F) -> Result<T, CmdError>
+/// Runs a blocking call (keyring, host-key store file IO) off the async runtime
+/// thread — matches the `spawn_blocking` pattern already used for archive/extraction
+/// work in fsops.rs.
+async fn run_blocking<F, T>(f: F) -> Result<T, CmdError>
 where
     F: FnOnce() -> Result<T, CmdError> + Send + 'static,
     T: Send + 'static,
 {
     tauri::async_runtime::spawn_blocking(f)
         .await
-        .map_err(|error| CmdError::new("internal", format!("Keyring task failed: {error}")))?
+        .map_err(|error| CmdError::new("internal", format!("Background task failed: {error}")))?
 }
 
 #[tauri::command]
 pub async fn keyring_save_password(connection_id: String, password: String) -> Result<(), CmdError> {
-    keyring_blocking(move || {
+    run_blocking(move || {
         keyring_entry(&connection_id)?
             .set_password(&password)
             .map_err(|error| CmdError::new("keyring_failed", error.to_string()))
@@ -131,7 +133,7 @@ pub async fn keyring_save_password(connection_id: String, password: String) -> R
 
 #[tauri::command]
 pub async fn keyring_load_password(connection_id: String) -> Result<Option<String>, CmdError> {
-    keyring_blocking(move || match keyring_entry(&connection_id)?.get_password() {
+    run_blocking(move || match keyring_entry(&connection_id)?.get_password() {
         Ok(password) => Ok(Some(password)),
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(error) => Err(CmdError::new("keyring_failed", error.to_string())),
@@ -141,9 +143,21 @@ pub async fn keyring_load_password(connection_id: String) -> Result<Option<Strin
 
 #[tauri::command]
 pub async fn keyring_delete_password(connection_id: String) -> Result<(), CmdError> {
-    keyring_blocking(move || match keyring_entry(&connection_id)?.delete_credential() {
+    run_blocking(move || match keyring_entry(&connection_id)?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(error) => Err(CmdError::new("keyring_failed", error.to_string())),
+    })
+    .await
+}
+
+/// Drops the pinned SFTP host key for `host:port` so the next connect re-pins whatever
+/// the server presents (see remote/hostkeys.rs). The explicit "trust the new key" action
+/// behind the host-key-mismatch prompt in the Network panel.
+#[tauri::command]
+pub async fn sftp_forget_host_key(host: String, port: u16) -> Result<(), CmdError> {
+    run_blocking(move || {
+        let store = hostkeys::store_path()?;
+        hostkeys::forget(&store, &host, port)
     })
     .await
 }

@@ -283,6 +283,10 @@ export const mockBackend: FsBackend = {
   async keyringDeletePassword() {
     await delay(undefined);
   },
+  // The mock's simulated servers never change identity, so there's no key to forget.
+  async sftpForgetHostKey() {
+    await delay(undefined);
+  },
 };
 
 ensureDir(TRASH_DIR);

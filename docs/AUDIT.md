@@ -18,11 +18,6 @@ about, left for a deliberate follow-up.
   webview (inline styles, the loopback media server, blob URLs), which is why it wasn't
   folded into the IPC-hardening pass.
 
-- **No SFTP host-key verification.** `src-tauri/src/remote/sftp.rs` accepts any server
-  key (no known_hosts store), so connections are not protected against
-  man-in-the-middle. Acceptable for trusted home/office networks; needs a real host-key
-  trust store before treating network places as hardened.
-
 ### Feature parity vs. `archive/pyside6-legacy`
 
 The rewrite is at parity or a strict superset for the file-manager core, and a strict
@@ -40,6 +35,13 @@ superset overall for network places (SFTP/SMB didn't exist in the legacy app).
 
 ## Resolved (follow-up pass, 2026-07)
 
+- **SFTP host-key verification** — now trust-on-first-use (`src-tauri/src/remote/
+  hostkeys.rs`): the first handshake pins the server's SHA-256 fingerprint in a JSON
+  store under the app data dir, and every later connect requires the same key or fails
+  with `host_key_mismatch` (surfaced as a "Server identity changed" prompt whose only
+  trust path is an explicit user action, `sftp_forget_host_key`). First contact is
+  still unverified — TOFU, like ssh without pre-shared known_hosts — but a server swap
+  or MITM after that first connect is detected.
 - **Path-traversal on IPC name params** — `fsops::validate_name()` now rejects empty
   names, `.`, `..`, and any name containing a path separator or NUL, and is enforced in
   every local and remote command that joins a caller-supplied name onto a base path

@@ -1,0 +1,73 @@
+name: "Data loss or corruption"
+description: "A file operation lost, overwrote, or damaged files — the highest-priority bug there is."
+title: "[data loss] "
+labels: ["bug", "data-loss"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this — data-loss reports get looked at first.
+        **Before anything else:** check Geyma's Trash (Trash view in the app) and the operation's
+        source folder; most "gone" files are recoverable from one of the two.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, and what happened to the files?
+      placeholder: "Moved ~200 photos from ~/Pictures to an SMB share; 12 of them are in neither place now."
+    validations:
+      required: true
+  - type: dropdown
+    id: operation
+    attributes:
+      label: Operation involved
+      options:
+        - Move
+        - Copy
+        - Rename
+        - Trash / Restore
+        - Permanent delete
+        - Archive extract / compress
+        - Transfer to/from a network place (SFTP/SMB)
+        - Undo
+        - Other / not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: location
+    attributes:
+      label: Where were the files?
+      multiple: true
+      options:
+        - Local internal disk
+        - Removable drive (USB, SD card)
+        - Network place (SFTP)
+        - Network place (SMB)
+    validations:
+      required: true
+  - type: textarea
+    id: recovery-state
+    attributes:
+      label: Current state
+      description: Are the files in Geyma's Trash? Still at the source? Partially copied at the destination?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you can make it happen again (with expendable test files!), list the steps.
+  - type: input
+    id: version
+    attributes:
+      label: Geyma version
+      placeholder: "0.7.0"
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and install method
+      placeholder: "Fedora 42, .rpm from the releases page"
+    validations:
+      required: true

@@ -205,6 +205,10 @@ files.
   connected / error) is shown live in the Network sidebar.
 - **Passwords in the OS keyring**, strictly opt-in ("Remember password") — never stored
   in plain text. Otherwise a password prompt appears on connect.
+- **SFTP server identity is pinned on first connect** (trust-on-first-use, like ssh):
+  if the server's key later changes, the connection is refused and a "Server identity
+  changed" prompt shows both fingerprints — trusting the new key (server reinstalled,
+  key rotated) is an explicit choice, never automatic.
 - Remote paths (`sftp://…`, `smb://…`) flow through the same navigation, tabs, working
   sets, and history as local paths — you browse a NAS the same way you browse Home.
 - Supported remotely: **browse, rename, move/copy within a connection, permanent

@@ -44,6 +44,11 @@ step; screenshots copied from `docs/screenshots/` into `website/assets/`), deplo
 Pages by `.github/workflows/deploy-pages.yml` on pushes to `main` that touch `website/`. Keep
 its feature copy aligned with `README.md` when the pillars change.
 
+Release packages are built by `.github/workflows/release.yml`: pushing a `v*` tag builds
+`.deb`/`.rpm`/AppImage on ubuntu-22.04 (deliberately the oldest supported runner — bundles
+inherit the build machine's glibc) and attaches them to a **draft** GitHub release; publishing
+is a manual step after writing the notes.
+
 ## Architecture
 
 ### Two filesystem backends behind one interface
@@ -82,10 +87,15 @@ for those, and the Files context menu (`src/modules/files/menus.ts`) hides them 
 entries (checked via `isRemotePath(entry.path)`) and swaps "Trash" for "Delete permanently" (reusing
 `requestPermanentDelete`, the same double-press-to-confirm flow the Trash view uses). RAR-style
 "no good option" tradeoffs don't apply here since the crates are mature (`russh`+`russh-sftp` for
-SFTP, the pure-Rust `smb` crate for SMB2/3) — but there is no host-key verification for SFTP
-(accepts any server key) and no OS-native SMB signing story beyond what the crate provides; both
-are noted in `src-tauri/src/remote/sftp.rs` and worth revisiting before treating this as
-hardened against a hostile network.
+SFTP, the pure-Rust `smb` crate for SMB2/3). SFTP host keys are verified trust-on-first-use
+(`src-tauri/src/remote/hostkeys.rs`): the first handshake pins the server's SHA-256 fingerprint
+in a JSON store under the app data dir, a changed key fails the connect with `host_key_mismatch`,
+and the "Server identity changed" prompt (`overlays/HostKeyMismatchPrompt.tsx`, driven by
+`pendingHostKeyMismatch` in the remote slice) is the only path to trusting the new key (the
+`sftp_forget_host_key` command drops the pin, then reconnect re-pins). First contact is still
+unverified — TOFU, like ssh without pre-shared known_hosts — and there's no OS-native SMB signing
+story beyond what the crate provides; worth knowing before treating this as hardened against a
+hostile network.
 
 SMB devices on the LAN are discoverable: `src-tauri/src/remote/discovery.rs` has
 `smb_discover` (an mDNS/DNS-SD browse of `_smb._tcp` via the pure-Rust `mdns-sd` crate —

@@ -1,0 +1,42 @@
+name: "Crash or freeze"
+description: "Geyma crashed, hung, or a panel went blank."
+title: "[crash] "
+labels: ["bug", "crash"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What were you doing when it crashed or froze? Did the whole app die, or one panel show an error?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you can trigger it again, list the steps. "Opened a folder with ~50k files" is exactly the kind of detail that helps.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Terminal output / logs
+      description: If you can, run `geyma` from a terminal, reproduce the problem, and paste what it prints.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Geyma version
+      placeholder: "0.7.0"
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and install method
+      placeholder: "Ubuntu 24.04, .deb from the releases page"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Desktop environment / display server
+      placeholder: "GNOME 47 on Wayland"

@@ -1,29 +1,53 @@
 //! SFTP backend for network places. Connects via `russh` (SSH transport) and drives
 //! the SFTP subsystem with `russh-sftp`, which does the actual file protocol work.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 
 use russh::client::{Config, Handle, Handler};
-use russh::keys::ssh_key::PublicKey;
+use russh::keys::ssh_key::{HashAlg, PublicKey};
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 
 use crate::error::CmdError;
 use crate::fsops::FsEntry;
 
-use super::{sftp_child_uri, to_ms};
+use super::{hostkeys, sftp_child_uri, to_ms};
 
-struct SshHandler;
+/// What the server presented during the handshake, recorded by `check_server_key` so
+/// `connect` can pin a first-seen key once the handshake succeeds, or turn a rejected
+/// changed key into a `host_key_mismatch` error (russh itself only surfaces a generic
+/// "unknown key" failure that would classify as `connect_failed`).
+struct PresentedKey {
+    fingerprint: String,
+    algorithm: String,
+    accepted: bool,
+}
+
+struct SshHandler {
+    /// Fingerprint pinned by a previous connect, if any (TOFU: absent on first contact).
+    expected_fingerprint: Option<String>,
+    presented: Arc<StdMutex<Option<PresentedKey>>>,
+}
 
 impl Handler for SshHandler {
     type Error = russh::Error;
 
-    // NOTE: accepts every server host key unconditionally — there is no known_hosts
-    // store backing this, so this does not protect against man-in-the-middle attacks.
-    // Acceptable for a first pass aimed at trusted home/office servers; revisit with a
-    // real host-key trust store before treating this as hardened.
-    async fn check_server_key(&mut self, _server_public_key: &PublicKey) -> Result<bool, Self::Error> {
-        Ok(true)
+    // Trust-on-first-use (see remote/hostkeys.rs): with no pinned fingerprint any key is
+    // accepted here and pinned by `connect` after the handshake completes; with one, only
+    // the identical key is accepted. Weaker than known_hosts-style pre-verification on
+    // the very first contact, but every later connect detects a swapped server.
+    async fn check_server_key(&mut self, server_public_key: &PublicKey) -> Result<bool, Self::Error> {
+        let fingerprint = server_public_key.fingerprint(HashAlg::Sha256).to_string();
+        let accepted = match &self.expected_fingerprint {
+            Some(expected) => *expected == fingerprint,
+            None => true,
+        };
+        *self.presented.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(PresentedKey {
+            fingerprint,
+            algorithm: server_public_key.algorithm().to_string(),
+            accepted,
+        });
+        Ok(accepted)
     }
 }
 
@@ -35,10 +59,33 @@ pub struct SftpConnection {
 }
 
 pub async fn connect(host: &str, port: u16, username: &str, password: &str) -> Result<SftpConnection, CmdError> {
+    let store = hostkeys::store_path()?;
+    let pinned = hostkeys::pinned(&store, host, port)?;
+    let presented = Arc::new(StdMutex::new(None));
+    let handler = SshHandler {
+        expected_fingerprint: pinned.as_ref().map(|key| key.fingerprint.clone()),
+        presented: presented.clone(),
+    };
     let config = Arc::new(Config::default());
-    let mut session = russh::client::connect(config, (host, port), SshHandler)
-        .await
-        .map_err(|error| CmdError::new("connect_failed", format!("Could not connect to {host}:{port}: {error}")))?;
+    let mut session = match russh::client::connect(config, (host, port), handler).await {
+        Ok(session) => session,
+        Err(error) => {
+            let seen = presented.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take();
+            if let (Some(seen), Some(pinned)) = (&seen, &pinned) {
+                if !seen.accepted {
+                    return Err(hostkeys::mismatch_error(host, port, &pinned.fingerprint, &seen.fingerprint, &seen.algorithm));
+                }
+            }
+            return Err(CmdError::new("connect_failed", format!("Could not connect to {host}:{port}: {error}")));
+        }
+    };
+    if pinned.is_none() {
+        // First contact: pin what the handshake accepted. Pinned before auth, like ssh's
+        // known_hosts write, so a wrong-password attempt still records the server identity.
+        if let Some(seen) = presented.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take() {
+            hostkeys::pin(&store, host, port, &seen.fingerprint, &seen.algorithm)?;
+        }
+    }
     let authed = session
         .authenticate_password(username, password)
         .await
