@@ -194,6 +194,7 @@ src/
 src-tauri/     Rust shell: fsops, archives, preview, media, remote/ (sftp, smb,
                discovery), ai, and the shared CmdError type
 packaging/     Arch PKGBUILD
+website/       static landing page, deployed to GitHub Pages
 docs/          FEATURES.md (full feature reference) · AUDIT.md (known gaps)
 design/        the v3.2 design handoff this rewrite implements
 ```
