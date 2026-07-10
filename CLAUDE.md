@@ -136,7 +136,7 @@ Key invariants enforced in the store, not obvious from any single function:
   own inverse (e.g. move back, re-trash, rename back) and pushes it after the operation succeeds.
 - **Ghost trails** (`addGhost`/`ghosts` map) are a separate, capped-at-3-per-folder breadcrumb of
   "a file that just left went to X" and get cleared by `removeGhostOnReturn` if the destination
-  matches. Don't conflate this with `fileEvents` (the per-file activity timeline, capped at 30)
+  matches. Don't conflate this with `fileEvents` (the per-file activity timeline, capped at 200)
   or `globalFeed` (the disk-wide Timeline module, capped at 60) — three different logs for three
   different UI surfaces.
 - State is persisted to `localStorage` (`geyma-v1`) via `persist()`, called explicitly after
