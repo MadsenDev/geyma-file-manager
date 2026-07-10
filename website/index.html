@@ -131,7 +131,7 @@
   .chip { font-family: var(--mono); font-size: 11.5px; padding: 5px 11px; border-radius: 6px; color: #fff; }
   .hero-shot { position: relative; margin-top: 56px; }
   .hero-glow {
-    position: absolute; inset: 10% -10% -40%;
+    position: absolute; inset: 10% 0 -40%;
     background: radial-gradient(ellipse at 50% 30%, rgba(44,110,73,.16), transparent 65%);
     pointer-events: none;
   }
@@ -148,7 +148,7 @@
     display: grid; grid-template-columns: 1fr 1fr;
     gap: 72px; align-items: center;
   }
-  .split > *, .viz > * { min-width: 0; }
+  .split > *, .viz > *, .start-grid > *, .pillar-grid > *, .core-grid > *, .shots > * { min-width: 0; }
   h2 {
     font-size: clamp(28px, 3.2vw, 42px);
     font-weight: 800; letter-spacing: -.015em; line-height: 1.1;
