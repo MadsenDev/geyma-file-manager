@@ -39,6 +39,11 @@ of `fsops.rs`, `media.rs`, and `preview.rs`.
 Arch Linux packaging lives in `packaging/arch/PKGBUILD` (a `-git` VCS package, built with
 `makepkg -si`).
 
+The project website is `website/` — a single self-contained static `index.html` (no build
+step; screenshots copied from `docs/screenshots/` into `website/assets/`), deployed to GitHub
+Pages by `.github/workflows/deploy-pages.yml` on pushes to `main` that touch `website/`. Keep
+its feature copy aligned with `README.md` when the pillars change.
+
 ## Architecture
 
 ### Two filesystem backends behind one interface
