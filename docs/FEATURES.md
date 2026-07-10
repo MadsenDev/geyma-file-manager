@@ -153,7 +153,7 @@ The signature features — three distinct "memories", all persisted across resta
 
 - **File journey (activity timeline)** — every file keeps its own event log (created,
   renamed, moved here from X, copied, trashed, restored…), shown in the Details panel,
-  capped at 30 events per file. Events that changed the file's location can be
+  capped at 200 events per file. Events that changed the file's location can be
   individually undone from the timeline.
 - **Ghost trails** — when a file leaves a folder, it leaves a "ghost" tile behind
   (capped at 3 per folder) showing where it went; clicking the ghost follows it to its
