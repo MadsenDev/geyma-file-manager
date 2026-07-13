@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Geyma — the file manager that remembers</title>
-<meta name="description" content="Geyma is a Linux file manager that knows where your files have been. File history and ghost trails, Working Sets, a fully modular interface, SFTP/SMB as ordinary folders, and optional local AI. React + Tauri 2 + Rust.">
+<meta name="description" content="Geyma is a Linux file manager that knows where your files have been. File history and ghost trails, Working Sets, a fully modular interface, SFTP/SMB as ordinary folders, and optional local AI. React + Tauri 2 + Rust — plus a native Android companion app.">
 <link rel="icon" type="image/svg+xml" href="assets/geyma-icon.svg">
 <meta property="og:title" content="Geyma — the file manager that remembers">
-<meta property="og:description" content="Files have history. Working Sets follow them wherever they move. Local and remote storage feel like one filesystem. Your workspace adapts to how you work.">
+<meta property="og:description" content="Files have history. Working Sets follow them wherever they move. Local and remote storage feel like one filesystem. Your workspace adapts to how you work — on the desktop and on Android.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://geyma.vardir.no/">
 <meta property="og:image" content="https://geyma.vardir.no/assets/hero.png">
@@ -270,6 +270,49 @@
   .core-card .title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
   .core-card .desc { font-size: 13.5px; line-height: 1.6; color: var(--muted); }
 
+  /* Mobile / Android */
+  .mobile-tags { display: flex; gap: 8px; flex-wrap: wrap; margin: 22px 0 26px; }
+  .mobile-tags span {
+    font-family: var(--mono); font-size: 11px; padding: 5px 10px;
+    background: rgba(33,29,23,.05); border: 1px solid var(--line-strong);
+    border-radius: 6px; color: var(--muted); white-space: nowrap;
+  }
+  .robot { flex: none; }
+  .phone-wrap { display: flex; justify-content: center; }
+  .phone {
+    width: 268px; padding: 9px; flex: none;
+    background: linear-gradient(160deg, #2b261e, #17140f);
+    border-radius: 38px;
+    border: 1px solid rgba(33,29,23,.5);
+    box-shadow: 0 34px 70px -30px rgba(33,29,23,.6), inset 0 0 0 1.5px rgba(243,238,228,.06);
+    animation: gyFloat 7s ease-in-out infinite;
+  }
+  .phone-screen {
+    position: relative; background: var(--dark); border-radius: 30px;
+    overflow: hidden; padding-bottom: 16px;
+  }
+  .phone-notch {
+    position: absolute; top: 9px; left: 50%; transform: translateX(-50%);
+    width: 78px; height: 6px; border-radius: 99px; background: rgba(243,238,228,.16);
+  }
+  .phone-bar { display: flex; align-items: center; gap: 9px; padding: 26px 18px 12px; }
+  .phone-bar .title { font-size: 16px; font-weight: 800; letter-spacing: -.01em; color: var(--dark-text); }
+  .phone-bar .skin-dot { width: 13px; height: 13px; border-radius: 4px; margin-left: auto; }
+  .phone-day {
+    font-family: var(--mono); font-size: 9px; letter-spacing: .12em; font-weight: 700;
+    color: rgba(243,238,228,.4); padding: 8px 18px 6px;
+  }
+  .phone-item { display: flex; align-items: center; gap: 11px; padding: 10px 18px; border-top: 1px solid var(--dark-line); }
+  .phone-item .ico {
+    width: 30px; height: 30px; border-radius: 9px; flex: none;
+    display: flex; align-items: center; justify-content: center; background: rgba(243,238,228,.06);
+  }
+  .phone-item .meta { min-width: 0; flex: 1; }
+  .phone-item .fname { font-size: 12.5px; font-weight: 600; color: var(--dark-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .phone-item .fname.gone { color: var(--dark-faint); text-decoration: line-through; }
+  .phone-item .act { font-size: 10.5px; color: var(--dark-faint); }
+  .phone-item .badge { flex: none; font-family: var(--mono); font-size: 8.5px; font-weight: 700; padding: 3px 7px; border-radius: 5px; }
+
   /* Comparison */
   .compare {
     max-width: 680px; margin: 0 auto;
@@ -320,7 +363,7 @@
   @keyframes gyDash { to { stroke-dashoffset: -16; } }
   @keyframes gyFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
   @media (prefers-reduced-motion: reduce) {
-    .hero-icon, .ghost-tile.gone, .ghost-arrow path { animation: none !important; }
+    .hero-icon, .ghost-tile.gone, .ghost-arrow path, .phone { animation: none !important; }
     html { scroll-behavior: auto; }
   }
 
@@ -364,6 +407,7 @@
       <a href="#chrome">Chrome</a>
       <a href="#network">Network</a>
       <a href="#ai">Local AI</a>
+      <a href="#mobile">Android</a>
       <a href="#start">Get started</a>
     </div>
     <a href="https://github.com/MadsenDev/geyma-file-manager" class="btn-gh">
@@ -396,6 +440,7 @@
   <div class="chips">
     <span class="chip" style="background:#211D17;">MIT license</span>
     <span class="chip" style="background:#2C6E49;">Available for Linux</span>
+    <span class="chip" style="background:#137A52;">Android companion app</span>
     <span class="chip" style="background:#2A6FDB;">v0.7 &middot; early access</span>
     <span class="chip" style="background:#7C5CD6;">React + Tauri 2</span>
     <span class="chip" style="background:#B4562E;">Rust fs core</span>
@@ -555,6 +600,72 @@
   </div>
 </section>
 
+<!-- ══════════ 06 ANDROID ══════════ -->
+<section id="mobile" class="pad" style="background:var(--bg-alt); border-top:1px solid rgba(33,29,23,.08);">
+  <div class="wrap split">
+    <div class="viz">
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-notch"></div>
+            <div class="phone-bar">
+              <svg width="22" height="22" viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect width="96" height="96" rx="24" fill="#F3EEE4"/><g transform="translate(48 48) scale(0.92) translate(-48 -48)"><rect x="34" y="22" width="46" height="13" rx="6.5" fill="#211D17" opacity="0.3"/><rect x="25" y="41" width="46" height="13" rx="6.5" fill="#211D17" opacity="0.6"/><rect x="16" y="60" width="60" height="13" rx="6.5" fill="#211D17"/></g></svg>
+              <span class="title">Journal</span>
+              <span class="skin-dot" style="background:#5FAF82;"></span>
+            </div>
+            <div class="phone-day">TODAY</div>
+            <div class="phone-item">
+              <span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5FAF82" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+              <div class="meta"><div class="fname">report.pdf</div><div class="act">Moved here &middot; from Downloads</div></div>
+              <span class="badge" style="background:rgba(95,175,130,.18); color:#8FD3AC;">09:12</span>
+            </div>
+            <div class="phone-item">
+              <span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5FAF82" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+              <div class="meta"><div class="fname">invoice-04.png</div><div class="act">Just arrived</div></div>
+              <span class="badge" style="background:rgba(95,175,130,.9); color:#12241a;">NEW</span>
+            </div>
+            <div class="phone-item">
+              <span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D89B2B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></span>
+              <div class="meta"><div class="fname">notes.md</div><div class="act">Renamed &middot; from draft.md</div></div>
+              <span class="badge" style="background:rgba(216,155,43,.18); color:#E4B968;">08:40</span>
+            </div>
+            <div class="phone-day">YESTERDAY</div>
+            <div class="phone-item">
+              <span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C6427A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></span>
+              <div class="meta"><div class="fname gone">old-build.zip</div><div class="act">Moved to Trash</div></div>
+              <span class="badge" style="background:rgba(198,66,122,.16); color:#E080AA;">17:05</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="kicker">06 &middot; ANDROID</div>
+      <h2>Geyma goes mobile.</h2>
+      <p class="body-text">The same memory, in your pocket. <strong>Geyma Mobile</strong> is a native Kotlin + Jetpack Compose app that carries the desktop's core idea — files that remember — onto Android. Every move, rename, and fresh arrival lands in a searchable <strong>journal</strong>; tap any file for its full <strong>biography</strong>.</p>
+      <p class="body-text">Cleanup ranked by what you&rsquo;ve neglected, a duplicate spotter, a two-week activity summary, reminders to revisit files, and <strong>shareable collections</strong> that export as portable bundles. All eight desktop skins ship too — and, like the desktop, everything stays <strong>on your device</strong>: no network, no telemetry.</p>
+      <div class="mobile-tags">
+        <span>Kotlin + Jetpack Compose</span>
+        <span>On-device only</span>
+        <span>8 skins</span>
+        <span>Early v0.1</span>
+      </div>
+      <div class="hero-ctas" style="justify-content:flex-start; margin-bottom:0;">
+        <a href="https://github.com/vardirhq/geyma-mobile" class="btn btn-primary">
+          <svg class="robot" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 18a1 1 0 0 0 1 1h1v3.5a1.5 1.5 0 0 0 3 0V19h2v3.5a1.5 1.5 0 0 0 3 0V19h1a1 1 0 0 0 1-1V9H6v9zM3.5 9A1.5 1.5 0 0 0 2 10.5v6a1.5 1.5 0 0 0 3 0v-6A1.5 1.5 0 0 0 3.5 9zm17 0a1.5 1.5 0 0 0-1.5 1.5v6a1.5 1.5 0 0 0 3 0v-6A1.5 1.5 0 0 0 20.5 9zM15.5 3.6l1.3-1.3a.4.4 0 0 0-.55-.55l-1.5 1.5A5.9 5.9 0 0 0 12 2.5c-.98 0-1.9.24-2.72.66L7.75 1.75a.4.4 0 0 0-.55.55l1.3 1.3A5.98 5.98 0 0 0 6 8h12a5.98 5.98 0 0 0-2.5-4.4zM9.5 6.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zm5 0a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/></svg>
+          Get Geyma Mobile
+        </a>
+        <a href="https://github.com/vardirhq/geyma-mobile/actions" class="btn btn-secondary">Grab the debug APK</a>
+      </div>
+      <p class="body-text" style="font-size:13.5px; margin-top:18px; opacity:.85;">
+        v0.1, early access — CI builds a debug APK on every push (the <code class="pill">geyma-mobile-debug</code>
+        artifact); there&rsquo;s no Play Store or F-Droid listing yet. Archive preview and SFTP/SMB haven&rsquo;t
+        been ported from the desktop.
+      </p>
+    </div>
+  </div>
+</section>
+
 <!-- ══════════ EVERYTHING YOU'D EXPECT ══════════ -->
 <section class="pad">
   <div class="wrap">
@@ -588,6 +699,7 @@
           <tr><td>Fixed layouts</td><td>Modular chrome — drag every panel</td></tr>
           <tr><td>Local disks</td><td>Local + SFTP + SMB, one path space</td></tr>
           <tr><td>Cloud AI</td><td>Optional, fully local AI</td></tr>
+          <tr><td>Desktop only</td><td>Desktop + a native Android app</td></tr>
         </tbody>
       </table>
     </div>
@@ -632,6 +744,7 @@ npm run tauri dev</code></pre>
     </div>
     <div class="foot-links">
       <a href="https://github.com/MadsenDev/geyma-file-manager">GitHub</a>
+      <a href="https://github.com/vardirhq/geyma-mobile">Android app</a>
       <a href="https://github.com/MadsenDev/geyma-file-manager/blob/main/docs/FEATURES.md">Full feature list</a>
       <a href="https://github.com/MadsenDev/geyma-file-manager/blob/main/LICENSE">MIT</a>
     </div>
