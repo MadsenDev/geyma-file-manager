@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-211D17" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-0.7.0-2A6FDB" alt="Version 0.7.0">
+  <img src="https://img.shields.io/badge/version-0.7.0--rc.1-2A6FDB" alt="Version 0.7.0-rc.1">
   <img src="https://img.shields.io/badge/stack-React%20%2B%20Tauri%202-7C5CD6" alt="Stack: React + Tauri 2">
   <img src="https://img.shields.io/badge/backend-Rust-C98A2B" alt="Backend: Rust">
 </p>
@@ -154,7 +154,8 @@ The full list — every shortcut, module, and setting — lives in
 
 ## Getting started
 
-Packaged early-access builds (`.deb` / `.rpm` / AppImage) are published on the
+Packaged early-access builds (`.deb` / `.rpm` / Arch `.pkg.tar.zst` / `.flatpak` /
+`.snap`) are published on the
 [releases page](https://github.com/MadsenDev/geyma-file-manager/releases). Geyma is
 pre-1.0: keep backups of anything irreplaceable, and use the issue templates to report
 anything strange.
@@ -184,8 +185,9 @@ cd src-tauri && cargo test   # Rust unit tests (fsops, archives, remote parsing,
 ```
 
 Arch Linux is packaged via [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD) — build it
-with `makepkg -si`. AppImage is buildable on demand with
-`npm run tauri build -- --bundles appimage`.
+with `makepkg -si`. The release workflow additionally builds a versioned Arch package,
+a Flatpak, and a Snap from `packaging/arch/PKGBUILD.release`,
+`packaging/flatpak/no.vardir.Geyma.yml`, and `snap/snapcraft.yaml`.
 
 ## Project layout
 

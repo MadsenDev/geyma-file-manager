@@ -10,8 +10,9 @@ body:
       options:
         - .deb
         - .rpm
-        - .AppImage
-        - Arch PKGBUILD
+        - Arch package (.pkg.tar.zst / PKGBUILD)
+        - .flatpak
+        - .snap
         - Built from source
     validations:
       required: true

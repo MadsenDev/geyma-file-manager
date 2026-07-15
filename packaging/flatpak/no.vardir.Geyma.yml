@@ -1,0 +1,56 @@
+# Flatpak manifest for Geyma.
+#
+# The app-id (no.vardir.Geyma) is derived from the project's site, geyma.vardir.no —
+# change it here, in the .desktop / .metainfo.xml filenames, and in the icon install
+# paths below if you adopt a different reverse-DNS id.
+#
+# This intentionally builds with `--share=network` so cargo/npm can fetch dependencies
+# during the build. That is fine for a self-hosted release artifact but is NOT allowed on
+# Flathub — a Flathub submission would need vendored cargo + node sources (via
+# flatpak-cargo-generator / flatpak-node-generator) instead.
+#
+# The GNOME runtime supplies webkit2gtk-4.1; bump runtime-version as newer GNOME
+# runtimes land. Built in CI by .github/workflows/release.yml.
+app-id: no.vardir.Geyma
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node20
+command: geyma
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  # A file manager needs to reach the whole filesystem and mounted media.
+  - --filesystem=host
+  # SFTP/SMB browsing and update checks.
+  - --share=network
+  # "Remember password" stores in the OS keyring over the Secret Service API.
+  - --talk-name=org.freedesktop.secrets
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
+
+modules:
+  - name: geyma
+    buildsystem: simple
+    build-options:
+      # Let cargo/npm reach the network during the build (see header note).
+      build-args:
+        - --share=network
+    build-commands:
+      - npm ci
+      - npm run build
+      - cargo build --release --locked --manifest-path src-tauri/Cargo.toml
+      - install -Dm755 src-tauri/target/release/geyma /app/bin/geyma
+      - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/no.vardir.Geyma.png
+      - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/no.vardir.Geyma.png
+      - install -Dm644 packaging/flatpak/no.vardir.Geyma.desktop /app/share/applications/no.vardir.Geyma.desktop
+      - install -Dm644 packaging/flatpak/no.vardir.Geyma.metainfo.xml /app/share/metainfo/no.vardir.Geyma.metainfo.xml
+    sources:
+      - type: dir
+        path: ../..

@@ -1,8 +1,12 @@
 name: Build release packages
 
-# Pushing a version tag (v0.7.0, v0.8.0-rc1, ...) builds the Linux packages and attaches
+# Pushing a version tag (v0.7.0, v0.7.0-rc.1, ...) builds the Linux packages and attaches
 # them to a DRAFT GitHub release — write the release notes, then publish by hand. Nothing
 # ships without that manual step.
+#
+# The `build` job (tauri-action) creates the draft release and uploads .deb/.rpm. The
+# `arch`, `flatpak` and `snap` jobs build their formats in parallel and hand the bundles
+# to `publish`, which attaches them to the same draft.
 
 on:
   push:
@@ -18,8 +22,8 @@ concurrency:
 
 jobs:
   build:
-    # Oldest still-supported runner on purpose: AppImages (and .debs) inherit the glibc
-    # of the build machine, so building on 22.04 keeps them runnable on older distros.
+    # Oldest still-supported runner on purpose: .deb/.rpm packages inherit the glibc
+    # of the build machine, so building on 22.04 keeps them installable on older distros.
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -65,8 +69,107 @@ jobs:
             ## Packages
             - `.deb` — Debian, Ubuntu, Mint and derivatives
             - `.rpm` — Fedora, openSUSE and derivatives
-            - `.AppImage` — any distro; `chmod +x` and run
+            - `.pkg.tar.zst` — Arch and derivatives (`pacman -U`)
+            - `.flatpak` — any distro with Flatpak: `flatpak install geyma.flatpak`
+            - `.snap` — any distro with snapd: `snap install --dangerous geyma_*.snap`
+          # Native installers only; deb/rpm are tauri.conf.json's default bundle targets.
+          args: --bundles deb,rpm
 
-            Arch users: build from the AUR-style PKGBUILD in `packaging/arch/`.
-          # AppImage isn't in tauri.conf.json's default target list — ask for all three.
-          args: --bundles deb,rpm,appimage
+  arch:
+    # Build a versioned pacman package from a source tarball of the tagged tree, using
+    # the release PKGBUILD. Runs in an Arch container so makepkg/pacman are native.
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git nodejs npm rust webkit2gtk-4.1 gtk3 \
+            libappindicator-gtk3 librsvg openssl
+
+      - uses: actions/checkout@v4
+
+      - name: Build pacman package
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # pacman pkgver can't contain '-', so 0.7.0-rc.1 -> 0.7.0rc.1
+          version="${REF_NAME#v}"
+          pkgver="${version//-/}"
+
+          # makepkg refuses to run as root; build as an unprivileged user.
+          useradd -m builder
+          mkdir -p build
+          sed "s/^pkgver=.*/pkgver=$pkgver/" packaging/arch/PKGBUILD.release > build/PKGBUILD
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git archive --format=tar.gz --prefix="geyma-$pkgver/" \
+            -o "build/geyma-$pkgver.tar.gz" HEAD
+          chown -R builder:builder build
+          # deps are pre-installed above, so skip makepkg's own dependency resolution.
+          sudo -u builder bash -c 'cd build && makepkg -f --nodeps --noconfirm'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-package
+          path: build/*.pkg.tar.zst
+          if-no-files-found: error
+
+  flatpak:
+    runs-on: ubuntu-latest
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:gnome-47
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: geyma.flatpak
+          manifest-path: packaging/flatpak/no.vardir.Geyma.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+          upload-artifact: true
+          artifact-name: flatpak-bundle
+
+  snap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set snap version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          sed -i "s/^version:.*/version: '${REF_NAME#v}'/" snap/snapcraft.yaml
+
+      - uses: snapcore/action-build@v1
+        id: snapcraft
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snap-package
+          path: ${{ steps.snapcraft.outputs.snap }}
+          if-no-files-found: error
+
+  publish:
+    # Attach the pacman/flatpak/snap bundles to the draft release the build job created.
+    needs: [build, arch, flatpak, snap]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Attach packages to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(dist/*.pkg.tar.zst dist/*.flatpak dist/*.snap)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No packages found to attach" >&2
+            exit 1
+          fi
+          gh release upload "${{ github.ref_name }}" "${files[@]}" \
+            --repo "${{ github.repository }}" --clobber

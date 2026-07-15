@@ -352,7 +352,7 @@ restarts (localStorage under the `geyma-v1` key).
 ## Platform & under the hood (user-visible bits)
 
 - **Desktop app** built on Tauri 2 (Rust backend + webview UI); packaged as `.deb`,
-  `.rpm`, AppImage, and an Arch `PKGBUILD`.
+  `.rpm`, an Arch `.pkg.tar.zst`, a Flatpak, and a Snap.
 - **Browser dev mode** — running the frontend outside Tauri automatically switches to
   an in-memory mock filesystem, so the full UI (including simulated network places) is
   explorable in a plain browser.
