@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-211D17" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-0.7.0-2A6FDB" alt="Version 0.7.0">
+  <img src="https://img.shields.io/badge/version-0.7.0--rc.1-2A6FDB" alt="Version 0.7.0-rc.1">
   <img src="https://img.shields.io/badge/stack-React%20%2B%20Tauri%202-7C5CD6" alt="Stack: React + Tauri 2">
   <img src="https://img.shields.io/badge/backend-Rust-C98A2B" alt="Backend: Rust">
 </p>

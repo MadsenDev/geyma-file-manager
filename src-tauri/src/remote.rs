@@ -393,7 +393,7 @@ pub async fn remote_read_text_file(path: String, sessions: tauri::State<'_, Remo
 }
 
 async fn read_remote_bytes(path: &str, sessions: &tauri::State<'_, RemoteSessions>) -> Result<Vec<u8>, CmdError> {
-    let addr = parse(path).ok_or_else(|| not_remote(&path))?;
+    let addr = parse(path).ok_or_else(|| not_remote(path))?;
     match &addr {
         RemoteAddr::Sftp { path: remote_path, .. } => {
             let conn = sessions.sftp.lock().await.get(&addr.connection_key()).cloned().ok_or_else(|| not_connected(&addr))?;

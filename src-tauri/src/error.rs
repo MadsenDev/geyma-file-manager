@@ -180,7 +180,7 @@ mod tests {
     fn io_errors_without_an_errno_fall_back_to_the_kind() {
         let err = CmdError::from(std::io::Error::new(std::io::ErrorKind::NotFound, "made up"));
         assert_eq!(err.code, "gone");
-        let err = CmdError::from(std::io::Error::new(std::io::ErrorKind::Other, "made up"));
+        let err = CmdError::from(std::io::Error::other("made up"));
         assert_eq!(err.code, "io_failed");
     }
 
