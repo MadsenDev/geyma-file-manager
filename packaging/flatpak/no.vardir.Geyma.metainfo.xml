@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>no.vardir.Geyma</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Geyma</name>
+  <summary>A file manager that remembers where your files have been</summary>
+  <description>
+    <p>
+      Geyma is a desktop file manager that keeps a persistent memory of where files came
+      from, where they went, and what you did to them.
+    </p>
+    <p>
+      Alongside the standard browse/copy/paste core it offers a per-file activity timeline,
+      ghost trails showing where files went, reference-based Working Sets, network browsing
+      over SFTP and SMB, and a fully modular, themeable UI.
+    </p>
+  </description>
+  <launchable type="desktop-id">no.vardir.Geyma.desktop</launchable>
+  <url type="homepage">https://geyma.vardir.no</url>
+  <url type="bugtracker">https://github.com/MadsenDev/geyma-file-manager/issues</url>
+  <developer id="no.vardir">
+    <name>MadsenDev</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.7.0-rc.1" date="2026-07-15"/>
+  </releases>
+</component>

@@ -1,0 +1,62 @@
+# Snap package for Geyma.
+#
+# `version` is a placeholder — .github/workflows/release.yml seds in the release version
+# before building. To build by hand, set it (or pass `--build-for` etc.) and run
+# `snapcraft` from the repo root.
+#
+# Confinement is `strict`: the plugs below cover the home dir, removable media
+# (/run/media), the network (SFTP/SMB) and the keyring. That still cannot see arbitrary
+# system paths or other users' files — full "browse anywhere" would need `classic`
+# confinement, which requires manual Snap Store review. Revisit if that matters.
+name: geyma
+base: core22
+version: '0.0.0'
+summary: A file manager that remembers where your files have been
+description: |
+  Geyma is a desktop file manager that keeps a persistent memory of where files came
+  from, where they went, and what you did to them — alongside a per-file activity
+  timeline, ghost trails, reference-based Working Sets, network (SFTP/SMB) browsing, and
+  a fully modular, themeable UI.
+grade: stable
+confinement: strict
+
+apps:
+  geyma:
+    command: usr/bin/geyma
+    extensions: [gnome]
+    plugs:
+      - home
+      - removable-media
+      - network
+      - network-bind
+      - mount-observe
+      - password-manager-service
+
+parts:
+  geyma:
+    plugin: nil
+    source: .
+    build-snaps:
+      - node/20/stable
+      - rustup
+    build-packages:
+      - libwebkit2gtk-4.1-dev
+      - libgtk-3-dev
+      - libayatana-appindicator3-dev
+      - librsvg2-dev
+      - libxdo-dev
+      - libssl-dev
+      - build-essential
+      - curl
+      - file
+    stage-packages:
+      - libwebkit2gtk-4.1-0
+      - libayatana-appindicator3-1
+    override-build: |
+      rustup default stable
+      npm ci
+      npm run build
+      cargo build --release --locked --manifest-path src-tauri/Cargo.toml
+      install -Dm755 src-tauri/target/release/geyma "$CRAFT_PART_INSTALL/usr/bin/geyma"
+      install -Dm644 src-tauri/icons/128x128.png \
+        "$CRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/geyma.png"

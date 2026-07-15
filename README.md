@@ -154,7 +154,8 @@ The full list — every shortcut, module, and setting — lives in
 
 ## Getting started
 
-Packaged early-access builds (`.deb` / `.rpm` / AppImage) are published on the
+Packaged early-access builds (`.deb` / `.rpm` / Arch `.pkg.tar.zst` / `.flatpak` /
+`.snap`) are published on the
 [releases page](https://github.com/MadsenDev/geyma-file-manager/releases). Geyma is
 pre-1.0: keep backups of anything irreplaceable, and use the issue templates to report
 anything strange.
@@ -184,8 +185,9 @@ cd src-tauri && cargo test   # Rust unit tests (fsops, archives, remote parsing,
 ```
 
 Arch Linux is packaged via [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD) — build it
-with `makepkg -si`. AppImage is buildable on demand with
-`npm run tauri build -- --bundles appimage`.
+with `makepkg -si`. The release workflow additionally builds a versioned Arch package,
+a Flatpak, and a Snap from `packaging/arch/PKGBUILD.release`,
+`packaging/flatpak/no.vardir.Geyma.yml`, and `snap/snapcraft.yaml`.
 
 ## Project layout
 

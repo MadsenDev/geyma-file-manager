@@ -20,7 +20,6 @@ npm run tauri dev       # full desktop app with real filesystem access (needs Ru
 npm run build           # tsc -b && vite build — typecheck then bundle the frontend
 npm run typecheck       # tsc -b --noEmit only
 npm run tauri build     # produces .deb / .rpm (needs webkit2gtk, libayatana-appindicator3, librsvg2 on Linux)
-npm run tauri build -- --bundles appimage   # AppImage isn't in the default target list
 ```
 
 Rust side (`src-tauri/`), run from that directory:
@@ -37,7 +36,10 @@ extraction) and archive/text preview parsing, in `#[cfg(test)] mod tests` blocks
 of `fsops.rs`, `media.rs`, and `preview.rs`.
 
 Arch Linux packaging lives in `packaging/arch/PKGBUILD` (a `-git` VCS package, built with
-`makepkg -si`).
+`makepkg -si`); `packaging/arch/PKGBUILD.release` is the versioned variant the release
+workflow builds from a `git archive` tarball. Flatpak (`packaging/flatpak/no.vardir.Geyma.yml`
++ its `.desktop`/`.metainfo.xml`) and Snap (`snap/snapcraft.yaml`) manifests round out the
+release formats.
 
 The project website is `website/` — a single self-contained static `index.html` (no build
 step; screenshots copied from `docs/screenshots/` into `website/assets/`), deployed to GitHub
@@ -45,9 +47,13 @@ Pages by `.github/workflows/deploy-pages.yml` on pushes to `main` that touch `we
 its feature copy aligned with `README.md` when the pillars change.
 
 Release packages are built by `.github/workflows/release.yml`: pushing a `v*` tag builds
-`.deb`/`.rpm`/AppImage on ubuntu-22.04 (deliberately the oldest supported runner — bundles
-inherit the build machine's glibc) and attaches them to a **draft** GitHub release; publishing
-is a manual step after writing the notes.
+`.deb`/`.rpm` on ubuntu-22.04 (deliberately the oldest supported runner — bundles inherit
+the build machine's glibc) via tauri-action, plus an Arch `.pkg.tar.zst`, a `.flatpak`, and
+a `.snap` in parallel jobs; a final `publish` job attaches all of them to the same **draft**
+GitHub release. Publishing is a manual step after writing the notes.
+
+Continuous integration is `.github/workflows/ci.yml`: every push to `main` and every pull
+request runs the frontend typecheck/bundle, the Rust tests, and `clippy -D warnings`.
 
 ## Architecture
 

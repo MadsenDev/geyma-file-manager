@@ -40,7 +40,7 @@ anything irreplaceable.
 
 - Continuous integration workflow gating every push and pull request on the frontend
   typecheck/bundle, the Rust unit tests, and a clippy run treating warnings as errors.
-- Release workflow builds `.deb`/`.rpm`/AppImage on a version tag and attaches them to a
-  draft GitHub release.
+- Release workflow builds native installers on a version tag — `.deb`, `.rpm`, an Arch
+  `.pkg.tar.zst`, a `.flatpak`, and a `.snap` — and attaches them to a draft GitHub release.
 
 [0.7.0-rc.1]: https://github.com/MadsenDev/geyma-file-manager/releases/tag/v0.7.0-rc.1

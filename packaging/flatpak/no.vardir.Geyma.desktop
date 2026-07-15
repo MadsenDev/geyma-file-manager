@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Geyma
+Comment=A file manager that remembers where your files have been
+Exec=geyma %U
+Icon=no.vardir.Geyma
+Terminal=false
+Categories=System;FileManager;Utility;
+MimeType=inode/directory;
+StartupWMClass=geyma

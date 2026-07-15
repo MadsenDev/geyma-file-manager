@@ -1,0 +1,57 @@
+# Maintainer: MadsenDev
+#
+# Release PKGBUILD: builds a versioned `geyma` package from a source tarball of the
+# tagged tree (produced by `git archive` in .github/workflows/release.yml). Unlike the
+# `geyma-git` VCS package next to this file, it does not clone — the CI job seds `pkgver`
+# to the release version and drops `geyma-$pkgver.tar.gz` beside this file before running
+# makepkg. Build it by hand with:
+#   PKGVER=0.7.0rc.1
+#   sed "s/^pkgver=.*/pkgver=$PKGVER/" PKGBUILD.release > build/PKGBUILD
+#   git -C ../.. archive --prefix="geyma-$PKGVER/" -o "build/geyma-$PKGVER.tar.gz" HEAD
+#   (cd build && makepkg -f)
+pkgname=geyma
+pkgver=0.0.0
+pkgrel=1
+pkgdesc="A desktop file manager that remembers where your files have been"
+arch=('x86_64')
+url="https://github.com/MadsenDev/geyma-file-manager"
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'libappindicator-gtk3' 'librsvg')
+makedepends=('rust' 'nodejs' 'npm')
+provides=('geyma')
+conflicts=('geyma' 'geyma-git')
+source=("geyma-$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/geyma-$pkgver"
+  npm ci
+  npm run build
+  cd src-tauri
+  cargo build --release --locked
+}
+
+package() {
+  cd "$srcdir/geyma-$pkgver"
+
+  install -Dm755 "src-tauri/target/release/geyma" "$pkgdir/usr/bin/geyma"
+
+  install -Dm644 "src-tauri/icons/32x32.png" "$pkgdir/usr/share/icons/hicolor/32x32/apps/geyma.png"
+  install -Dm644 "src-tauri/icons/128x128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/geyma.png"
+  install -Dm644 "src-tauri/icons/128x128@2x.png" "$pkgdir/usr/share/icons/hicolor/256x256@2/apps/geyma.png"
+
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/geyma.desktop" <<-EOF
+[Desktop Entry]
+Type=Application
+Name=Geyma
+Comment=A file manager that remembers where your files have been
+Exec=geyma %U
+Icon=geyma
+Terminal=false
+Categories=System;FileManager;
+MimeType=inode/directory;
+StartupWMClass=geyma
+EOF
+
+  install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
